@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "static.cregis.io" },
@@ -11,10 +9,10 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ✅ Ignore build-time type + linting errors (safe for launch)
   eslint: {
     ignoreDuringBuilds: true,
   },
+
   typescript: {
     ignoreBuildErrors: true,
   },
