@@ -64,6 +64,7 @@ const AuthForm = () => {
         email: registerBuffer.email.trim().toLowerCase(),
         password: registerBuffer.password,
         country: registerBuffer.country.trim(),
+        phone: registerBuffer.phone.trim() || null, // Handle empty phone field
       };
 
       const response = await authService.register(registerData);

@@ -27,10 +27,10 @@ export const registrationStep1Schema = z.object({
     .nonempty("Email is required"),
   phone: z
     .string()
-    .min(1, "Phone number is required")
-    .regex(/^[+]?[\d\s\-\(\)]{9,15}$/, "Please enter a valid phone number")
+    .optional()
     .refine(
       (val) => {
+        if (!val || val.trim() === '') return true; // Allow empty phone
         const digits = val.replace(/\D/g, "");
         return digits.length >= 9 && !/^0+$/.test(digits);
       },
@@ -48,6 +48,10 @@ export const registrationStep1Schema = z.object({
       "Password must contain at least one special character"
     )
     .min(1, "Password is required"),
+  country: z
+    .string()
+    .min(1, "Country is required")
+    .min(2, "Please select a valid country"),
 });
 
 export const loginSchema = z.object({

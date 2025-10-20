@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Use backend API URL from environment variables
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000';
+// Use empty base URL for proxy routes
+const API_URL = '';
 
 // Create a configured Axios instance
 const api = axios.create({
@@ -96,7 +96,7 @@ const authService = {
 const mt5Service = {
   // Get available MT5 groups
   getMt5Groups: async () => {
-    const response = await api.get('/api/mt5/groups');
+    const response = await api.get('/api/proxy/groups');
     return response.data;
   },
 
@@ -145,7 +145,7 @@ const mt5Service = {
 
       console.log("🚀 API Service - Formatted payload:", payload);
 
-      const response = await directApi.post('/Users', payload);
+      const response = await directApi.post('/api/proxy/users', payload);
       console.log("🚀 API Service - Response status:", response.status);
       console.log("🚀 API Service - Response data:", response.data);
       console.log("🚀 API Service - Response data type:", typeof response.data);
@@ -166,7 +166,7 @@ const mt5Service = {
     balance: number;
     comment?: string;
   }) => {
-    const response = await api.post(`/api/Users/${data.login}/AddClientBalance`, {
+    const response = await api.post(`/api/proxy/users/${data.login}/balance-adjustment`, {
       type: 'BALANCE',
       amount: data.balance,
       comment: data.comment || 'Deposit'
@@ -180,7 +180,7 @@ const mt5Service = {
     balance: number;
     comment?: string;
   }) => {
-    const response = await api.post(`/api/Users/${data.login}/DeductClientBalance`, {
+    const response = await api.post(`/api/proxy/users/${data.login}/balance-adjustment`, {
       type: 'BALANCE',
       amount: -data.balance,
       comment: data.comment || 'Withdrawal'
@@ -192,7 +192,7 @@ const mt5Service = {
   getUserMt5AccountsFromDb: async () => {
     try {
       console.log('🔍 Calling getUserMt5AccountsFromDb...');
-      const response = await api.get('/api/mt5/user-accounts');
+      const response = await api.get('/api/mt5/user-accounts-db');
       console.log('📊 getUserMt5AccountsFromDb response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -203,7 +203,7 @@ const mt5Service = {
 
   // Get MT5 account profile for a specific login
   getMt5AccountProfile: async (login: string | number) => {
-    const response = await api.get(`/api/Users/${login}/getClientProfile`);
+    const response = await api.get(`/api/mt5/user-profile/${login}`);
     return response.data;
   },
 
@@ -259,7 +259,7 @@ const mt5Service = {
 
   // Legacy method - Get MT5 user profile (kept for backward compatibility)
   getMt5UserProfile: async (login: number) => {
-    const response = await api.get(`/api/Users/${login}/getClientProfile`);
+    const response = await api.get(`/api/proxy/users/${login}`);
     return response.data;
   }
 };

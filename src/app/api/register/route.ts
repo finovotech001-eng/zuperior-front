@@ -7,17 +7,14 @@ export async function POST(request: NextRequest) {
   try {
     // Parse JSON data
     const body = await request.json();
-    const { first_name, last_name, email, password, country } = body;
+    const { name, email, password, country, phone } = body;
 
-    if (!first_name || !last_name || !email || !password) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { message: "First name, last name, email, and password are required." },
+        { message: "Name, email, and password are required." },
         { status: 400 }
       );
     }
-
-    // Prepare data for local server
-    const name = `${first_name.trim()} ${last_name.trim()}`;
 
     // Call local server registration
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
@@ -28,6 +25,7 @@ export async function POST(request: NextRequest) {
         email: email.trim().toLowerCase(),
         password,
         country: country || 'in',
+        phone: phone || null,
       },
       {
         headers: {
