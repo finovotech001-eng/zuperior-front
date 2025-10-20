@@ -1,0 +1,32 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer circle with gradient -->
+  <circle cx="60" cy="60" r="58" fill="url(#gradient1)" stroke="url(#gradient2)" stroke-width="2"/>
+  
+  <!-- Inner circle -->
+  <circle cx="60" cy="60" r="45" fill="url(#gradient3)"/>
+  
+  <!-- Lightning bolt / Z shape -->
+  <path d="M70 35L50 60H60L50 85L70 60H60L70 35Z" fill="white"/>
+  
+  <!-- Cursor/pointer icon -->
+  <g transform="translate(75, 75)">
+    <circle cx="10" cy="10" r="12" fill="white"/>
+    <path d="M5 5L15 10L10 15L5 5Z" fill="url(#gradient1)"/>
+  </g>
+  
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9F4AFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7A4AFF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C6ABEE;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9070D1;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6D28D9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

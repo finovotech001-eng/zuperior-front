@@ -1,0 +1,23 @@
+// Sidebar asset imports - centralized for better organization
+export { default as dashboard } from "@/assets/sidebar/dashboard.png";
+export { default as dashboardBlack } from "@/assets/sidebar/dashboardBlack.png";
+export { default as deposits } from "@/assets/sidebar/deposits.png";
+export { default as depositsBlack } from "@/assets/sidebar/depositsBlack.png";
+export { default as withdrawals } from "@/assets/sidebar/withdrawals.png";
+export { default as withdrawalsBlack } from "@/assets/sidebar/withdrawalsBlack.png";
+export { default as transactions } from "@/assets/sidebar/transactions.png";
+export { default as transactionsBlack } from "@/assets/sidebar/transactionsBlack.png";
+export { default as becomePartner } from "@/assets/sidebar/becomePartner.png";
+export { default as becomePartnerBlack } from "@/assets/sidebar/becomePartnerBlack.png";
+export { default as platforms } from "@/assets/sidebar/platforms.png";
+export { default as platformsBlack } from "@/assets/sidebar/platformsBlack.png";
+export { default as tools } from "@/assets/sidebar/tools.png";
+export { default as toolsBlack } from "@/assets/sidebar/toolsBlack.png";
+export { default as settings } from "@/assets/sidebar/settings.png";
+export { default as settingsBlack } from "@/assets/sidebar/settingsBlack.png";
+export { default as gift } from "@/assets/sidebar/gift.png";
+// export { default as inactiveBorder } from "@/assets/sidebar/inactiveBorder.png";
+export { default as support } from "@/assets/sidebar/support.png";
+export { default as supportBlack } from "@/assets/sidebar/supportBlack.png";
+export { default as accounts } from "@/assets/sidebar/accounts.png";
+export { default as accountsBlack } from "@/assets/sidebar/accountsBlack.png";
