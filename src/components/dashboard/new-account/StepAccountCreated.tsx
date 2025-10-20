@@ -114,7 +114,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
               Account Group:
             </span>
             <span className="text-[14px] font-semibold text-black dark:text-white/75 w-[140px]">
-              {latestAccount?.group?.replace(/real\\|demo\\/g, '') || "N/A"}
+              {latestAccount?.group === 'real\\Bbook\\Pro\\dynamic-2000x-10P' ? 'Pro' : 'Standard'}
             </span>
             <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
           </div>
