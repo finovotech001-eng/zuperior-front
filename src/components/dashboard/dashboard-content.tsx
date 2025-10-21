@@ -11,6 +11,8 @@ import { DashboardSkeleton } from "./dashboard-skeleton";
 import { NewAccountDialog } from "./new-account";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
 
+
+
 export function DashboardContent() {
   // Get user data from localStorage
   const getUserData = () => {
@@ -43,6 +45,12 @@ export function DashboardContent() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchAllData]);
+
+  // Log current API URL for debugging
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
+    console.log("🔗 Dashboard - Current NEXT_PUBLIC_BACKEND_API_URL:", apiUrl);
+  }, []);
 
   // Memoized wallet balance calculation
   const walletBalance = useMemo(

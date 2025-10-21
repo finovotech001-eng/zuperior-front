@@ -16,40 +16,12 @@ export async function POST(request: NextRequest) {
 
     // Parse form data
     const formData = await request.formData();
-    const mt5AccountId = formData.get('mt5AccountId') as string;
-    const amount = formData.get('amount') as string;
-    const transactionHash = formData.get('transactionHash') as string;
-    const proofFile = formData.get('proofFile') as File;
 
-    // Validate required fields
-    if (!mt5AccountId || !amount) {
-      return NextResponse.json(
-        { success: false, message: 'Missing required fields: mt5AccountId, amount' },
-        { status: 400 }
-      );
-    }
-
-    // Prepare request data
-    const requestData: any = {
-      mt5AccountId,
-      amount: parseFloat(amount),
-    };
-
-    if (transactionHash) {
-      requestData.transactionHash = transactionHash;
-    }
-
-    // Handle file upload if present
-    if (proofFile) {
-      // For now, we'll store the file name and type
-      // In production, you'd upload to cloud storage and get URL
-      requestData.proofFileUrl = `manual_deposit_${Date.now()}_${proofFile.name}`;
-    }
-
-    const response = await axios.post(`${API_URL}/manual-deposit/create`, requestData, {
+    // Forward the form data directly to the backend
+    const response = await axios.post(`${API_URL}/manual-deposit/create`, formData, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        // Don't set Content-Type - let axios set it with boundary for FormData
       },
     });
 

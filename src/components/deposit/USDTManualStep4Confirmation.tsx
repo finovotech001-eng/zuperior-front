@@ -49,7 +49,7 @@ export function USDTManualStep4Confirmation({
           <CheckCircle className="w-8 h-8 text-green-500" />
         </div>
         <h2 className="text-2xl font-bold dark:text-white/75 text-black mb-2">
-          🎉 Payment Request Created! 🎉
+           Payment Request Created! 
         </h2>
         <p className="text-white/60">
           Your manual deposit request has been submitted successfully
