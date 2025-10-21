@@ -67,6 +67,12 @@ export function ManualDepositDialog({
   }, [open, dispatch, mt5Accounts.length]);
 
   const handleStep1Continue = async () => {
+    console.log('');
+    console.log('╔═══════════════════════════════════════════════════════════╗');
+    console.log('║  🚀 CREATING MANUAL DEPOSIT REQUEST (Frontend)           ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝');
+    console.log('');
+    
     setIsProcessing(true);
     setError(null);
 
@@ -82,18 +88,33 @@ export function ManualDepositDialog({
         formData.append('proofFile', proofFile);
       }
 
+      console.log('📊 Deposit Request Data:');
+      console.log('   - MT5 Account ID:', selectedAccount);
+      console.log('   - Amount:', amount);
+      console.log('   - Transaction Hash:', transactionId || '(not provided)');
+      console.log('   - Proof File:', proofFile ? proofFile.name : '(not provided)');
+      console.log('');
+
       // Get token from Redux state
       const state = store.getState();
       const token = state.auth.token || localStorage.getItem('userToken');
 
       if (!token) {
+        console.error('❌ No authentication token found!');
         setError('No authentication token found. Please log in first.');
         setIsProcessing(false);
         return;
       }
 
-      console.log('🔑 Using token for manual deposit:', token.substring(0, 20) + '...');
+      console.log('🔑 Authentication token found');
+      console.log('📡 Sending request to: /api/manual-deposit/create');
+      console.log('📦 FormData contents:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`   ${key}:`, value instanceof File ? `File: ${value.name}` : value);
+      }
+      console.log('');
 
+      console.log('🌐 Making fetch request...');
       const response = await fetch('/api/manual-deposit/create', {
         method: 'POST',
         headers: {
@@ -102,20 +123,44 @@ export function ManualDepositDialog({
         body: formData,
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
+      console.log('');
+
+      console.log('📥 Parsing JSON response...');
       const result = await response.json();
-      console.log('📡 Server response:', result);
+      console.log('📥 Parsed result:', result);
+      
+      console.log('📥 Server Response:');
+      console.log('   - Success:', result.success);
+      console.log('   - Message:', result.message);
+      if (result.data) {
+        console.log('   - Deposit ID:', result.data.id);
+        console.log('   - Full Response:', JSON.stringify(result, null, 2));
+      }
+      console.log('');
 
       if (result.success) {
         setDepositRequestId(result.data.id);
         setStep(4);
-        console.log('✅ Manual deposit request created:', result.data.id);
+        console.log('✅✅✅ MANUAL DEPOSIT REQUEST CREATED SUCCESSFULLY! ✅✅✅');
+        console.log('📋 Deposit Request ID:', result.data.id);
+        console.log('');
+        console.log('🔍 Next: Check backend console for MT5Transaction creation logs');
+        console.log('');
       } else {
         setError(result.message || 'Failed to create deposit request');
-        console.error('❌ Server error:', result.message);
+        console.error('❌ Failed to create deposit:', result.message);
       }
-    } catch (error) {
-      console.error('Error creating manual deposit:', error);
-      setError('Failed to create deposit request');
+    } catch (error: any) {
+      console.error('');
+      console.error('❌❌❌ ERROR CREATING MANUAL DEPOSIT! ❌❌❌');
+      console.error('Error object:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      console.error('Error name:', error?.name);
+      console.error('');
+      setError(error?.message || 'Failed to create deposit request');
     } finally {
       setIsProcessing(false);
     }
@@ -153,7 +198,8 @@ export function ManualDepositDialog({
             setTransactionId={setTransactionId}
             proofFile={proofFile}
             setProofFile={setProofFile}
-            nextStep={() => setStep(4)}
+            nextStep={handleStep1Continue}
+            isProcessing={isProcessing}
           />
         );
       case 4:
