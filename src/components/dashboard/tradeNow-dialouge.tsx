@@ -6,7 +6,6 @@ import { CopyButton } from "../CopyButton";
 import mt5 from "@/assets/mt5.png";
 import tradingView from "@/assets/icons/tradingView.svg";
 import { AnimatePresence, motion } from "framer-motion";
-import Link from "next/link";
 
 interface TradeDialogProps {
   tradeNowDialog: boolean;
@@ -26,6 +25,26 @@ const TradeNowDialouge = ({
   const resetAllStates = useCallback(() => {
     setStep(1);
   }, []);
+
+  // Handle Web Terminal click with auto-login
+  const handleWebTerminalClick = useCallback(() => {
+    const token = localStorage.getItem('userToken');
+    const clientId = localStorage.getItem('clientId');
+    
+    if (!token || !clientId) {
+      console.error('No authentication credentials found');
+      return;
+    }
+
+    // Get terminal URL from environment variable
+    const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'http://localhost:3004';
+    const terminalUrl = `${terminalBaseUrl}/login?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}&autoLogin=true`;
+    window.open(terminalUrl, '_blank');
+    
+    // Close the dialog after opening terminal
+    setTradeNowDialog(false);
+    resetAllStates();
+  }, [setTradeNowDialog, resetAllStates]);
 
   return (
     <Dialog
@@ -82,9 +101,8 @@ const TradeNowDialouge = ({
                   <ArrowRight className="shrink-0 self-end sm:self-auto" />
                 </div>
 
-                <Link
-                  href={"/terminal"}
-                  target="_blank"
+                <div
+                  onClick={handleWebTerminalClick}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full rounded-lg border-2 border-gray-300 dark:border-[#1D1825] p-4 cursor-pointer bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429]"
                 >
                   <div className="flex items-center gap-3 mb-3 sm:mb-0">
@@ -106,7 +124,7 @@ const TradeNowDialouge = ({
                     </div>
                   </div>
                   <ArrowRight className="shrink-0 self-end sm:self-auto" />
-                </Link>
+                </div>
 
                 {/* MetaTrader 5 */}
 

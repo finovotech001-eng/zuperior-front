@@ -30,7 +30,7 @@ export default function TradingPlatformsPage() {
       ],
     },
     {
-      name: "Meta Trader Mobile App ios/Androi",
+      name: "Meta Trader Mobile App ios/Android",
       image: mobile,
       links: [
         {
@@ -151,6 +151,22 @@ export default function TradingPlatformsPage() {
 
   type IconName = "download" | "apple" | "android" | "doc" | "support" | "info";
 
+  // Handle Web Terminal click
+  const handleWebTerminalClick = () => {
+    const token = localStorage.getItem('userToken');
+    const clientId = localStorage.getItem('clientId');
+    
+    if (!token || !clientId) {
+      console.error('No authentication credentials found');
+      return;
+    }
+
+    // Get terminal URL from environment variable
+    const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'http://localhost:3004';
+    const terminalUrl = `${terminalBaseUrl}/login?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}&autoLogin=true`;
+    window.open(terminalUrl, '_blank');
+  };
+
   // Platform Card (reused)
   const PlatformCard = memo(({ item, index }: PlatformCardProps) => (
     <div className="flex-shrink-0 w-[85vw] sm:w-[75vw] md:w-[340px] lg:w-[360px] flex flex-col gap-5 px-1 md:px-0">
@@ -176,13 +192,19 @@ export default function TradingPlatformsPage() {
           {item.name}
         </h3>
 
-        {/* If web terminal, show info paragraph instead of buttons */}
+        {/* If web terminal, show button to open terminal */}
         {"isWebTerminal" in item && item.isWebTerminal ? (
-          <p className="text-sm text-black/70 dark:text-white/70 bg-fuchsia-50 dark:bg-transparent text-align justify-center rounded-lg px-0 py-0 tracking-wide">
-            MetaTrader Web Terminal is already integrated in Zuperior. Just go to
-            your trading account → <b>Trade Now</b> → <b>Web Terminal</b> to
-            access it.
-          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleWebTerminalClick}
+              className="rounded-[10px] text-center py-2 px-4 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent flex items-center justify-center gap-1"
+            >
+              <span>Open Web Terminal</span>
+            </button>
+            <p className="text-xs text-black/60 dark:text-white/60 text-align justify-center px-0 py-0 tracking-wide">
+              Click to open the web trading terminal
+            </p>
+          </div>
         ) : (
           <div className="flex flex-col gap-2 w-full max-w-[100px]">
             <div className="flex gap-2">
