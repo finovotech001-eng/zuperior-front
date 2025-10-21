@@ -1,5 +1,6 @@
 import { KYCState } from "@/types/kyc";
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
+import { getKycStatus } from "@/services/kycService";
 
 const initialState: KYCState = {
   isDocumentVerified: false,
@@ -7,19 +8,32 @@ const initialState: KYCState = {
   verificationStatus: "unverified",
 };
 
+// Async thunk to fetch KYC status from database
+export const fetchKycStatus = createAsyncThunk(
+  "kyc/fetchStatus",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await getKycStatus();
+      if (response.success && response.data) {
+        return {
+          isDocumentVerified: response.data.isDocumentVerified,
+          isAddressVerified: response.data.isAddressVerified,
+          verificationStatus: response.data.verificationStatus,
+        };
+      }
+      return initialState;
+    } catch (error) {
+      // Silently fail - return initial state instead of blocking
+      console.warn("KYC status fetch failed, using default:", error);
+      return initialState;
+    }
+  }
+);
+
 const kycSlice = createSlice({
   name: "kyc",
   initialState,
   reducers: {
-    /* setAMLReference: (state, action: PayloadAction<string>) => {
-      state.amlReference = action.payload;
-    },
-    setDocumentReference: (state, action: PayloadAction<string>) => {
-      state.documentReference = action.payload;
-    },
-    setAddressReference: (state, action: PayloadAction<string>) => {
-      state.addressReference = action.payload;
-    }, */
     setDocumentVerified: (state, action: PayloadAction<boolean>) => {
       state.isDocumentVerified = action.payload;
       state.verificationStatus = getVerificationStatus(
@@ -34,7 +48,28 @@ const kycSlice = createSlice({
         state.isAddressVerified
       );
     },
-    resetKYC: () => initialState, // useful on logout if needed
+    setKycFromDatabase: (state, action: PayloadAction<{
+      isDocumentVerified: boolean;
+      isAddressVerified: boolean;
+      verificationStatus: string;
+    }>) => {
+      state.isDocumentVerified = action.payload.isDocumentVerified;
+      state.isAddressVerified = action.payload.isAddressVerified;
+      state.verificationStatus = mapDatabaseStatusToLocal(action.payload.verificationStatus);
+    },
+    resetKYC: () => initialState,
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchKycStatus.fulfilled, (state, action) => {
+        state.isDocumentVerified = action.payload.isDocumentVerified;
+        state.isAddressVerified = action.payload.isAddressVerified;
+        state.verificationStatus = mapDatabaseStatusToLocal(action.payload.verificationStatus);
+      })
+      .addCase(fetchKycStatus.rejected, (state) => {
+        // On error, keep the default initial state
+        console.warn("KYC status fetch rejected, using defaults");
+      });
   },
 });
 
@@ -47,9 +82,21 @@ const getVerificationStatus = (
   return "unverified";
 }
 
+// Map database verification status to local state
+const mapDatabaseStatusToLocal = (dbStatus: string): "unverified" | "partial" | "verified" => {
+  const normalizedStatus = dbStatus.toLowerCase();
+  
+  if (normalizedStatus === "verified") return "verified";
+  if (normalizedStatus === "partially verified" || normalizedStatus === "partial") return "partial";
+  if (normalizedStatus === "pending" || normalizedStatus === "declined") return "unverified";
+  
+  return "unverified";
+}
+
 export const {
   setDocumentVerified,
   setAddressVerified,
+  setKycFromDatabase,
   resetKYC,
 } = kycSlice.actions;
 

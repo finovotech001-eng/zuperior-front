@@ -4,6 +4,8 @@ import axios from "axios";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
+  let requestBody: AMLRequestBody;
+  
   try {
     // Load environment variables
     const {
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
       NEXT_PUBLIC_KYC_TEST_MODE,
     } = process.env;
 
-    const requestBody: AMLRequestBody = await request.json();
+    requestBody = await request.json();
 
     // TEST MODE: Simulate successful AML verification without calling Shufti Pro
     if (NEXT_PUBLIC_KYC_TEST_MODE === 'true' || !SHUFTI_PRO_CLIENT_ID) {
@@ -89,11 +91,25 @@ export async function POST(request: Request) {
       },
     });
 
-    const data: AMLResponse = await response.data;
+    const data: AMLResponse = response.data;
+    
+    console.log('✅ Shufti Pro AML Verification Response:', {
+      reference: requestBody.reference,
+      event: data.event
+    });
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("AML screening error:", error);
+    console.error("❌ AML screening error:", error);
+    
+    // Log more details for debugging
+    if (error.response) {
+      console.error("Shufti Pro AML API Error Response:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
 
     if (error instanceof Error && error.name === "AbortError") {
       return NextResponse.json(
@@ -102,10 +118,32 @@ export async function POST(request: Request) {
       );
     }
 
+    // If Shufti Pro fails, fall back to test mode for development
+    if (process.env.NODE_ENV === 'development' && requestBody) {
+      console.log("🔄 Falling back to test mode for AML due to Shufti Pro error");
+      
+      const mockResponse: AMLResponse = {
+        reference: requestBody.reference,
+        event: "verification.accepted",
+        error: "",
+        verification_url: "",
+        verification_result: {
+          background_checks: {
+            status: "accepted",
+            message: "FALLBACK MODE: AML screening passed (Shufti Pro error)"
+          }
+        },
+        declined_reason: null
+      };
+
+      return NextResponse.json(mockResponse);
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Internal server error",
-        details: process.env.NODE_ENV === "development" ? error : undefined,
+        details: error.response?.data || "No additional details",
+        status: error.response?.status || 500
       },
       { status: 500 }
     );

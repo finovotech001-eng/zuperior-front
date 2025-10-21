@@ -11,7 +11,7 @@ interface AddressVerificationParams {
 
 export async function addressVerification(params: AddressVerificationParams) {
   try {
-    const kycRef = `kyc_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const addressRef = `address_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const base64String = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(params.file);
@@ -19,42 +19,42 @@ export async function addressVerification(params: AddressVerificationParams) {
       reader.onerror = (error) => reject(error);
     });
 
+    console.log('📤 Sending address verification request:', {
+      reference: addressRef,
+      documentType: params.selected_document_type,
+      fullAddress: params.full_address
+    });
+
     const response = await axios.post("/api/kyc/address", {
-      reference: kycRef,
+      reference: addressRef,
       address: {
         proof: base64String,
         supported_types: params.selected_document_type
           ? [params.selected_document_type]
-          : ["id_card", "bank_statement", "utility_bill"],
+          : ["utility_bill", "bank_statement", "rent_agreement"],
         full_address: params.full_address,
-        address_fuzzy_match: "1",
-        //issue_date: new Date().toISOString().split("T")[0], // optional (today's date)
         name: {
           first_name: params.first_name,
           last_name: params.last_name,
           fuzzy_match: "1",
         },
-        backside_proof_required: "0",
-        verification_instructions: {
-          allow_paper_based: "1",
-          allow_photocopy: "1",
-          allow_laminated: "1",
-          allow_screenshot: "1",
-          allow_cropped: "1",
-          allow_scanned: "1",
-        },
-        verification_mode: "any",
+        fuzzy_match: "1"
       },
     });
 
-    const data: AddressKYCResponse = await response.data;
-    data.reference = kycRef;
+    const data: AddressKYCResponse = response.data;
+    data.reference = addressRef;
+
+    console.log('✅ Address verification response received:', {
+      reference: addressRef,
+      event: data.event
+    });
 
     return data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error during document verification:", error);
+    console.error("❌ Error during address verification:", error);
     // also return error so caller can handle
     return error.response?.data || { error: error.message };
   }

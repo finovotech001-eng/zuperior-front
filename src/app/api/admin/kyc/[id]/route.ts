@@ -1,45 +1,53 @@
 // client/src/app/api/admin/kyc/[id]/route.ts
+// Get single KYC request by ID
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    
-    // Get authorization header from request
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader) {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: 'Authorization header required' },
+        { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(`${BACKEND_API_URL}/api/admin/kyc/${id}`, {
+    const response = await fetch(`${API_URL}/admin/kyc/${params.id}`, {
       method: 'GET',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData.message || 'Failed to fetch KYC request'
+        },
+        { status: response.status }
+      );
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
+
   } catch (error) {
-    console.error('Error fetching KYC:', error);
+    console.error('Error fetching KYC request:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Internal server error'
+      },
       { status: 500 }
     );
   }
@@ -50,41 +58,48 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const body = await request.json();
-    
-    // Get authorization header from request
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader) {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: 'Authorization header required' },
+        { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(`${BACKEND_API_URL}/api/admin/kyc/${id}`, {
+    const body = await request.json();
+
+    const response = await fetch(`${API_URL}/admin/kyc/${params.id}/status`, {
       method: 'PUT',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData.message || 'Failed to update KYC status'
+        },
+        { status: response.status }
+      );
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
+
   } catch (error) {
-    console.error('Error updating KYC:', error);
+    console.error('Error updating KYC status:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Internal server error'
+      },
       { status: 500 }
     );
   }
 }
-

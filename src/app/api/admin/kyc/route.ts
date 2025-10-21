@@ -1,48 +1,74 @@
 // client/src/app/api/admin/kyc/route.ts
+// Get all KYC requests with filtering and pagination
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
-    // Forward all query parameters to backend
-    const queryString = searchParams.toString();
-    const backendUrl = `${BACKEND_API_URL}/api/admin/kyc${queryString ? `?${queryString}` : ''}`;
-    
-    // Get authorization header from request
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader) {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: 'Authorization header required' },
+        { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const response = await fetch(backendUrl, {
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '25';
+    const verificationStatus = searchParams.get('verificationStatus') || '';
+    const userId = searchParams.get('userId') || '';
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+
+    // Build query string
+    const queryParams = new URLSearchParams({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      ...(verificationStatus && { verificationStatus }),
+      ...(userId && { userId }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+    });
+
+    const response = await fetch(`${API_URL}/admin/kyc?${queryParams}`, {
       method: 'GET',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData.message || 'Failed to fetch KYC requests'
+        },
+        { status: response.status }
+      );
     }
 
+    const data = await response.json();
     return NextResponse.json(data);
+
   } catch (error) {
     console.error('Error fetching KYC requests:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Internal server error'
+      },
       { status: 500 }
     );
   }
 }
-

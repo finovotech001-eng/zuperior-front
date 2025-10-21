@@ -2,9 +2,10 @@
 import { Navbar } from "@/components/navbar";
 import { Sidebar } from "@/components/sidebar";
 import { useRouter } from "next/navigation";
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import { fetchKycStatus } from "@/store/slices/kycSlice";
 
 // TypeScript declaration for Crisp
 declare global {
@@ -20,6 +21,7 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -32,8 +34,14 @@ export default function ProtectedLayout({
       router.push("/login");
     } else {
       setAuthChecked(true); // Mark auth as confirmed
+      
+      // Fetch KYC status from database (non-blocking)
+      dispatch(fetchKycStatus()).catch((error) => {
+        console.error("Failed to load KYC status:", error);
+        // Continue even if KYC fetch fails - don't block the app
+      });
     }
-  }, [router]);
+  }, [router, dispatch]);
 
   // Initialize Crisp chat after component mounts
   useEffect(() => {

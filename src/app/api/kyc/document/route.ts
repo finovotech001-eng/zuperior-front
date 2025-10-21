@@ -4,6 +4,8 @@ import axios from "axios";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
+  let body: DocumentKYCRequestBody;
+  
   try {
     const {
       SHUFTI_PRO_CLIENT_ID,
@@ -12,7 +14,13 @@ export async function POST(request: Request) {
       NEXT_PUBLIC_KYC_TEST_MODE,
     } = process.env;
 
-    const body: DocumentKYCRequestBody = await request.json();
+    body = await request.json();
+
+    console.log('📝 Document Verification Request:', {
+      reference: body.reference,
+      documentType: body.document?.supported_types,
+      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true'
+    });
 
     // TEST MODE: Simulate successful verification without calling Shufti Pro
     if (NEXT_PUBLIC_KYC_TEST_MODE === 'true' || !SHUFTI_PRO_CLIENT_ID) {
@@ -47,7 +55,8 @@ export async function POST(request: Request) {
     }
 
     // PRODUCTION MODE: Use actual Shufti Pro
-    if (!SHUFTI_PRO_CLIENT_ID || !SHUFTI_PRO_SECRET_KEY || !SHUFTI_PRO_CALLBACK_URL) {
+    if (!SHUFTI_PRO_CLIENT_ID || !SHUFTI_PRO_SECRET_KEY) {
+      console.error('❌ Shufti Pro credentials not configured');
       throw new Error("Shufti Pro environment variables not configured. Set NEXT_PUBLIC_KYC_TEST_MODE=true for testing.");
     }
 
@@ -67,25 +76,30 @@ export async function POST(request: Request) {
       `${SHUFTI_PRO_CLIENT_ID}:${SHUFTI_PRO_SECRET_KEY}`
     ).toString("base64");
 
-    // Build payload for OSR Offsite with OCR
+    // Build payload for document verification
     const payload = {
       reference: body.reference,
-      callback_url: SHUFTI_PRO_CALLBACK_URL,
+      callback_url: SHUFTI_PRO_CALLBACK_URL || 'http://localhost:3000/api/kyc/callback',
+      language: "EN",
+      verification_mode: "image_only",
       document: {
         proof: body.document.proof,
-        //additional_proof: body.document.additional_proof || undefined,
-        supported_types: ["id_card", "passport", "driving_license"],
+        supported_types: body.document.supported_types || ["id_card", "passport", "driving_license"],
         fetch_enhanced_data: "1",
-        verification_mode: "image_only",
         name: body.document.name,
       },
     };
 
-    console.log("🚀 Calling Shufti Pro API with payload:", {
+    // Add optional fields if provided
+    if (body.document.dob) {
+      payload.document.dob = body.document.dob;
+    }
+
+    console.log("🚀 Calling Shufti Pro API:", {
       reference: payload.reference,
       callback_url: payload.callback_url,
       document_types: payload.document.supported_types,
-      verification_mode: payload.document.verification_mode
+      verification_mode: payload.verification_mode
     });
 
     const response = await axios.post("https://api.shuftipro.com/", payload, {
@@ -96,8 +110,13 @@ export async function POST(request: Request) {
       timeout: 30000, // 30 second timeout
     });
 
-    console.log("✅ Shufti Pro API Response:", response.data);
-    const data: DocumentKYCResponse = await response.data;
+    console.log("✅ Shufti Pro API Response:", {
+      reference: body.reference,
+      event: response.data.event,
+      message: response.data.message || response.data.verification_result?.document?.message
+    });
+    
+    const data: DocumentKYCResponse = response.data;
     return NextResponse.json(data);
   } catch (error) {
     console.error("❌ KYC verification error:", error);
@@ -112,7 +131,7 @@ export async function POST(request: Request) {
     }
     
     // If Shufti Pro fails, fall back to test mode for development
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && body) {
       console.log("🔄 Falling back to test mode due to Shufti Pro error");
       
       const mockResponse: DocumentKYCResponse = {

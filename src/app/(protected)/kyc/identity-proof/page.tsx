@@ -14,8 +14,7 @@ import { AMLResponse, DocumentKYCResponse } from "@/types/kyc";
 import { amlVerification } from "@/services/amlVerification";
 import { useAppDispatch } from "@/store/hooks";
 import { setDocumentVerified } from "@/store/slices/kycSlice";
-import { createKycRecord, updateDocumentStatus, updateKycStatus } from "@/services/kycService";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
+import { createKycRecord, updateDocumentStatus } from "@/services/kycService";
 import { useEffect } from "react";
 
 /* interface VerificationResult {
@@ -37,7 +36,6 @@ export default function VerifyPage() {
   const [documentType, setDocumentType] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const userEmail = user?.email1;
 
   // Make fields editable by using state
   const [firstName, setFirstName] = useState(user?.accountname.split(" ")[0] || "");
@@ -131,11 +129,9 @@ const handleSubmit = async () => {
           console.log("✅ KYC document status updated in database");
         } catch (error) {
           console.error("Failed to update KYC status in database:", error);
+          toast.error("Failed to save verification status");
+          throw error; // Re-throw to be caught by outer catch
         }
-
-        // Legacy: Update old system
-        const freshToken = await dispatch(fetchAccessToken()).unwrap();
-        await updateKycStatus(userEmail || "", freshToken, "Partially Verified");
       } else {
         setVerificationStatus("declined");
         toast.warning("KYC verification successful, but background screening encountered an issue");
@@ -149,6 +145,7 @@ const handleSubmit = async () => {
           });
         } catch (error) {
           console.error("Failed to update declined KYC status:", error);
+          // Don't throw here - we still want to show the declined message
         }
         
         setDeclinedReason(amlVerificationResult?.declined_reason?.split(".")[0] || null);

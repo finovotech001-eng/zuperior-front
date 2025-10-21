@@ -12,8 +12,7 @@ import { addressVerification } from "@/services/addressVerification";
 import { AddressKYCResponse } from "@/types/kyc";
 import { setAddressVerified } from "@/store/slices/kycSlice";
 import { useAppDispatch } from "@/store/hooks";
-import { createKycRecord, updateAddressStatus, updateKycStatus } from "@/services/kycService";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
+import { createKycRecord, updateAddressStatus } from "@/services/kycService";
 import { useEffect } from "react";
 
 export default function AddressVerificationPage() {
@@ -31,7 +30,6 @@ export default function AddressVerificationPage() {
   const [verificationStatus, setVerificationStatus] = useState("");
   const [declinedReason, setDeclinedReason] = useState("");
   const dispatch = useAppDispatch();
-  const userEmail = user?.email1;
 
   // Create KYC record on component mount
   useEffect(() => {
@@ -80,24 +78,23 @@ export default function AddressVerificationPage() {
       // dispatch(setAddressReference(addressVerificationResult.reference || ""));
 
       if (addressVerificationResult.event === "verification.accepted") {
-        setVerificationStatus("verified");
-        dispatch(setAddressVerified(true));
-        toast.success("Address verification completed successfully!");
-        
-        // Update KYC status in new backend
+        // Update KYC status in new backend FIRST before showing success
         try {
           await updateAddressStatus({
             addressReference: addressVerificationResult.reference || "",
             isAddressVerified: true,
           });
           console.log("✅ KYC address status updated in database");
+          
+          // Only show success AFTER database update succeeds
+          setVerificationStatus("verified");
+          dispatch(setAddressVerified(true));
+          toast.success("Address verification completed successfully!");
         } catch (error) {
           console.error("Failed to update KYC address status in database:", error);
+          toast.error("Verification succeeded but failed to save. Please contact support.");
+          throw error; // Re-throw to be caught by outer catch
         }
-
-        // Legacy: Update old system
-        const freshToken = await dispatch(fetchAccessToken()).unwrap();
-        await updateKycStatus(userEmail || "", freshToken, "Verified");
       } else {
         setVerificationStatus("declined");
         toast.warning("Address verification failed, please try again.");
@@ -110,6 +107,7 @@ export default function AddressVerificationPage() {
           });
         } catch (error) {
           console.error("Failed to update declined address status:", error);
+          // Don't throw here - we still want to show the declined message
         }
         
         setDeclinedReason(addressVerificationResult?.declined_reason ?? "");
