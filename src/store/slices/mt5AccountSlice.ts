@@ -42,7 +42,17 @@ export interface MT5State {
   totalBalance: number;
   isLoading: boolean;
   error: string | null;
+
+  // ✅ ADD: per-thunk loading & throttling (does not replace existing fields)
+  isFetchingAccounts?: boolean;
+  isFetchingGroups?: boolean;
+  lastAccountsFetchAt?: number | null;
+  lastGroupsFetchAt?: number | null;
 }
+
+// Small helper to throttle rapid duplicate dispatches
+const within = (ts: number | null | undefined, ms: number) =>
+  typeof ts === "number" && Date.now() - ts < ms;
 
 // --------------------
 // Async Thunks
@@ -50,83 +60,103 @@ export interface MT5State {
 
 // ✅ Get Groups
 export const fetchMt5Groups = createAsyncThunk(
-   "mt5/fetchGroups",
-   async (_, { rejectWithValue }) => {
-     try {
-       const response = await mt5Service.getMt5Groups();
-       // Handle .NET Core API response format
-       if (response.data?.Success === false) {
-         return rejectWithValue(response.data?.Message || "Failed to fetch MT5 groups");
-       }
-       return response.data?.Data || response.data || [];
-     } catch (error: any) {
-       return rejectWithValue(
-         error.response?.data?.Message || error.response?.data?.message || "Failed to fetch MT5 groups"
-       );
-     }
-   }
- );
+  "mt5/fetchGroups",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await mt5Service.getMt5Groups();
+      // Handle .NET Core API response format
+      if (response.data?.Success === false) {
+        return rejectWithValue(response.data?.Message || "Failed to fetch MT5 groups");
+      }
+      return response.data?.Data || response.data || [];
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.Message || error.response?.data?.message || "Failed to fetch MT5 groups"
+      );
+    }
+  },
+  {
+    // ✅ ADD: skip if already fetching or if fetched very recently (1.5s)
+    condition: (_, { getState }) => {
+      const state = getState() as { mt5: MT5State };
+      const s = state.mt5;
+      if (s.isFetchingGroups) return false;
+      if (within(s.lastGroupsFetchAt, 1500)) return false;
+      return true;
+    },
+  }
+);
 
 // ✅ Get User MT5 Accounts
 export const fetchUserMt5Accounts = createAsyncThunk(
-   "mt5/fetchUserAccounts",
-   async (_, { rejectWithValue }) => {
-     try {
-       const response = await mt5Service.getUserMt5Accounts();
-       
-       console.log('🔍 MT5 Service response:', response);
-       
-       // Handle response format - check if Success is false
-       if (response.Success === false) {
-         console.log("⚠️ Failed to fetch MT5 accounts or no accounts found");
-         return [];
-       }
+  "mt5/fetchUserAccounts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await mt5Service.getUserMt5Accounts();
 
-       // Get the accounts data
-       const accounts = response.Data || [];
-       
-       if (accounts.length === 0) {
-         console.log("No MT5 accounts found for user");
-         return [];
-       }
+      console.log('🔍 MT5 Service response:', response);
 
-       // Transform MT5 API data to match expected MT5Account format
-       const transformedAccounts = accounts.map((account: any) => ({
-         accountId: String(account.Login),
-         name: account.Name,
-         group: account.Group,
-         leverage: account.Leverage,
-         balance: account.Balance || 0,
-         equity: account.Equity || 0,
-         credit: account.Credit || 0,
-         margin: account.Margin || 0,
-         marginFree: account.MarginFree || 0,
-         marginLevel: account.MarginLevel || 0,
-         profit: account.Profit || 0,
-         isEnabled: account.IsEnabled !== false, // Default to true if not specified
-         createdAt: account.Registration || new Date().toISOString(),
-         updatedAt: account.LastAccess || new Date().toISOString()
-       }));
-       
-       console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
-       return transformedAccounts;
-     } catch (error: any) {
-       console.error("❌ Error in fetchUserMt5Accounts:", error);
-       
-       if (error.response?.status === 401) {
-         return [];
-       }
+      // Handle response format - check if Success is false
+      if (response.Success === false) {
+        console.log("⚠️ Failed to fetch MT5 accounts or no accounts found");
+        return [];
+      }
 
-       if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
-         return rejectWithValue("Network error - please check your connection");
-       }
+      // Get the accounts data
+      const accounts = response.Data || [];
 
-       return rejectWithValue(
-         error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch MT5 accounts"
-       );
-     }
-   }
- );
+      if (accounts.length === 0) {
+        console.log("No MT5 accounts found for user");
+        return [];
+      }
+
+      // Transform MT5 API data to match expected MT5Account format
+      const transformedAccounts = accounts.map((account: any) => ({
+        accountId: String(account.Login),
+        name: account.Name,
+        group: account.Group,
+        leverage: account.Leverage,
+        balance: account.Balance || 0,
+        equity: account.Equity || 0,
+        credit: account.Credit || 0,
+        margin: account.Margin || 0,
+        marginFree: account.MarginFree || 0,
+        marginLevel: account.MarginLevel || 0,
+        profit: account.Profit || 0,
+        isEnabled: account.IsEnabled !== false, // Default to true if not specified
+        createdAt: account.Registration || new Date().toISOString(),
+        updatedAt: account.LastAccess || new Date().toISOString()
+      }));
+
+      console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
+      return transformedAccounts;
+    } catch (error: any) {
+      console.error("❌ Error in fetchUserMt5Accounts:", error);
+
+      if (error.response?.status === 401) {
+        return [];
+      }
+
+      if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+        return rejectWithValue("Network error - please check your connection");
+      }
+
+      return rejectWithValue(
+        error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch MT5 accounts"
+      );
+    }
+  },
+  {
+    // ✅ ADD: skip if already fetching or if fetched very recently (1.5s)
+    condition: (_, { getState }) => {
+      const state = getState() as { mt5: MT5State };
+      const s = state.mt5;
+      if (s.isFetchingAccounts) return false;
+      if (within(s.lastAccountsFetchAt, 1500)) return false;
+      return true;
+    },
+  }
+);
 
 // ✅ Create MT5 Account
 export const createMt5Account = createAsyncThunk(
@@ -317,6 +347,12 @@ const initialState: MT5State = {
   totalBalance: 0,
   isLoading: false,
   error: null,
+
+  // ✅ ADD: per-thunk flags & timestamps
+  isFetchingAccounts: false,
+  isFetchingGroups: false,
+  lastAccountsFetchAt: null,
+  lastGroupsFetchAt: null,
 };
 
 // --------------------
@@ -356,9 +392,12 @@ const mt5AccountSlice = createSlice({
       .addCase(fetchMt5Groups.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        state.isFetchingGroups = true;                 // ✅ ADD
       })
       .addCase(fetchMt5Groups.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.isFetchingGroups = false;                // ✅ ADD
+        state.lastGroupsFetchAt = Date.now();          // ✅ ADD
         // ✅ Only include supported groups
         state.groups = action.payload.filter((g: MT5Group) =>
           [
@@ -369,6 +408,8 @@ const mt5AccountSlice = createSlice({
       })
       .addCase(fetchMt5Groups.rejected, (state, action) => {
         state.isLoading = false;
+        state.isFetchingGroups = false;                // ✅ ADD
+        state.lastGroupsFetchAt = Date.now();          // ✅ ADD
         state.error = action.payload as string;
       })
 
@@ -376,9 +417,12 @@ const mt5AccountSlice = createSlice({
       .addCase(fetchUserMt5Accounts.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        state.isFetchingAccounts = true;               // ✅ ADD
       })
       .addCase(fetchUserMt5Accounts.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.isFetchingAccounts = false;              // ✅ ADD
+        state.lastAccountsFetchAt = Date.now();        // ✅ ADD
         state.accounts = action.payload;
         // Calculate total balance from all accounts
         state.totalBalance = state.accounts.reduce(
@@ -389,6 +433,8 @@ const mt5AccountSlice = createSlice({
       })
       .addCase(fetchUserMt5Accounts.rejected, (state, action) => {
         state.isLoading = false;
+        state.isFetchingAccounts = false;              // ✅ ADD
+        state.lastAccountsFetchAt = Date.now();        // ✅ ADD
         state.error = action.payload as string;
         state.accounts = [];
         state.totalBalance = 0;
@@ -399,8 +445,10 @@ const mt5AccountSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(createMt5Account.fulfilled, (state) => {
+      .addCase(createMt5Account.fulfilled, (state, action) => {
         state.isLoading = false;
+        // After successful account creation, refresh the accounts data
+        // This will be handled by dispatching fetchUserMt5Accounts in the component
       })
       .addCase(createMt5Account.rejected, (state, action) => {
         state.isLoading = false;

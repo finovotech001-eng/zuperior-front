@@ -361,7 +361,7 @@ export function NewAccountDialog({
           console.error("❌ Error storing MT5 account in database:", storeError);
         }
 
-        await fetchAllData();
+        await fetchAllData(true); // Force refresh after account creation
         nextStep();
       } else {
         toast.error("Failed to create MT5 account");

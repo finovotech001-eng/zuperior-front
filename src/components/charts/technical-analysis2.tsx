@@ -3,57 +3,63 @@
 import { useState, useEffect } from 'react';
 
 export default function TechnicalAnalysis({ theme = 'light' }: { theme?: 'light' | 'dark' }) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  // Get Autochartist API configuration from environment variables
-  const BROKER_ID = process.env.NEXT_PUBLIC_AUTOCHARTIST_BROKER_ID;
-  const TOKEN = process.env.NEXT_PUBLIC_AUTOCHARTIST_TOKEN;
-  const EXPIRE = process.env.NEXT_PUBLIC_AUTOCHARTIST_EXPIRE;
-  
-  // Construct the URL directly based on theme
-  const autochartistUrl = `https://component.autochartist.com/to/?broker_id=${BROKER_ID}&token=${TOKEN}&expire=${EXPIRE}&user=Zuperior&locale=en_GB&layout=horizontal&account_type=LIVE&trade_now=n&enable_timeframe=y${theme === 'dark' ? '&style=ds' : ''}#/results`;
-  
-  // Handle iframe load events
-  const handleIframeLoad = () => {
-    setIsLoading(false);
-  };
-  
-  const handleIframeError = () => {
-    setIsLoading(false);
-    setError('Failed to load technical analysis chart');
-  };
+
+  useEffect(() => {
+    const fetchUrl = async () => {
+      try {
+        const response = await fetch('/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ theme, type: 'technical' }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get chart URL');
+        }
+
+        const { url } = await response.json();
+        setUrl(url);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        console.error('Chart load error:', err);
+      } finally {
+      }
+    };
+
+    fetchUrl();
+  }, [theme]);
+
+
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 text-red-500 min-h-[400px]">
-        <div>{error}</div>
+      <div className={"flex flex-col items-center justify-center p-4 text-red-500"} >
+        <div> {error}</div>
+      </div>
+    );
+  }
+
+  if (!url) {
+    return (
+      <div className="w-full min-h-[400px] flex items-center justify-center">
+        Technical analysis not available
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm relative">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center  justify-center bg-white dark:bg-gray-900 z-10">
-          <div className="flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading technical analysis...</p>
-          </div>
-        </div>
-      )}
-      
+    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm">
       <iframe
-        src={autochartistUrl}
-        width="100%"
+        src={url}
+         width="100%"
         height="100%"
         frameBorder="0"
         title="Autochartist Technical Analysis"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
-        loading="eager" // Changed to eager for faster loading
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        loading="lazy"
+        key={url}
       />
     </div>
   );

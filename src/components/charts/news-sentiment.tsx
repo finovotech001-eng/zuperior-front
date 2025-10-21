@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { useAutochartist, AutochartistConfig } from '@/hooks/useChartToken';
 
 interface NewsSentimentProps {
   theme?: 'light' | 'dark';
@@ -8,62 +9,46 @@ interface NewsSentimentProps {
 }
 
 export default function NewsSentiment({
-  theme = 'dark',
+  theme = 'light',
   language = 'en',
 }: NewsSentimentProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Get Autochartist API configuration from environment variables
-  const BROKER_ID = process.env.NEXT_PUBLIC_AUTOCHARTIST_BROKER_ID;
-  const TOKEN = process.env.NEXT_PUBLIC_AUTOCHARTIST_TOKEN;
-  const EXPIRE = process.env.NEXT_PUBLIC_AUTOCHARTIST_EXPIRE;
-  
-  // Construct the URL directly based on theme using the working URLs
-  const autochartistUrl = theme === 'dark' 
-    ? `https://news-sentiment.autochartist.com/news-sentiment?theme=dark&broker_id=${BROKER_ID}&account_type=LIVE&user=Zuperior&expire=${EXPIRE}&token=${TOKEN}&language=en`
-    : `https://news-sentiment.autochartist.com/news-sentiment?theme=light&broker_id=${BROKER_ID}&account_type=LIVE&user=Zuperior&expire=${EXPIRE}&token=${TOKEN}&language=en`;
-  
-  // Handle iframe load events
-  const handleIframeLoad = () => {
-    setIsLoading(false);
-  };
-  
-  const handleIframeError = () => {
-    setIsLoading(false);
-    setError('Failed to load news sentiment');
-  };
+  // ✅ Memoize config to prevent useEffect warning and unnecessary re-fetches
+  const config: AutochartistConfig = useMemo(() => ({
+    theme,
+    type: 'sentiment',
+    language
+  }), [theme, language]);
+
+  const { url,  error } = useAutochartist(config);
+
+
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 text-red-500 min-h-[400px]">
-        <div>{error}</div>
+      <div className={` flex flex-col items-center justify-center p-4 text-red-500`} >
+        <div> {error}</div>
+      </div>
+    );
+  }
+
+  if (!url) {
+    return (
+      <div className={` flex items-center justify-center`} >
+        News sentiment URL not available
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm relative">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
-          <div className="flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading news sentiment...</p>
-          </div>
-        </div>
-      )}
-      
-      <iframe
-        src={autochartistUrl}
+    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm">
+        <iframe
+        src={url}
         width="100%"
         height="100%"
         frameBorder="0"
         title="Autochartist News Sentiment"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
-        loading="eager"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+        sandbox="allow-scripts allow-same-origin"
+        key={url} // ensures re-render when URL changes
       />
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { useAutochartist, AutochartistConfig } from '@/hooks/useChartToken';
 
 interface MarketNewsProps {
   theme?: 'light' | 'dark';
@@ -11,59 +12,42 @@ export default function MarketNews({
   theme = 'light',
   language = 'en',
 }: MarketNewsProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Get Autochartist API configuration from environment variables
-  const BROKER_ID = process.env.NEXT_PUBLIC_AUTOCHARTIST_BROKER_ID;
-  const TOKEN = process.env.NEXT_PUBLIC_AUTOCHARTIST_TOKEN;
-  const EXPIRE = process.env.NEXT_PUBLIC_AUTOCHARTIST_EXPIRE;
-  
-  // Construct the URL directly based on theme
-  const autochartistUrl = theme === 'dark' 
-    ? `https://component.autochartist.com/news/stock-news?broker_id=${BROKER_ID}&account_type=LIVE&user=Zuperior&expire=${EXPIRE}&token=${TOKEN}&locale=en&css=https:%2F%2Fbroker-resources.autochartist.com%2Fcss%2Fcomponents%2F997-news-feeds-app_ds.css`
-    : `https://component.autochartist.com/news/stock-news?broker_id=${BROKER_ID}&account_type=LIVE&user=Zuperior&expire=${EXPIRE}&token=${TOKEN}&locale=en&css=https:%2F%2Fbroker-resources.autochartist.com%2Fcss%2Fcomponents%2F997-news-feeds-app.css`;
-  
-  // Handle iframe load events
-  const handleIframeLoad = () => {
-    setIsLoading(false);
-  };
-  
-  const handleIframeError = () => {
-    setIsLoading(false);
-    setError('Failed to load market news');
-  };
+  const config: AutochartistConfig = useMemo(() => ({
+    theme,
+    type: 'market-news',
+    language
+  }), [theme, language]);
+
+  const { url, error } = useAutochartist(config);
+
+
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 text-red-500 min-h-[400px]">
+      <div className={` flex flex-col items-center justify-center p-4 text-red-500 min-h-screen`}>
         <div>{error}</div>
       </div>
     );
   }
 
+  if (!url) {
+    return (
+      <div className={` flex items-center justify-center min-h-screen`}>
+        Market news URL not available
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm relative">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
-          <div className="flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading market news...</p>
-          </div>
-        </div>
-      )}
-      
+    <div className="w-full min-h-[800px] h-[65vh] max-h-[800px] rounded-lg overflow-hidden shadow-sm">
       <iframe
-        src={autochartistUrl}
-        width="100%"
-        height="100%"
+        src={url}
         frameBorder="0"
+          width="100%"
+        height="100%"
         title="Autochartist Market News"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
-        loading="eager"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+        sandbox="allow-scripts allow-same-origin"
+        key={url}
       />
     </div>
   );
