@@ -8,18 +8,21 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "@/store";
+import { useAppSelector } from "@/store/hooks";
 import Link from "next/link";
-import { Skeleton } from "@/components/ui/skeleton";
 
-export default function VerificationProfile({remainingLimit}: {remainingLimit: string}) {
+interface VerificationProfileProps {
+  fullName?: string | null;
+  verificationStatus: "unverified" | "partial" | "verified";
+}
+
+export default function VerificationProfile({
+  fullName,
+  verificationStatus,
+}: VerificationProfileProps) {
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
-
-  const verificationStatus = useSelector(
-    (state: RootState) => state.kyc.verificationStatus
-  );
-  const user = useSelector((state: RootState) => state.user.data);
+  const kycStatus = useAppSelector((state) => state.kyc.verificationStatus);
+  const resolvedStatus = verificationStatus || kycStatus;
 
   const toggleStep = (stepNumber: number) => {
     setExpandedStep((prev) => (prev === stepNumber ? null : stepNumber));
@@ -27,29 +30,29 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
 
   // Update expanded step based on verification status
   useEffect(() => {
-    if (verificationStatus === "verified") setExpandedStep(0);
-    else if (verificationStatus === "partial") setExpandedStep(2);
+    if (resolvedStatus === "verified") setExpandedStep(0);
+    else if (resolvedStatus === "partial") setExpandedStep(2);
     else setExpandedStep(1);
-  }, [verificationStatus]);
+  }, [resolvedStatus]);
 
   // Determine deposit limit based on verification status
   const getDepositLimit = () => {
-    if (verificationStatus === "verified") return "Unlimited";
-    if (verificationStatus === "partial") return "10,000 USD";
+    if (resolvedStatus === "verified") return "Unlimited";
+    if (resolvedStatus === "partial") return "10,000 USD";
     return "5,000 USD"; // unverified
   };
 
   // Determine status text
   const getStatusText = () => {
-    if (verificationStatus === "verified") return "Verified";
-    if (verificationStatus === "partial") return "Verified (Partially)";
+    if (resolvedStatus === "verified") return "Verified";
+    if (resolvedStatus === "partial") return "Verified (Partially)";
     return "Not Verified";
   };
 
   // Determine completed steps
   const getCompletedSteps = () => {
-    if (verificationStatus === "verified") return "";
-    if (verificationStatus === "partial")
+    if (resolvedStatus === "verified") return "";
+    if (resolvedStatus === "partial")
       return "1 step left to become a fully verified user";
     return "0/2 steps complete";
   };
@@ -94,16 +97,10 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
             <div className="text-lg font-semibold dark:text-white/75 mb-1">
               {getDepositLimit()}
             </div>
-            {verificationStatus !== "verified" && (
+            {resolvedStatus !== "verified" && (
               <div className="text-sm font-semibold dark:text-white/75">
                 <span>Remaining limit: </span>
-                {remainingLimit == "" ? (
-                  <span>
-                    <Skeleton className="h-3 w-16 inline-flex" color="bg-gray-300" />
-                  </span>
-                ) : (
-                  <span>{remainingLimit}</span>
-                )}
+                <span>Contact support</span>
               </div>
             )}
           </div>
@@ -125,8 +122,8 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
               <div className="flex items-center">
                 <div
                   className={`w-8 h-8 ${
-                    verificationStatus === "partial" ||
-                    verificationStatus === "verified"
+                  resolvedStatus === "partial" ||
+                  resolvedStatus === "verified"
                       ? "bg-green-500"
                       : "bg-gray-400"
                   } rounded-full flex items-center justify-center mr-4`}>
@@ -137,13 +134,13 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
                     Identity verification
                   </div>
                   <div className="text-sm dark:text-white/75">
-                    {user?.accountname}
+                    {fullName}
                   </div>
                 </div>
               </div>
               <div className="flex items-center">
-                {verificationStatus === "partial" ||
-                verificationStatus === "verified" ? (
+                {resolvedStatus === "partial" ||
+                resolvedStatus === "verified" ? (
                   <>
                     <span className="dark:text-white/75 text-sm font-medium mr-2">
                       Confirmed
@@ -179,12 +176,12 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
                       Upload government-issued ID to unlock higher deposit
                       limits ($10,000)
                     </div>
-                    {verificationStatus === "unverified" && (
+                {resolvedStatus === "unverified" && (
                       <div className="text-sm text-yellow-500">
                         Complete your identity verification now
                       </div>
                     )}
-                    {verificationStatus === "unverified" && (
+                    {resolvedStatus === "unverified" && (
                       <Link href="/kyc" passHref>
                         <button
                           className="cssbuttons-io-button ml-auto"
@@ -217,7 +214,7 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
               <div className="flex items-center">
                 <div
                   className={`w-8 h-8 ${
-                    verificationStatus === "verified"
+                    resolvedStatus === "verified"
                       ? "bg-green-500"
                       : "bg-gray-400"
                   } rounded-full flex items-center justify-center mr-4`}>
@@ -230,7 +227,7 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
                 </div>
               </div>
               <div className="flex items-center">
-                {verificationStatus === "verified" ? (
+                {resolvedStatus === "verified" ? (
                   <>
                     <span className="dark:text-white/75 text-sm font-medium mr-2">
                       Confirmed
@@ -268,13 +265,13 @@ export default function VerificationProfile({remainingLimit}: {remainingLimit: s
                       Complete this step to unlock unlimited deposit limits
                     </div>
 
-                    {(verificationStatus === "partial" ||
-                      verificationStatus === "unverified") && (
+                    {(resolvedStatus === "partial" ||
+                      resolvedStatus === "unverified") && (
                       <div className="text-sm text-yellow-500">
                         Complete your address verification now
                       </div>
                     )}
-                    {verificationStatus !== "verified" && (
+                    {resolvedStatus !== "verified" && (
                       <Link href="/kyc" passHref>
                         <button
                           className="cssbuttons-io-button ml-auto"

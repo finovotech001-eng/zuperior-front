@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useSelector } from "react-redux";
-import { RootState } from "@/store";
 import { ResetMainPasswordDialog } from "./ResetPasswordDialog";
 // function maskEmail(email: string) {
 //   if (!email) return "";
@@ -17,11 +15,12 @@ import { ResetMainPasswordDialog } from "./ResetPasswordDialog";
 //   return `${firstChar}${"*".repeat(user.length - 2)}${lastChar}@${domain}`;
 // }
 
+interface SecurityTabProps {
+  email?: string;
+}
 
-export default function SecurityTab() {
-  const user = useSelector((state: RootState) => state.user.data);
-  // Replace with actual user data/fetch
-  const maskedEmail = (user?.email1 ?? "unknown@example.com");
+export default function SecurityTab({ email }: SecurityTabProps) {
+  const maskedEmail = email ?? "Not provided";
   // dialog toggle state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -63,7 +62,7 @@ export default function SecurityTab() {
 
       {/* Reset Main Account Password Dialog */}
       <ResetMainPasswordDialog
-        email={user?.email1 ?? ""}
+        email={email ?? ""}
         open={changePasswordOpen}
         onOpen={setChangePasswordOpen}
       />
@@ -136,4 +135,3 @@ export default function SecurityTab() {
     </div>
   );
 }
-

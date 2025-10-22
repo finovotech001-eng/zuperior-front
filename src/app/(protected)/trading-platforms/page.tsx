@@ -46,7 +46,7 @@ export default function TradingPlatformsPage() {
       ],
     },
     {
-      name: "Meta Trader Web Terminal",
+      name: "Zuperior Web Terminal",
       image: mobile2,
       // Remove links, add a flag for web terminal
       isWebTerminal: true,

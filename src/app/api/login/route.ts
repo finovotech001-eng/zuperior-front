@@ -1,9 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+"use server";
+
 import axios from "axios";
+import { NextRequest, NextResponse } from "next/server";
+
+const buildCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 60 * 60 * 24, // 1 day in seconds
+});
+
+const buildPublicCookieOptions = () => ({
+  ...buildCookieOptions(),
+  httpOnly: false,
+});
 
 export async function POST(req: NextRequest) {
   try {
-    // Parse JSON data
     const body = await req.json();
     const { email, password } = body;
 
@@ -14,8 +28,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Call local server authentication
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
     const response = await axios.post(
       `${baseUrl}/login`,
       {
@@ -26,10 +40,23 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
+        withCredentials: true,
       }
     );
 
-    return NextResponse.json(response.data);
+    const jsonResponse = NextResponse.json(response.data);
+    const token = response.data?.token;
+    const clientId = response.data?.clientId;
+
+    if (token) {
+      jsonResponse.cookies.set("token", token, buildCookieOptions());
+    }
+
+    if (clientId) {
+      jsonResponse.cookies.set("clientId", clientId, buildPublicCookieOptions());
+    }
+
+    return jsonResponse;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       console.error(
@@ -43,7 +70,9 @@ export async function POST(req: NextRequest) {
         },
         { status: error.response?.status || 500 }
       );
-    } else if (error instanceof Error) {
+    }
+
+    if (error instanceof Error) {
       console.error("Server API Error:", error.message);
       return NextResponse.json(
         {
@@ -52,14 +81,14 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
-    } else {
-      console.error("Unknown error during server API call");
-      return NextResponse.json(
-        {
-          message: "Unknown error occurred",
-        },
-        { status: 500 }
-      );
     }
+
+    console.error("Unknown error during server API call");
+    return NextResponse.json(
+      {
+        message: "Unknown error occurred",
+      },
+      { status: 500 }
+    );
   }
 }
