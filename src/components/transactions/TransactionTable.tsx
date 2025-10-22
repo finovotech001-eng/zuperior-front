@@ -1,7 +1,7 @@
 import React from "react";
 import TradingLoader from "./TradingLoader";
 import { formatDate, getStatusColor } from "@/utils/formDate";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowUpRight, ArrowLeftRight } from "lucide-react";
 
 interface Tx {
   depositID?: string;
@@ -21,12 +21,15 @@ interface Props {
   tableData: Tx[];
 }
 
-const getArrowIcon = (type: string) =>
-  type === "Deposit" ? (
-    <ArrowDown className="h-3 w-3 text-black bg-[#92F09A] rounded-full p-0.5" />
-  ) : (
-    <ArrowUpRight className="h-3 w-3 text-black bg-[#D97777] rounded-full p-0.5 rotate-[-10deg]" />
-  );
+const getArrowIcon = (type: string) => {
+  if (type === "Deposit" || type === "Internal Transfer In") {
+    return <ArrowDown className="h-3 w-3 text-black bg-[#92F09A] rounded-full p-0.5" />;
+  } else if (type === "Internal Transfer Out") {
+    return <ArrowLeftRight className="h-3 w-3 text-black bg-[#9F8ACF] rounded-full p-0.5" />;
+  } else {
+    return <ArrowUpRight className="h-3 w-3 text-black bg-[#D97777] rounded-full p-0.5 rotate-[-10deg]" />;
+  }
+};
 
 export const TransactionsTable: React.FC<Props> = ({
   loadingTx,

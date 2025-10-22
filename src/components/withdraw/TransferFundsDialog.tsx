@@ -1,5 +1,6 @@
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
+import { store } from "../../store";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,6 @@ import { RootState } from "@/store";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 import { InternalTransfer } from "@/services/internalTransfer";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -35,7 +35,9 @@ const TransferFundsDialog = ({
   onOpenChange,
   method,
 }: TransferFundsDialogProps) => {
+  const state = store.getState();
   const accounts = useSelector((state: RootState) => state.mt5.accounts);
+  const token = state.auth.token || localStorage.getItem('userToken');
 
   // Show all accounts as they are - no filtering
   const filteredAccounts = accounts;
@@ -50,6 +52,9 @@ const TransferFundsDialog = ({
   const dispatch = useAppDispatch();
   const { fetchAllData } = useFetchUserData();
   const router = useRouter();
+
+  const MIN_TRANSFER = 0.01;
+  const MAX_TRANSFER = 100000;
 
   const fromAccObj = filteredAccounts.find(
     (account) => account?.accountId && String(account.accountId) === fromAccount
@@ -87,33 +92,42 @@ const TransferFundsDialog = ({
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setAmount(val);
-    if (val && parseFloat(val) > fromBalance) {
-      setError("Amount cannot be more than available balance");
+    const numVal = parseFloat(val);
+    if (val && (isNaN(numVal) || numVal < MIN_TRANSFER || numVal > MAX_TRANSFER || numVal > fromBalance)) {
+      setError(`Amount must be between $${MIN_TRANSFER} and $${MAX_TRANSFER}, and not exceed available balance`);
     } else {
       setError("");
     }
   };
 
   const handleTransfer = async () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      setError("Please enter a valid amount");
-      return;
-    }
-    if (parseFloat(amount) > fromBalance) {
-      setError("Not enough funds");
+    const numAmount = parseFloat(amount);
+    if (!amount || isNaN(numAmount) || numAmount < MIN_TRANSFER || numAmount > MAX_TRANSFER || numAmount > fromBalance) {
+      setError("Please enter a valid amount within limits");
       return;
     }
 
     setIsLoading(true);
     try {
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
+      if (!token) {
+        toast.error("Please log in to perform transfers");
+        return;
+      }
+      
+      // Debug logging
+      console.log('🔄 Initiating transfer with data:', {
+        fromAccount,
+        toAccount,
+        amount: parseFloat(amount),
+        fromAccountType: typeof fromAccount,
+        toAccountType: typeof toAccount,
+      });
+      
       const response = await InternalTransfer({
         fromAccount,
         toAccount,
-        ticketAmount: String(parseFloat(amount)),
-        accessToken: freshToken,
-        platformFrom: "MT5",
-        platformTo: "MT5",
+        amount: parseFloat(amount),
+        comment: "Internal transfer between MT5 accounts",
       });
       if (response.success) {
         toast.success(`$${amount} transferred to #${toAccount}`);
@@ -122,9 +136,11 @@ const TransferFundsDialog = ({
         toast.error(response?.message || "Transfer failed");
         setStep("form");
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to transfer funds");
+    } catch (error: any) {
+      console.error('Transfer error:', error);
+      console.error('Error response:', error?.response?.data);
+      const errorMessage = error?.response?.data?.message || error?.message || "Unable to transfer funds";
+      toast.error(errorMessage);
       setStep("form");
     } finally {
       setIsLoading(false);
@@ -254,8 +270,9 @@ const TransferFundsDialog = ({
                     placeholder="Enter amount in USD"
                     value={amount}
                     onChange={handleAmountChange}
-                    min={0}
-                    max={fromBalance}
+                    min={MIN_TRANSFER}
+                    max={Math.min(MAX_TRANSFER, fromBalance)}
+                    step="0.01"
                   />
                   {error && (
                     <span className="text-red-500 text-xs">{error}</span>
@@ -377,3 +394,4 @@ const TransferFundsDialog = ({
 };
 
 export default TransferFundsDialog;
+

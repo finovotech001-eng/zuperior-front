@@ -1,12 +1,28 @@
 import axios from 'axios';
 
+// Create axios instance with token interceptor
+const transferApi = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_BACKEND_API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+});
+
+// Add token interceptor
+transferApi.interceptors.request.use((config) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 interface InternalTransferParams {
     fromAccount: string;
     toAccount: string;
-    accessToken: string;
-    platformFrom: string;
-    platformTo: string;
-    ticketAmount: string;
+    amount: number;
+    comment?: string;
 }
 
 interface InternalTransferResponse {
@@ -27,13 +43,11 @@ interface InternalTransferResponse {
 
 export async function InternalTransfer(params: InternalTransferParams): Promise<InternalTransferResponse> {
     try {
-        const response = await axios.post<InternalTransferResponse>('/api/internal-transfer', {
+        const response = await transferApi.post<InternalTransferResponse>('/internal-transfer', {
             fromAccount: params.fromAccount,
             toAccount: params.toAccount,
-            ticketAmount: params.ticketAmount,
-            accessToken: params.accessToken,
-            platformFrom: params.platformFrom,
-            platformTo: params.platformTo,
+            amount: params.amount,
+            comment: params.comment || 'Internal transfer',
         });
         return response.data;
     } catch (error) {
