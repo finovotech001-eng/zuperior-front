@@ -37,7 +37,7 @@ const TradeNowDialouge = ({
     }
 
     // Get terminal URL from environment variable
-    const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'http://localhost:3004';
+    const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'https://zuperior-terminal.onrender.com';
     const terminalUrl = `${terminalBaseUrl}/login?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}&autoLogin=true`;
     window.open(terminalUrl, '_blank');
     

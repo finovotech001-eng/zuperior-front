@@ -8,4 +8,21 @@ const api = axios.create({
   },
 });
 
+// Add authorization interceptor
+api.interceptors.request.use(
+  (config) => {
+    // Get token from localStorage
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export default api;

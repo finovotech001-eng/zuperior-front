@@ -2,48 +2,62 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 
 export async function POST(req: NextRequest) {
-  const bodyText = await req.text();
-  const params = new URLSearchParams(bodyText);
-
-  const request = params.get("request");
-  const account_number = params.get("account_number");
-  const access_token = params.get("access_token");
-  const platform = params.get("platform");
-
-  if (!request || !account_number || !access_token || !platform) {
-    return NextResponse.json(
-      { message: "Missing required fields." },
-      { status: 400 }
-    );
-  }
+  const backendBase =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
 
   try {
+    let payload: Record<string, string | undefined> = {};
+
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      payload = await req.json();
+    } else {
+      const bodyText = await req.text();
+      if (bodyText) {
+        const params = new URLSearchParams(bodyText);
+        payload = Object.fromEntries(params.entries());
+      }
+    }
+
+    const { account_number, request = "GetTransactions" } = payload;
+
+    if (!account_number) {
+      return NextResponse.json(
+        { message: "Missing required fields." },
+        { status: 400 }
+      );
+    }
+
     const response = await axios.post(
-      "https://client.api.skaleapps.io/api/v-2/",
-      bodyText,
+      `${backendBase}/transactions/get`,
       {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        request,
+        account_number,
+        start_date: payload.start_date,
+        end_date: payload.end_date,
+      },
+      {
+        headers: { "Content-Type": "application/json" },
       }
     );
 
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
-      console.error(
-        "Skale API AxiosError:",
-        error.response?.data || error.message
-      );
+      console.error("Transactions API AxiosError:", error.response?.data || error.message);
+      const status = error.response?.status || 500;
       return NextResponse.json(
         {
-          message: "Failed to call Skale API",
+          message: "Failed to retrieve transactions",
           error: error.response?.data || error.message,
         },
-        { status: error.response?.status || 500 }
+        { status }
       );
-    } else if (error instanceof Error) {
-      console.error("Skale API Error:", error.message);
+    }
+
+    if (error instanceof Error) {
+      console.error("Transactions API Error:", error.message);
       return NextResponse.json(
         {
           message: "Unexpected error occurred",
@@ -51,14 +65,14 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
-    } else {
-      console.error("Unknown error during Skale API call");
-      return NextResponse.json(
-        {
-          message: "Unknown error occurred",
-        },
-        { status: 500 }
-      );
     }
+
+    console.error("Unknown error during transactions API call");
+    return NextResponse.json(
+      {
+        message: "Unknown error occurred",
+      },
+      { status: 500 }
+    );
   }
 }

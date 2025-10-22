@@ -67,22 +67,25 @@ export const TransactionsToolbar: React.FC<Props> = ({
         className="w-full max-w-[352px] max-h-46 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700 p-0"
       >
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {accounts
-            .filter((account) => account.type === "Live")
-            .map((account, index) => (
-              <DropdownMenuItem
-                key={`${account.id}-${index}`}
-                className="cursor-pointer px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition-colors"
-                onClick={() => {
-                  setDateRange({ from: undefined, to: undefined });
-                  setSelectedAccountId(account.id);
-                  getAccountTransactions(account.id);
-                }}
-              >
-                {account.id}{" "}
-                <span className="text-gray-400 dark:text-gray-500">({account.type})</span>
-              </DropdownMenuItem>
-            ))}
+          {accounts.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500 text-center">
+              No accounts found
+            </div>
+          ) : (
+            accounts.map((account, index) => (
+                <DropdownMenuItem
+                  key={`${account.id}-${index}`}
+                  className="cursor-pointer px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition-colors"
+                  onClick={() => {
+                    setDateRange({ from: undefined, to: undefined });
+                    setSelectedAccountId(account.id);
+                    getAccountTransactions(account.id);
+                  }}
+                >
+                  {account.id}
+                </DropdownMenuItem>
+              ))
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

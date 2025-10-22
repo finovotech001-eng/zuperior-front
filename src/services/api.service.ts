@@ -238,4 +238,52 @@ const mt5Service = {
   cancelAll,
 };
 
-export { authService, api, mt5Service };
+// --- Deposit Service Functions ---
+const depositService = {
+  /** Get transactions by MT5 account ID */
+  getTransactionsByAccountId: async (accountId: string, opts?: { signal?: AbortSignal }) => {
+    return singleFlight(`transactions-${accountId}`, (signal) =>
+      api.get(`/api/deposit/transactions/${accountId}`, { signal: opts?.signal ?? signal }).then(r => {
+        const norm = normalizeOk(r.data);
+        return norm; // { success, data, message }
+      }),
+      opts?.signal
+    );
+  },
+
+  /** Get user deposits */
+  getUserDeposits: async (opts?: { signal?: AbortSignal }) => {
+    return singleFlight('user-deposits', (signal) =>
+      api.get('/api/deposit/user', { signal: opts?.signal ?? signal }).then(r => {
+        const norm = normalizeOk(r.data);
+        return norm;
+      }),
+      opts?.signal
+    );
+  },
+
+  cancelAll,
+};
+
+// --- Admin Service Functions ---
+const adminService = {
+  /** Get all users (for admin dropdown) */
+  getUsers: async (opts?: { signal?: AbortSignal; search?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (opts?.search) params.append('search', opts.search);
+    if (opts?.limit) params.append('limit', opts.limit.toString());
+    
+    const response = await api.get(`/api/admin/users?${params.toString()}`, { signal: opts?.signal });
+    return response.data;
+  },
+
+  /** Get MT5 accounts for a specific user (admin) */
+  getUserMt5Accounts: async (userId: string, opts?: { signal?: AbortSignal }) => {
+    const response = await api.get(`/api/admin/users/${userId}/mt5-accounts`, { signal: opts?.signal });
+    return response.data;
+  },
+
+  cancelAll,
+};
+
+export { authService, api, mt5Service, depositService, adminService };

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Candle from "@/assets/icons/candle.png";
 import linearDots from "@/assets/icons/linear-dots.png";
@@ -31,6 +31,7 @@ import TradeNowDialouge from "./tradeNow-dialouge";
 import TransferFundsDialog from "../withdraw/TransferFundsDialog";
 import { TpAccountSnapshot } from "@/types/user-details";
 import { AccountInfoDialog } from "../AccountInfoDialog";
+import { depositService } from "@/services/api.service";
 
 const AccountDetails = ({
   accountId,
@@ -51,6 +52,30 @@ const AccountDetails = ({
   const [tradeNowDialog, setTradeNowDialog] = useState(false);
   const [accountInfoDialogOpen, setAccountInfoDialogOpen] = useState(false);
   const [renameAccountDialog, setRenameAccountDialogOpen] = useState(false);
+
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+
+  useEffect(() => {
+    if (expanded && accountId) {
+      setLoadingTransactions(true);
+      depositService.getTransactionsByAccountId(accountId.toString())
+        .then((response) => {
+          if (response.success) {
+            setTransactions(response.data || []);
+          } else {
+            setTransactions([]);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching transactions:', error);
+          setTransactions([]);
+        })
+        .finally(() => {
+          setLoadingTransactions(false);
+        });
+    }
+  }, [expanded, accountId]);
 
   // Show loading placeholders while data is being fetched
   const balance = `$${parseFloat(accountDetails.balance).toFixed(2)}`;
@@ -348,6 +373,42 @@ const AccountDetails = ({
                   </>
                 </div>
               </div>
+
+              {/* Transactions Section */}
+              {expanded && (
+                <div className="mt-4 w-full">
+                  <h4 className="text-lg font-semibold mb-2">Transactions</h4>
+                  {loadingTransactions ? (
+                    <div className="text-center py-4">Loading transactions...</div>
+                  ) : transactions.length > 0 ? (
+                    <div className="space-y-2">
+                      {transactions.map((transaction) => (
+                        <div key={transaction.id} className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{transaction.type}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {transaction.description}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">${transaction.amount.toFixed(2)}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {transaction.status}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {new Date(transaction.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">No transactions found</div>
+                  )}
+                </div>
+              )}
 
               {/* DropDown for mobile */}
               <div className="xl:hidden flex items-center gap-2.5 pt-2">

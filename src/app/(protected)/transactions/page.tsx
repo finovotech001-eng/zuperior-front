@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 import { useAppDispatch } from "@/store/hooks";
 import {
   getTransactions,
   Withdraw,
   Deposit,
   Bonus,
+  MT5Transaction,
 } from "@/store/slices/transactionsSlice";
-import { format, addDays, subDays } from "date-fns";
+import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
+import { format } from "date-fns";
 
 import { TransactionsHeader } from "@/components/transactions/TransactionsHeader";
 import { TransactionsToolbar } from "@/components/transactions/TransactionToolbar";
@@ -37,11 +38,15 @@ const cardMaskStyle: React.CSSProperties = {
 export default function TransactionsPage() {
   const dispatch = useAppDispatch();
 
+  useEffect(() => {
+    dispatch(fetchUserMt5Accounts());
+  }, [dispatch]);
+
   const accounts = useSelector(
     (state: RootState) =>
-      state.accounts.data.map((account) => ({
-        id: account.acc.toString(),
-        type: account.account_type,
+      state.mt5.accounts.map((account) => ({
+        id: account.accountId,
+        type: account.group || "Live",
       })) || []
   );
 
@@ -58,12 +63,14 @@ export default function TransactionsPage() {
   const [transactionsData, setTransactionsData] = useState<{
     deposits: Deposit[];
     withdrawals: Withdraw[];
+    mt5Transactions: MT5Transaction[];
     bonuses: Bonus[];
     status?: string;
     MT5_account?: string;
   }>({
     deposits: [],
     withdrawals: [],
+    mt5Transactions: [],
     bonuses: [],
     status: "",
     MT5_account: "",
@@ -86,35 +93,47 @@ export default function TransactionsPage() {
     from?: Date,
     to?: Date
   ) => {
+    console.log('🔍 Fetching transactions for account:', accountId);
     setLoadingTx(true);
     setSelectedAccountId(accountId);
     try {
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
       let start_date, end_date;
       if (from && to) {
-        start_date = format(subDays(from, 1), "yyyy-MM-dd");
-        end_date = format(addDays(to, 1), "yyyy-MM-dd");
+        start_date = format(from, "yyyy-MM-dd");
+        end_date = format(to, "yyyy-MM-dd");
+      } else if (from) {
+        start_date = format(from, "yyyy-MM-dd");
+        end_date = format(from, "yyyy-MM-dd");
       }
+      
+      console.log('📤 Dispatching getTransactions with:', { account_number: accountId, start_date, end_date });
+      
       const result = await dispatch(
         getTransactions({
-          access_token: freshToken,
           account_number: accountId,
           start_date,
           end_date,
         })
       ).unwrap();
 
+      console.log('📥 Received transactions result:', result);
+
       setTransactionsData({
         deposits: result.deposits || [],
         withdrawals: result.withdrawals || [],
+        mt5Transactions: result.mt5Transactions || [],
         bonuses: result.bonuses || [],
         status: result.status,
         MT5_account: result.MT5_account || accountId,
       });
-    } catch {
+      
+      console.log('✅ Transactions data set successfully');
+    } catch (error) {
+      console.error('❌ Error fetching transactions:', error);
       setTransactionsData({
         deposits: [],
         withdrawals: [],
+        mt5Transactions: [],
         bonuses: [],
         status: "",
         MT5_account: accountId,
@@ -131,30 +150,52 @@ export default function TransactionsPage() {
       ...transactionsData.deposits.map((tx) => ({
         ...tx,
         type: "Deposit",
-        status: transactionsData.status || "Success",
+        status: tx.status || transactionsData.status || "Success",
         account_id: transactionsData.MT5_account || tx.login,
       })),
       ...transactionsData.withdrawals.map((tx) => ({
         ...tx,
-        type: "Withdraw",
-        status: transactionsData.status || "Success",
+        type: "Withdrawal",
+        status: tx.status || transactionsData.status || "Success",
+        account_id: transactionsData.MT5_account || tx.login,
+      })),
+      ...transactionsData.mt5Transactions.map((tx) => ({
+        ...tx,
+        type: tx.type,
+        status: tx.status || transactionsData.status || "Success",
         account_id: transactionsData.MT5_account || tx.login,
       })),
     ];
   } else if (activeTab === "deposits") {
-    tableData = transactionsData.deposits.map((tx) => ({
-      ...tx,
-      type: "Deposit",
-      status: transactionsData.status || "Success",
-      account_id: transactionsData.MT5_account || tx.login,
-    }));
+    tableData = [
+      ...transactionsData.deposits.map((tx) => ({
+        ...tx,
+        type: "Deposit",
+        status: tx.status || transactionsData.status || "Success",
+        account_id: transactionsData.MT5_account || tx.login,
+      })),
+      ...transactionsData.mt5Transactions.filter((tx) => tx.type === "Deposit").map((tx) => ({
+        ...tx,
+        type: tx.type,
+        status: tx.status || transactionsData.status || "Success",
+        account_id: transactionsData.MT5_account || tx.login,
+      })),
+    ];
   } else {
-    tableData = transactionsData.withdrawals.map((tx) => ({
-      ...tx,
-      type: "Withdraw",
-      status: transactionsData.status || "Success",
-      account_id: transactionsData.MT5_account || tx.login,
-    }));
+    tableData = [
+      ...transactionsData.withdrawals.map((tx) => ({
+        ...tx,
+        type: "Withdrawal",
+        status: tx.status || transactionsData.status || "Success",
+        account_id: transactionsData.MT5_account || tx.login,
+      })),
+      ...transactionsData.mt5Transactions.filter((tx) => tx.type === "Withdrawal").map((tx) => ({
+        ...tx,
+        type: tx.type,
+        status: tx.status || transactionsData.status || "Success",
+        account_id: transactionsData.MT5_account || tx.login,
+      })),
+    ];
   }
 
   if (searchTerm.trim()) {
@@ -207,8 +248,6 @@ export default function TransactionsPage() {
                   setCalendarOpen={setCalendarOpen}
                   tempRange={tempRange}
                   setTempRange={setTempRange}
-                  // isSmallScreen={isSmallScreen}
-                  // setIsSmallScreen={setIsSmallScreen}
                 />
                 <TransactionsTable
                   loadingTx={loadingTx}
