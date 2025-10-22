@@ -25,6 +25,7 @@ import { InternalTransfer } from "@/services/internalTransfer";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
+import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
 // import { CrossIcon } from "lucide-react";
 import arrowSideways from "@/assets/icons/arrow-sideways.png";
 import Image from "next/image";
@@ -34,11 +35,10 @@ const TransferFundsDialog = ({
   onOpenChange,
   method,
 }: TransferFundsDialogProps) => {
-  const accounts = useSelector((state: RootState) => state.accounts.data);
+  const accounts = useSelector((state: RootState) => state.mt5.accounts);
 
-  const filteredAccounts = accounts.filter(
-    (account) => account.account_type !== "Demo" && account.acc !== 0
-  );
+  // Show all accounts as they are - no filtering
+  const filteredAccounts = accounts;
 
   const [paymentMethod, setPaymentMethod] = useState<string>(method);
   const [fromAccount, setFromAccount] = useState<string>("");
@@ -52,13 +52,37 @@ const TransferFundsDialog = ({
   const router = useRouter();
 
   const fromAccObj = filteredAccounts.find(
-    (account) => String(account?.acc) === fromAccount
+    (account) => account?.accountId && String(account.accountId) === fromAccount
   );
-  const fromBalance = fromAccObj ? parseFloat(fromAccObj.balance) : 0;
+  const fromBalance = fromAccObj ? (fromAccObj.balance ?? 0) : 0;
 
   useEffect(() => {
     setPaymentMethod(method);
   }, [method]);
+
+  // Fetch MT5 accounts when dialog opens
+  useEffect(() => {
+    if (open) {
+      console.log('🔄 Fetching MT5 accounts for transfer dialog...');
+      dispatch(fetchUserMt5Accounts());
+    }
+  }, [open, dispatch]);
+
+  // Debug logging for accounts
+  useEffect(() => {
+    console.log('📊 MT5 Accounts in TransferFundsDialog:', accounts);
+    console.log('📊 Number of accounts:', accounts.length);
+    console.log('📊 Filtered accounts:', filteredAccounts);
+    console.log('📊 Filtered accounts count:', filteredAccounts.length);
+    if (filteredAccounts.length > 0) {
+      console.log('📋 Account details:');
+      filteredAccounts.forEach((acc, index) => {
+        console.log(`  ${index + 1}. ID: ${acc.accountId}, Balance: ${acc.balance}, BalanceType: ${typeof acc.balance}`);
+      });
+    } else {
+      console.log('⚠️ No accounts available for transfer');
+    }
+  }, [accounts, filteredAccounts]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -91,11 +115,11 @@ const TransferFundsDialog = ({
         platformFrom: "MT5",
         platformTo: "MT5",
       });
-      if (response.status_code === "1") {
+      if (response.success) {
         toast.success(`$${amount} transferred to #${toAccount}`);
         setStep("progress");
       } else {
-        toast.error(response?.error || "Transfer failed");
+        toast.error(response?.message || "Transfer failed");
         setStep("form");
       }
     } catch (error) {
@@ -157,18 +181,18 @@ const TransferFundsDialog = ({
                       <SelectValue placeholder="Select Account" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredAccounts.map((account) => (
+                      {filteredAccounts.map((account, index) => (
                         <SelectItem
-                          key={account?.acc}
-                          value={(account?.acc).toString()}
-                          disabled={(account?.acc).toString() === toAccount}
+                          key={`${account?.accountId || 'no-id'}-${index}`}
+                          value={account?.accountId?.toString() || ''}
+                          disabled={account?.accountId?.toString() === toAccount}
                         >
                           <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[10px]">
                             MT5
                           </span>
-                          <span>{account?.acc}</span>
+                          <span>{account?.accountId || 'No ID'}</span>
                           <span className="text-xs text-muted-foreground">
-                            ${parseFloat(account?.balance).toFixed(2)}
+                            ${(account?.balance ?? 0).toFixed(2)}
                           </span>
                         </SelectItem>
                       ))}
@@ -203,18 +227,18 @@ const TransferFundsDialog = ({
                       <SelectValue placeholder="Select Account" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredAccounts.map((account) => (
+                      {filteredAccounts.map((account, index) => (
                         <SelectItem
-                          key={account?.acc}
-                          value={(account?.acc).toString()}
-                          disabled={(account?.acc).toString() === fromAccount}
+                          key={`${account?.accountId || 'no-id'}-${index}-to`}
+                          value={account?.accountId?.toString() || ''}
+                          disabled={account?.accountId?.toString() === fromAccount}
                         >
                           <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[10px]">
                             MT5
                           </span>
-                          <span>{account?.acc}</span>
+                          <span>{account?.accountId || 'No ID'}</span>
                           <span className="text-xs text-muted-foreground">
-                            ${parseFloat(account?.balance).toFixed(2)}
+                            ${(account?.balance ?? 0).toFixed(2)}
                           </span>
                         </SelectItem>
                       ))}
