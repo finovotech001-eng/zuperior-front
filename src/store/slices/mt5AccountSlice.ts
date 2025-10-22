@@ -129,6 +129,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
       }));
 
       console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
+      console.log('📋 Transformed accounts data:', transformedAccounts);
       return transformedAccounts;
     } catch (error: any) {
       console.error("❌ Error in fetchUserMt5Accounts:", error);
@@ -430,6 +431,8 @@ const mt5AccountSlice = createSlice({
           0
         );
         console.log(`💰 Total Balance calculated: $${state.totalBalance}`);
+        console.log('📊 Redux state updated with accounts:', action.payload);
+        console.log('📊 Number of accounts stored:', action.payload.length);
       })
       .addCase(fetchUserMt5Accounts.rejected, (state, action) => {
         state.isLoading = false;

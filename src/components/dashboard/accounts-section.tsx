@@ -26,20 +26,20 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     platformname: "MT5",
     acc: parseInt(mt5Account.accountId),
     account_type: "Live", // All MT5 accounts are live for now
-    leverage: mt5Account.leverage,
-    balance: mt5Account.balance.toString(),
-    credit: mt5Account.credit.toString(),
-    equity: mt5Account.equity.toString(),
-    margin: mt5Account.margin.toString(),
-    margin_free: mt5Account.marginFree.toString(),
-    margin_level: mt5Account.marginLevel.toString(),
-    closed_pnl: mt5Account.profit.toString(),
+    leverage: mt5Account.leverage || 100,
+    balance: (mt5Account.balance || 0).toString(),
+    credit: (mt5Account.credit || 0).toString(),
+    equity: (mt5Account.equity || 0).toString(),
+    margin: (mt5Account.margin || 0).toString(),
+    margin_free: (mt5Account.marginFree || 0).toString(),
+    margin_level: (mt5Account.marginLevel || 0).toString(),
+    closed_pnl: (mt5Account.profit || 0).toString(),
     open_pnl: "0",
     account_type_requested: null,
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(mt5Account.accountId),
-      cf_1479: mt5Account.name
+      cf_1479: mt5Account.name || ""
     }
   };
 };
@@ -185,11 +185,11 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
           {hasBasicAccountInfo ? (
             accounts
               ?.filter((account) => account.isEnabled)
-              .map((account) => {
+              .map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (
                   <AccountDetails
-                    key={mappedAccount.tradingplatformaccountsid}
+                    key={`${mappedAccount.tradingplatformaccountsid}-${index}`}
                     accountId={mappedAccount.acc}
                     platformName={mappedAccount.platformname}
                     accountType={mappedAccount.account_type}

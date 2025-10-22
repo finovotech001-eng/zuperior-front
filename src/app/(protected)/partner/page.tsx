@@ -71,7 +71,7 @@ const IBCard = () => {
 
         {/* Apply Button */}
         <Link
-          href="https://partner.zuperior.com/"
+          href="https://partner.zuperior.com"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-8 px-5 py-2 dark:bg-[#0E0511] bg-white border-2 border-[#aa97d2] dark:border-[#413555] rounded-xl dark:text-white/75 text-black z-10"

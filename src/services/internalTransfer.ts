@@ -10,14 +10,19 @@ interface InternalTransferParams {
 }
 
 interface InternalTransferResponse {
-    status: string;
-    status_code: string;
-    from_account?: string;
-    to_account?: string;
-    balanceFrom?: string;
-    balanceTo?: string;
+    success: boolean;
+    message: string;
+    data?: {
+        transferId: string;
+        fromAccount: string;
+        toAccount: string;
+        amount: number;
+        fromBalance?: number;
+        toBalance?: number;
+        sourceTransactionId: string;
+        destTransactionId: string;
+    };
     error?: string;
-    // Add other fields as needed based on your API response
 }
 
 export async function InternalTransfer(params: InternalTransferParams): Promise<InternalTransferResponse> {
