@@ -8,24 +8,66 @@ import SecurityTab from "./_components/SecurityTab";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { TextAnimate } from "@/components/ui/text-animate";
-import { store } from "@/store";
-import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
-import { getLifetimeDeposit } from "@/services/depositLimitService";
+import { useAppSelector } from "@/store/hooks";
+import { fetchUserProfile } from "@/services/userService";
+import type { UserProfile } from "@/types/user-profile";
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const verificationStatus = useAppSelector(
+    (state) => state.kyc.verificationStatus
+  );
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState<boolean>(true);
 
-  const name = store.getState().user.data?.accountname;
-  const email = store.getState().user.data?.email1;
-  const verificationStatus = store.getState().kyc.verificationStatus;
-  const dispatch = useAppDispatch();
-  const [remainingLimit, setRemainingLimit] = useState<string>("");
+  const profileDisplayName = useMemo(() => {
+    if (!profile) return undefined;
+    if (profile.name && profile.name.trim().length > 0) {
+      return profile.name.trim();
+    }
+    const nameFromParts = [profile.firstName, profile.lastName]
+      .filter((part): part is string => !!part && part.trim().length > 0)
+      .join(" ")
+      .trim();
+    return nameFromParts || undefined;
+  }, [profile]);
 
   const [activeTab, setActiveTab] = useState<
     "profile" | "verification" | "security" | "bank" | "subscriptions"
   >("profile");
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setProfileLoading(true);
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("userToken")
+            : null;
+
+        if (!token) {
+          setProfile(null);
+          setProfileLoading(false);
+          return;
+        }
+
+        const response = await fetchUserProfile();
+        if (response?.success) {
+          setProfile(response.data);
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        setProfile(null);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -69,54 +111,39 @@ export default function SettingsPage() {
     []
   );
 
-  useEffect(() => {
-    const fetchRemainingLimit = async () => {
-      if (!email) {
-        setRemainingLimit("");
-        return;
-      }
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
-      const lifetimeDeposit = await getLifetimeDeposit({
-        email: email,
-        accessToken: freshToken,
-      });
-
-      if (verificationStatus === "partial") {
-        const remaining = 10000 - lifetimeDeposit;
-        setRemainingLimit(`${remaining.toLocaleString()} USD`);
-      } else if (verificationStatus === "unverified") {
-        const remaining = 5000 - lifetimeDeposit;
-        setRemainingLimit(`${remaining.toLocaleString()} USD`);
-      } else {
-        setRemainingLimit(""); // Verified → Unlimited
-      }
-    };
-
-    fetchRemainingLimit();
-  }, [verificationStatus, email, dispatch]);
-
   const renderContent = useMemo(() => {
     switch (activeTab) {
       case "profile":
-        return <Profile />;
+        return <Profile profile={profile} loading={profileLoading} />;
       case "verification":
-        return <VerificationProfile remainingLimit={remainingLimit} />;
+        return (
+          <VerificationProfile
+            fullName={profileDisplayName}
+            verificationStatus={verificationStatus}
+          />
+        );
       case "security":
-        return <SecurityTab />;
+        return <SecurityTab email={profile?.email ?? ""} />;
       // Uncomment and add your real components later:
       // case "bank":
       //   return <div>Bank Accounts Content Coming Soon</div>;
       // case "subscriptions":
       //   return <div>My Subscriptions Content Coming Soon</div>;
       default:
-        return <Profile />;
+        return <Profile profile={profile} loading={profileLoading} />;
     }
-  }, [activeTab, remainingLimit]);
+  }, [
+    activeTab,
+    profile,
+    profileLoading,
+    profileDisplayName,
+    verificationStatus,
+  ]);
 
   return (
     <>
       <VerificationAlert
-        name={name || "User"}
+        name={profile?.firstName || profileDisplayName || "User"}
         verificationStatus={verificationStatus}
       />
 

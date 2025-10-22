@@ -21,3 +21,4 @@ export { default as support } from "@/assets/sidebar/support.png";
 export { default as supportBlack } from "@/assets/sidebar/supportBlack.png";
 export { default as accounts } from "@/assets/sidebar/accounts.png";
 export { default as accountsBlack } from "@/assets/sidebar/accountsBlack.png";
+export { default as wallet } from "@/assets/icons/wallet.png";
