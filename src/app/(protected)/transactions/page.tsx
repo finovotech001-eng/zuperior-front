@@ -13,7 +13,6 @@ import {
 } from "@/store/slices/transactionsSlice";
 import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
 import { format } from "date-fns";
-
 import { TransactionsHeader } from "@/components/transactions/TransactionsHeader";
 import { TransactionsToolbar } from "@/components/transactions/TransactionToolbar";
 import { TransactionsTable } from "@/components/transactions/TransactionTable";
@@ -42,23 +41,19 @@ export default function TransactionsPage() {
     dispatch(fetchUserMt5Accounts());
   }, [dispatch]);
 
-  const accounts = useSelector(
-    (state: RootState) =>
+  // Map accounts to dropdown items
+  const accounts =
+    useSelector((state: RootState) =>
       state.mt5.accounts.map((account) => ({
-        id: account.accountId,
+        id: String(account.accountId ?? account.login ?? account.id),
         type: account.group || "Live",
-      })) || []
-  );
+      }))
+    ) || [];
 
-  const [activeTab, setActiveTab] = useState<
-    "all" | "deposits" | "withdrawals"
-  >("all");
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
-    null
-  );
+  const [activeTab, setActiveTab] = useState<"all" | "deposits" | "withdrawals">("all");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingTx, setLoadingTx] = useState(false);
-  // const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   const [transactionsData, setTransactionsData] = useState<{
     deposits: Deposit[];
@@ -66,7 +61,7 @@ export default function TransactionsPage() {
     mt5Transactions: MT5Transaction[];
     bonuses: Bonus[];
     status?: string;
-    MT5_account?: string;
+    MT5_account?: string | number;
   }>({
     deposits: [],
     withdrawals: [],
@@ -78,26 +73,18 @@ export default function TransactionsPage() {
 
   type DateRange = { from: Date | undefined; to?: Date };
 
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: undefined,
-    to: undefined,
-  });
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [tempRange, setTempRange] = useState<DateRange>({
-    from: undefined,
-    to: undefined,
-  });
+  const [tempRange, setTempRange] = useState<DateRange>({ from: undefined, to: undefined });
 
-  const getAccountTransactions = async (
-    accountId: string,
-    from?: Date,
-    to?: Date
-  ) => {
-    console.log('🔍 Fetching transactions for account:', accountId);
+  const getAccountTransactions = async (accountId: string, from?: Date, to?: Date) => {
+    console.log("🔍 Fetching transactions for account:", accountId);
     setLoadingTx(true);
     setSelectedAccountId(accountId);
     try {
-      let start_date, end_date;
+      let start_date: string | undefined;
+      let end_date: string | undefined;
+
       if (from && to) {
         start_date = format(from, "yyyy-MM-dd");
         end_date = format(to, "yyyy-MM-dd");
@@ -105,18 +92,22 @@ export default function TransactionsPage() {
         start_date = format(from, "yyyy-MM-dd");
         end_date = format(from, "yyyy-MM-dd");
       }
-      
-      console.log('📤 Dispatching getTransactions with:', { account_number: accountId, start_date, end_date });
-      
+
+      console.log("📤 Dispatching getTransactions with:", {
+        account_number: accountId,
+        start_date,
+        end_date,
+      });
+
       const result = await dispatch(
         getTransactions({
-          account_number: accountId,
+          account_number: accountId, // slice will GET then fallback POST if 405
           start_date,
           end_date,
         })
       ).unwrap();
 
-      console.log('📥 Received transactions result:', result);
+      console.log("📥 Received transactions result:", result);
 
       setTransactionsData({
         deposits: result.deposits || [],
@@ -126,10 +117,10 @@ export default function TransactionsPage() {
         status: result.status,
         MT5_account: result.MT5_account || accountId,
       });
-      
-      console.log('✅ Transactions data set successfully');
+
+      console.log("✅ Transactions data set successfully");
     } catch (error) {
-      console.error('❌ Error fetching transactions:', error);
+      console.error("❌ Error fetching transactions:", error);
       setTransactionsData({
         deposits: [],
         withdrawals: [],
@@ -138,11 +129,12 @@ export default function TransactionsPage() {
         status: "",
         MT5_account: accountId,
       });
+    } finally {
+      setLoadingTx(false);
     }
-    setLoadingTx(false);
   };
 
-  // Table data logic
+  // Build table data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let tableData: any[] = [];
   if (activeTab === "all") {
@@ -174,12 +166,14 @@ export default function TransactionsPage() {
         status: tx.status || transactionsData.status || "Success",
         account_id: transactionsData.MT5_account || tx.login,
       })),
-      ...transactionsData.mt5Transactions.filter((tx) => tx.type === "Deposit").map((tx) => ({
-        ...tx,
-        type: tx.type,
-        status: tx.status || transactionsData.status || "Success",
-        account_id: transactionsData.MT5_account || tx.login,
-      })),
+      ...transactionsData.mt5Transactions
+        .filter((tx) => tx.type === "Deposit")
+        .map((tx) => ({
+          ...tx,
+          type: tx.type,
+          status: tx.status || transactionsData.status || "Success",
+          account_id: transactionsData.MT5_account || tx.login,
+        })),
     ];
   } else {
     tableData = [
@@ -189,15 +183,18 @@ export default function TransactionsPage() {
         status: tx.status || transactionsData.status || "Success",
         account_id: transactionsData.MT5_account || tx.login,
       })),
-      ...transactionsData.mt5Transactions.filter((tx) => tx.type === "Withdrawal").map((tx) => ({
-        ...tx,
-        type: tx.type,
-        status: tx.status || transactionsData.status || "Success",
-        account_id: transactionsData.MT5_account || tx.login,
-      })),
+      ...transactionsData.mt5Transactions
+        .filter((tx) => tx.type === "Withdrawal")
+        .map((tx) => ({
+          ...tx,
+          type: tx.type,
+          status: tx.status || transactionsData.status || "Success",
+          account_id: transactionsData.MT5_account || tx.login,
+        })),
     ];
   }
 
+  // Search
   if (searchTerm.trim()) {
     const term = searchTerm.toLowerCase();
     tableData = tableData.filter(
@@ -210,12 +207,14 @@ export default function TransactionsPage() {
     );
   }
 
+  // Sort newest first
   tableData.sort((a, b) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parseTime = (t: any) => {
       if (!t) return 0;
       const num = Number(t);
       if (!isNaN(num)) {
+        // Unix seconds vs ms
         return num < 1e12 ? num * 1000 : num;
       }
       return new Date(t).getTime() || 0;
@@ -224,7 +223,7 @@ export default function TransactionsPage() {
   });
 
   return (
-    <div className="flex flex-col  dark:bg-[#01040D]">
+    <div className="flex flex-col dark:bg-[#01040D]">
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-y-auto dark:bg-[#01040D]">
           <div>

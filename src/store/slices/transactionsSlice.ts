@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/lib/axios";
 
-  // Define deposit type
+/** Types from your UI */
 export interface Deposit {
   depositID: string;
   login: string;
@@ -22,19 +22,20 @@ export interface Withdraw {
   status?: string;
 }
 
-export interface Bonus {
-  depositID: string;
-  login: string;
+export interface MT5Transaction {
+  id: string;
+  login: string | number;
   open_time: string;
+  amount: number;
   profit: number;
   comment: string;
-  source: string;
+  type: string;
   status?: string;
 }
 
-export interface MT5Transaction {
-  depositID: string;
-  login: string;
+export interface Bonus {
+  id: string;
+  login: string | number;
   open_time: string;
   profit: number;
   comment: string;
@@ -65,11 +66,16 @@ const initialState: TransactionsState = {
 };
 
 type GetTransactionsArgs = {
-  account_number: string;
-  start_date?: string;
-  end_date?: string;
+  account_number: string;     // MT5 login from the page
+  start_date?: string;        // yyyy-MM-dd
+  end_date?: string;          // yyyy-MM-dd
 };
 
+/**
+ * Calls /transactions/database with query params (GET).
+ * If the server responds 405 (method not allowed), retries with POST + JSON body.
+ * This makes the frontend resilient to server routing differences.
+ */
 export const getTransactions = createAsyncThunk<
   TransactionsResponse,
   GetTransactionsArgs,
@@ -84,31 +90,42 @@ export const getTransactions = createAsyncThunk<
         ...(end_date ? { endDate: end_date } : {}),
       });
 
-      console.log('🚀 Redux: Calling /transactions/database with params:', params.toString());
+      // First try GET
+      try {
+        const response = await api.get<{
+          success: boolean;
+          message: string;
+          data: TransactionsResponse;
+        }>(`/transactions/database?${params.toString()}`);
 
-      const response = await api.get<{
+        if (!response.data?.success) {
+          return rejectWithValue(response.data?.message || "Failed to fetch transactions");
+        }
+        return response.data.data;
+      } catch (err: any) {
+        const status = err?.response?.status;
+        if (status !== 405) throw err; // rethrow non-405 errors
+      }
+
+      // Fallback to POST if GET not allowed
+      const postResponse = await api.post<{
         success: boolean;
         message: string;
         data: TransactionsResponse;
-      }>(
-        `/transactions/database?${params.toString()}`
+      }>(`/transactions/database`, {
+        accountId: account_number,
+        startDate: start_date,
+        endDate: end_date,
+      });
+
+      if (!postResponse.data?.success) {
+        return rejectWithValue(postResponse.data?.message || "Failed to fetch transactions");
+      }
+      return postResponse.data.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error?.response?.data?.message || error?.message || "Something went wrong"
       );
-
-      console.log('📦 Redux: API response:', response.data);
-
-      if (!response.data.success) {
-        console.error('❌ Redux: API returned failure:', response.data.message);
-        return rejectWithValue(response.data.message || "Failed to fetch transactions");
-      }
-
-      console.log('✅ Redux: Successfully fetched transactions');
-      return response.data.data;
-    } catch (error) {
-      console.error('❌ Redux: Error in getTransactions thunk:', error);
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
@@ -137,7 +154,7 @@ const transactionsSlice = createSlice({
       )
       .addCase(getTransactions.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload ?? "Something went wrong";
+        state.error = (action.payload as string) ?? "Something went wrong";
       });
   },
 });
