@@ -194,9 +194,9 @@ export function USDTManualStep1Form({
           <SelectContent className="border-[#1e171e] dark:bg-[#060207]">
             {accounts
               .filter((account) => account.isEnabled)
-              .map((account) => (
+              .map((account, index) => (
                 <SelectItem
-                  key={account.accountId}
+                  key={`${account.accountId}-${index}`}
                   value={account.accountId}
                 >
                   <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">
