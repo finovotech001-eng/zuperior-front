@@ -11,7 +11,7 @@ interface AddressVerificationParams {
 
 export async function addressVerification(params: AddressVerificationParams) {
   try {
-    const addressRef = `address_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const addressRef = `kyc_addr_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const base64String = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(params.file);
@@ -19,10 +19,15 @@ export async function addressVerification(params: AddressVerificationParams) {
       reader.onerror = (error) => reject(error);
     });
 
-    console.log('📤 Sending address verification request:', {
+    // Get auth token
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+
+    console.log('📤 Submitting address verification:', {
       reference: addressRef,
       documentType: params.selected_document_type,
-      fullAddress: params.full_address
+      fullAddress: params.full_address,
+      firstName: params.first_name,
+      lastName: params.last_name
     });
 
     const response = await axios.post("/api/kyc/address", {
@@ -40,14 +45,20 @@ export async function addressVerification(params: AddressVerificationParams) {
         },
         fuzzy_match: "1"
       },
+    }, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      }
     });
 
     const data: AddressKYCResponse = response.data;
     data.reference = addressRef;
 
-    console.log('✅ Address verification response received:', {
+    console.log('✅ Address verification response:', {
       reference: addressRef,
-      event: data.event
+      event: data.event,
+      status: data.verification_result?.address?.status
     });
 
     return data;

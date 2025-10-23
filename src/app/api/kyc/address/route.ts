@@ -2,6 +2,8 @@ import { AddressKYCRequestBody, AddressKYCResponse } from "@/types/kyc";
 import axios from "axios";
 import { NextResponse } from "next/server";
 
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+
 export async function POST(request: Request) {
   let requestBody: AddressKYCRequestBody;
   
@@ -14,11 +16,13 @@ export async function POST(request: Request) {
     } = process.env;
 
     requestBody = await request.json();
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
 
     console.log('📍 Address Verification Request:', {
       reference: requestBody.reference,
       documentTypes: requestBody.address?.supported_types,
-      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true'
+      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true',
+      hasToken: !!token
     });
 
     // TEST MODE: Simulate successful verification without calling Shufti Pro
@@ -39,6 +43,26 @@ export async function POST(request: Request) {
         },
         declined_reason: null
       };
+
+      // Update database in test mode
+      if (token) {
+        try {
+          await fetch(`${BACKEND_API_URL}/kyc/update-address`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              addressReference: requestBody.reference,
+              isAddressVerified: true,
+            }),
+          });
+          console.log('✅ Database updated with test address verification');
+        } catch (dbError) {
+          console.error('⚠️ Failed to update database in test mode:', dbError);
+        }
+      }
 
       console.log('✅ Test Mode: Address verification successful');
       return NextResponse.json(mockResponse);
@@ -104,8 +128,46 @@ export async function POST(request: Request) {
     });
 
     const data: AddressKYCResponse = response.data;
+    
+    // If verification is accepted immediately, update database
+    if (data.event === 'verification.accepted' && token) {
+      try {
+        await fetch(`${BACKEND_API_URL}/kyc/update-address`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            addressReference: requestBody.reference,
+            isAddressVerified: true,
+          }),
+        });
+        console.log('✅ Database updated with address verification success');
+      } catch (dbError) {
+        console.error('⚠️ Failed to update database:', dbError);
+      }
+    } else if (data.event === 'verification.declined' && token) {
+      try {
+        await fetch(`${BACKEND_API_URL}/kyc/update-address`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            addressReference: requestBody.reference,
+            isAddressVerified: false,
+          }),
+        });
+        console.log('✅ Database updated with address verification decline');
+      } catch (dbError) {
+        console.error('⚠️ Failed to update database:', dbError);
+      }
+    }
+    
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Address verification error:", error);
     
     // Log more details for debugging

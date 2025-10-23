@@ -44,14 +44,17 @@ interface KycStatusResponse {
 // Create KYC record
 export async function createKycRecord() {
   try {
+    console.log('📝 Creating KYC record...');
     const response = await kycApi.post('/api/kyc/create-record');
+    console.log('✅ KYC record created:', response.data);
     return response.data;
   } catch (error: any) {
     // If KYC record already exists, that's fine - return success
     if (error.response?.status === 200 && error.response?.data?.success) {
+      console.log('✅ KYC record already exists');
       return error.response.data;
     }
-    console.error("Error creating KYC record:", error?.response?.data || error.message);
+    console.error("❌ Error creating KYC record:", error?.response?.data || error.message);
     throw error;
   }
 }
@@ -63,10 +66,12 @@ export async function updateDocumentStatus(data: {
   amlReference?: string;
 }) {
   try {
+    console.log('📝 Updating document status:', data);
     const response = await kycApi.put('/api/kyc/update-document', data);
+    console.log('✅ Document status updated:', response.data);
     return response.data;
   } catch (error: any) {
-    console.error("Error updating document status:", error?.response?.data || error.message);
+    console.error("❌ Error updating document status:", error?.response?.data || error.message);
     throw error;
   }
 }
@@ -77,10 +82,12 @@ export async function updateAddressStatus(data: {
   isAddressVerified: boolean;
 }) {
   try {
+    console.log('📝 Updating address status:', data);
     const response = await kycApi.put('/api/kyc/update-address', data);
+    console.log('✅ Address status updated:', response.data);
     return response.data;
   } catch (error: any) {
-    console.error("Error updating address status:", error?.response?.data || error.message);
+    console.error("❌ Error updating address status:", error?.response?.data || error.message);
     throw error;
   }
 }
@@ -88,12 +95,24 @@ export async function updateAddressStatus(data: {
 // Get KYC status
 export async function getKycStatus(): Promise<KycStatusResponse> {
   try {
+    console.log('🔍 Fetching KYC status...');
     const response = await kycApi.get<KycStatusResponse>('/api/kyc/status');
+    console.log('✅ KYC status fetched:', {
+      isDocumentVerified: response.data.data?.isDocumentVerified,
+      isAddressVerified: response.data.data?.isAddressVerified,
+      verificationStatus: response.data.data?.verificationStatus
+    });
     return response.data;
   } catch (error: any) {
-    console.error("Error fetching KYC status:", error?.response?.data || error.message);
+    console.error("❌ Error fetching KYC status:", error?.response?.data || error.message);
     throw error;
   }
+}
+
+// Refresh KYC status and return updated data
+export async function refreshKycStatus(): Promise<KycStatusResponse> {
+  console.log('🔄 Refreshing KYC status...');
+  return getKycStatus();
 }
 
 // Legacy function - kept for backward compatibility

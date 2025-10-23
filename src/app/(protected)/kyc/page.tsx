@@ -1,9 +1,10 @@
 "use client";
 import { TextAnimate } from "@/components/ui/text-animate";
-import { store } from "@/store";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { fetchKycStatus } from "@/store/slices/kycSlice";
 import { Lock } from "lucide-react";
 import Link from "next/link";
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useEffect } from "react";
 
 const CheckIcon = memo(() => (
   <svg
@@ -24,15 +25,26 @@ const CheckIcon = memo(() => (
 CheckIcon.displayName = "CheckIcon";
 
 const Page = () => {
-  // const addressVerified = store.getState().kyc.isAddressVerified;
-  // const identityVerified = store.getState().kyc.isDocumentVerified;
-  const {
-    isAddressVerified: addressVerified,
-    isDocumentVerified: identityVerified,
-  } = store.getState().kyc;
+  const dispatch = useAppDispatch();
+  
+  // Use selector to subscribe to KYC state changes
+  const addressVerified = useAppSelector((state) => state.kyc.isAddressVerified);
+  const identityVerified = useAppSelector((state) => state.kyc.isDocumentVerified);
+  const verificationStatus = useAppSelector((state) => state.kyc.verificationStatus);
 
-  console.log("Address Verified:", addressVerified);
-  console.log("Identity Verified:", identityVerified);
+  // Refresh KYC status when page loads
+  useEffect(() => {
+    console.log('🔄 Refreshing KYC status on page load...');
+    dispatch(fetchKycStatus()).catch((error) => {
+      console.error("Failed to refresh KYC status:", error);
+    });
+  }, [dispatch]);
+
+  console.log("📊 Current KYC Status:", {
+    addressVerified,
+    identityVerified,
+    verificationStatus
+  });
 
   const cardMaskStyle = useMemo<React.CSSProperties>(
     () => ({

@@ -23,7 +23,17 @@ export async function documentVerification(params: DocumentVerificationParams) {
   try {
     const base64String = await fileToBase64(params.file);
 
-    const kycRef = `kyc_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const kycRef = `kyc_doc_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    // Get auth token
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+
+    console.log('📤 Submitting document verification:', {
+      reference: kycRef,
+      documentType: params.documentType,
+      firstName: params.firstName,
+      lastName: params.lastName
+    });
 
     const response = await axios.post("/api/kyc/document", {
       reference: kycRef,
@@ -37,14 +47,26 @@ export async function documentVerification(params: DocumentVerificationParams) {
         },
         // dob: params.dob,
       },
+    }, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      }
     });
-    const data: DocumentKYCResponse = await response.data;
+
+    const data: DocumentKYCResponse = response.data;
     data.reference = kycRef;
+
+    console.log('✅ Document verification response:', {
+      reference: kycRef,
+      event: data.event,
+      status: data.verification_result?.document?.status
+    });
 
     return data;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error during document verification:", error);
+    console.error("❌ Error during document verification:", error);
     // also return error so caller can handle
     return error.response?.data || { error: error.message };
   }

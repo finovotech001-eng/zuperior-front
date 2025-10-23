@@ -3,6 +3,8 @@ import { DocumentKYCRequestBody, DocumentKYCResponse } from "@/types/kyc";
 import axios from "axios";
 import { NextResponse } from "next/server";
 
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+
 export async function POST(request: Request) {
   let body: DocumentKYCRequestBody;
   
@@ -15,11 +17,13 @@ export async function POST(request: Request) {
     } = process.env;
 
     body = await request.json();
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
 
     console.log('📝 Document Verification Request:', {
       reference: body.reference,
       documentType: body.document?.supported_types,
-      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true'
+      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true',
+      hasToken: !!token
     });
 
     // TEST MODE: Simulate successful verification without calling Shufti Pro
@@ -49,6 +53,26 @@ export async function POST(request: Request) {
         },
         declined_reason: null
       };
+
+      // Update database in test mode
+      if (token) {
+        try {
+          await fetch(`${BACKEND_API_URL}/kyc/update-document`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              documentReference: body.reference,
+              isDocumentVerified: true,
+            }),
+          });
+          console.log('✅ Database updated with test verification');
+        } catch (dbError) {
+          console.error('⚠️ Failed to update database in test mode:', dbError);
+        }
+      }
 
       console.log('✅ Test Mode: Document verification successful');
       return NextResponse.json(mockResponse);
@@ -117,8 +141,46 @@ export async function POST(request: Request) {
     });
     
     const data: DocumentKYCResponse = response.data;
+    
+    // If verification is accepted immediately, update database
+    if (data.event === 'verification.accepted' && token) {
+      try {
+        await fetch(`${BACKEND_API_URL}/kyc/update-document`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            documentReference: body.reference,
+            isDocumentVerified: true,
+          }),
+        });
+        console.log('✅ Database updated with verification success');
+      } catch (dbError) {
+        console.error('⚠️ Failed to update database:', dbError);
+      }
+    } else if (data.event === 'verification.declined' && token) {
+      try {
+        await fetch(`${BACKEND_API_URL}/kyc/update-document`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            documentReference: body.reference,
+            isDocumentVerified: false,
+          }),
+        });
+        console.log('✅ Database updated with verification decline');
+      } catch (dbError) {
+        console.error('⚠️ Failed to update database:', dbError);
+      }
+    }
+    
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ KYC verification error:", error);
     
     // Log more details for debugging

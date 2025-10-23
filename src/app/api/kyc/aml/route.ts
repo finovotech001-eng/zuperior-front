@@ -1,7 +1,9 @@
-// app/api/user-screening/route.ts
+// app/api/kyc/aml/route.ts
 import { AMLRequestBody, AMLResponse } from "@/types/kyc";
 import axios from "axios";
 import { NextResponse } from "next/server";
+
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(request: Request) {
   let requestBody: AMLRequestBody;
@@ -16,6 +18,13 @@ export async function POST(request: Request) {
     } = process.env;
 
     requestBody = await request.json();
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+
+    console.log('🔍 AML Verification Request:', {
+      reference: requestBody.reference,
+      testMode: NEXT_PUBLIC_KYC_TEST_MODE === 'true',
+      hasToken: !!token
+    });
 
     // TEST MODE: Simulate successful AML verification without calling Shufti Pro
     if (NEXT_PUBLIC_KYC_TEST_MODE === 'true' || !SHUFTI_PRO_CLIENT_ID) {
@@ -35,6 +44,9 @@ export async function POST(request: Request) {
         },
         declined_reason: null
       };
+
+      // Note: AML checks don't directly update document/address verification
+      // They're tracked separately via amlReference field
 
       console.log('✅ Test Mode: AML verification successful');
       return NextResponse.json(mockResponse);
@@ -98,8 +110,11 @@ export async function POST(request: Request) {
       event: data.event
     });
 
+    // AML results are tracked via the amlReference in KYC record
+    // The webhook will handle database updates when Shufti calls back
+    
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ AML screening error:", error);
     
     // Log more details for debugging
