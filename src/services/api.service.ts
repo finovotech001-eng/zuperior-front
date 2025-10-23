@@ -64,6 +64,7 @@ const authService = {
       email: userData.email,
       password: userData.password,
       country: userData.country,
+      phone: userData.phone,
     });
     return response.data;
   },

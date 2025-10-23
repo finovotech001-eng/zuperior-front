@@ -1,7 +1,7 @@
 // zuperior-dashboard/client/src/app/login/_components/auth-form.tsx (Updated for Backend Integration)
 
 "use client";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { registrationStep1Schema, loginSchema } from "./auth-schemas";
 import { ZodError } from "zod";
@@ -11,6 +11,7 @@ import { useLoading } from "@/context/LoadingContext";
 import { authService } from "@/services/api.service";
 import AuthToggleTabs from "./AuthToggleTabs";
 import RegisterStep1Form from "./RegisterStep1Form";
+import RegisterStep2OtpForm from "./RegisterStep2OtpForm";
 import LoginForm from "./LoginForm";
 import SubmitButton from "./SubmitButton";
 
@@ -39,6 +40,28 @@ const AuthForm = () => {
   });
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Auto-detect country from IP on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/geo/country", { cache: "no-store" });
+        const data = await res.json();
+        const code = (data?.countryCode || "").toString().toLowerCase();
+        if (!cancelled && code) {
+          setRegisterBuffer((prev) => ({ ...prev, country: code }));
+        }
+      } catch {
+        // no-op: keep default country
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Clear validation errors
   const clearValidationErrors = () => setValidationErrors({});
@@ -83,6 +106,59 @@ const AuthForm = () => {
       const errorMessage = error.response?.data?.message || "Registration failed. Please try again.";
       toast.error(errorMessage);
       console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startCooldown = (seconds = 30) => {
+    setResendCooldown(seconds);
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const sendOtp = async () => {
+    try {
+      setIsLoading(true);
+      const fullName = `${registerBuffer.firstName.trim()} ${registerBuffer.lastName.trim()}`.trim();
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registerBuffer.email.trim(), name: fullName || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Failed to send OTP");
+      toast.success("OTP sent to your email");
+      setStep(2);
+      setOtp("");
+      startCooldown(30);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyAndRegister = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registerBuffer.email.trim(), otp }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.message || "Invalid OTP");
+      await handleRegister();
+    } catch (err: any) {
+      toast.error(err?.message || "Verification failed");
     } finally {
       setIsLoading(false);
     }
@@ -144,8 +220,16 @@ const AuthForm = () => {
     }
 
     if (isCreateAccount) {
-      if (validateStep1()) {
-        await handleRegister();
+      if (step === 1) {
+        if (validateStep1()) {
+          await sendOtp();
+        }
+      } else if (step === 2) {
+        if (!otp || otp.length !== 6) {
+          setValidationErrors((prev) => ({ ...prev, otp: "Enter the 6-digit code" }));
+          return;
+        }
+        await verifyAndRegister();
       }
     } else {
       if (validateLogin()) {
@@ -226,14 +310,26 @@ const AuthForm = () => {
           onSubmit={handleSubmit}
         >
           {isCreateAccount ? (
-            <RegisterStep1Form
-              registerBuffer={registerBuffer}
-              setRegisterBuffer={setRegisterBuffer}
-              validationErrors={validationErrors}
-              clearFieldError={clearFieldError}
-              passwordVisible={passwordVisible}
-              setPasswordVisible={setPasswordVisible}
-            />
+            step === 1 ? (
+              <RegisterStep1Form
+                registerBuffer={registerBuffer}
+                setRegisterBuffer={setRegisterBuffer}
+                validationErrors={validationErrors}
+                clearFieldError={clearFieldError}
+                passwordVisible={passwordVisible}
+                setPasswordVisible={setPasswordVisible}
+              />
+            ) : (
+              <RegisterStep2OtpForm
+                otp={otp}
+                setOtp={setOtp}
+                resendCooldown={resendCooldown}
+                sendOtp={sendOtp}
+                validationErrors={validationErrors}
+                clearError={(f) => clearFieldError(f)}
+                onComplete={verifyAndRegister}
+              />
+            )
           ) : (
             <>
               {step === 1 && (
