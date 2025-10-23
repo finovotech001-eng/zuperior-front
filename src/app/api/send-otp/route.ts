@@ -10,6 +10,7 @@ const buildEmailHtml = (otp: string, name?: string) => `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#121828;border-radius:12px;overflow:hidden">
       <tr>
         <td style="background:linear-gradient(90deg,#6242a5,#9f8bcf);padding:16px 20px">
+          <img src="cid:zuperior-logo" width="28" height="28" style="display:block;border:0;outline:none" alt="Zuperior logo"/>
           <h1 style="margin:0;font-size:20px;color:#fff">Zuperior</h1>
         </td>
       </tr>
@@ -59,6 +60,13 @@ export async function POST(req: NextRequest) {
     subject: "Verify your email • Zuperior",
     text: `Your OTP code is: ${otp}. It expires in 10 minutes.`,
     html: buildEmailHtml(otp, name),
+    attachments: [
+      {
+        filename: "logo.png",
+        path: `${process.cwd()}/public/logo.png`,
+        cid: "zuperior-logo",
+      },
+    ],
   };
 
   try {
