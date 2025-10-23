@@ -1,7 +1,7 @@
 import EmailFooter from "./common/EmailFooter";
 import EmailHeader from "./common/EmailHeader";
 
-const passwordChange = "https://zuperior-staging.onrender.com/emails/passwordChange.png";
+const passwordChange = "-staging.onrender.com/emails/passwordChange.png";
 
 const PasswordChange = () => {
     return (

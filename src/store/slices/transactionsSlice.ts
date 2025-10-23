@@ -96,7 +96,7 @@ export const getTransactions = createAsyncThunk<
           success: boolean;
           message: string;
           data: TransactionsResponse;
-        }>(`/transactions/database?${params.toString()}`);
+        }>(`/user/transactions/database?${params.toString()}`);
 
         if (!response.data?.success) {
           return rejectWithValue(response.data?.message || "Failed to fetch transactions");
@@ -112,7 +112,7 @@ export const getTransactions = createAsyncThunk<
         success: boolean;
         message: string;
         data: TransactionsResponse;
-      }>(`/transactions/database`, {
+      }>(`/user/transactions/database`, {
         accountId: account_number,
         startDate: start_date,
         endDate: end_date,
