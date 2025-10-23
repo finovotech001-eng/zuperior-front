@@ -167,7 +167,7 @@ export default function TransactionsPage() {
         account_id: transactionsData.MT5_account || tx.login,
       })),
       ...transactionsData.mt5Transactions
-        .filter((tx) => tx.type === "Deposit" || tx.type === "Internal Transfer In")
+        .filter((tx) => tx.type === "Deposit")
         .map((tx) => ({
           ...tx,
           type: tx.type,
@@ -184,7 +184,7 @@ export default function TransactionsPage() {
         account_id: transactionsData.MT5_account || tx.login,
       })),
       ...transactionsData.mt5Transactions
-        .filter((tx) => tx.type === "Withdrawal" || tx.type === "Internal Transfer Out")
+        .filter((tx) => tx.type === "Withdrawal")
         .map((tx) => ({
           ...tx,
           type: tx.type,

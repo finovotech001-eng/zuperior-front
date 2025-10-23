@@ -3,6 +3,7 @@
 import VerificationAlert from "../verification-alert";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { TextAnimate } from "@/components/ui/text-animate";
+import { useAppSelector } from "@/store/hooks";
 
 // Components
 import { BalanceSection } from "./balance-section";
@@ -27,7 +28,10 @@ export function DashboardContent() {
   const userData = getUserData();
   const name = userData?.name || "User";
   const [newAccountDialogOpen, setNewAccountDialogOpen] = useState(false);
-  const verificationStatus = "unverified" as const; // Default status since we're not using Redux
+  
+  // Get verification status from Redux state
+  const verificationStatus = useAppSelector((state) => state.kyc.verificationStatus);
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { fetchAllData, balance: totalBalance, isLoading, hasData, isAuthenticated } = useFetchUserData();
 
