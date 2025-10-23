@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from './api.service';
 
 interface ResetPasswordParams {
     email: string;
@@ -16,17 +16,12 @@ interface ResetPasswordResponse {
     // Add other fields as needed based on your API response
 }
 
-export async function resetPassword(params: ResetPasswordParams): Promise<ResetPasswordResponse> {    
-    try {
-        const response = await axios.post<ResetPasswordResponse>('/api/password/reset', {
-            email: params.email,
-            accessToken: params.accessToken,
-            newPassword: params.newPassword,
-            confirmPassword: params.confirmPassword,
-            oldPassword: params.oldPassword
-        });
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
+export async function resetPassword(params: ResetPasswordParams): Promise<ResetPasswordResponse> {
+  // Call our Next API which proxies to backend
+  const response = await api.put<ResetPasswordResponse>('/api/user/password', {
+    oldPassword: params.oldPassword,
+    newPassword: params.newPassword,
+    confirmPassword: params.confirmPassword,
+  });
+  return response.data as any;
 }

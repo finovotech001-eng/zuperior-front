@@ -195,12 +195,17 @@ export function Step1Form({
               <SelectContent className="border-[#1e171e] dark:bg-[#060207]">
                 {accounts
                   .filter((account) => account.account_type !== "Demo")
-                  .map((account) => (
+                  .filter((account => String(account.acc ?? '').trim() !== '' && String(account.acc) !== '0'))
+                  .filter((account) => /^\d+$/.test(String(account.acc)))
+                  .reduce((unique: any[], acc) => {
+                    const id = String(acc.acc);
+                    if (!unique.find((x) => String(x.acc) === id)) unique.push(acc);
+                    return unique;
+                  }, [])
+                  .map((account, index) => (
                     <SelectItem
-                      key={account.acc}
-                      value={`${account.acc}|${
-                        account.account_type_requested || ""
-                      }`}
+                      key={`${account.acc}-${index}`}
+                      value={`${account.acc}|${account.account_type_requested || ""}`}
                     >
                       <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">
                         MT5
@@ -215,9 +220,7 @@ export function Step1Form({
                           : ""}
                         )
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        ${parseFloat(account.balance).toFixed(2)}
-                      </span>
+                      <span className="text-xs text-muted-foreground">${parseFloat(account.balance).toFixed(2)}</span>
                     </SelectItem>
                   ))}
               </SelectContent>

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
+// import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 import EyeIcon from "@/components/EyeIcon";
 import { z } from "zod";
 import { resetPassword } from "@/services/resetPassword";
@@ -127,14 +127,13 @@ export function ResetMainPasswordDialog({
 
     setIsApiProcessing(true);
     try {
-      const token = await dispatch(fetchAccessToken()).unwrap();
       const data = await resetPassword({
         email,
-        accessToken: token,
+        accessToken: '',
         ...formData,
       });
 
-      if (data.status_code === "1") {
+      if ((data as any).success || (data as any).status_code === "1") {
         toast.success("Password Reset Successful", {
           description: "Your password has been successfully updated.",
           duration: 4000,
@@ -142,7 +141,7 @@ export function ResetMainPasswordDialog({
         resetForm();
         onOpen(false);
       } else {
-        toast.error(data.error || "Password Reset Failed");
+        toast.error((data as any).message || (data as any).error || "Password Reset Failed");
       }
     } catch {
       toast.error("An error occurred. Please try again.");

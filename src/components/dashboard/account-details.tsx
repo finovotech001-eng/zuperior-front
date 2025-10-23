@@ -102,6 +102,8 @@ const AccountDetails = ({
 
   const router = useRouter();
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  // Ensure numbers align vertically across rows (tabular figures)
+  const numericStyle: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
   return (
     <div className="rounded-[15px] p-[15px] pl-2 bg-[#fbfafd] dark:bg-gradient-to-r dark:from-[#110F17] dark:to-[#1E1429] mb-1.5 relative flex flex-col gap-5">
@@ -300,36 +302,36 @@ const AccountDetails = ({
                   ))}
               </div>
               {/* Black Box */}
-              <div className="dark:bg-[#01040D] bg-[#f3f3f3] flex flex-col md:flex-row xl:w-auto p-6.25 rounded-[15px] gap-2 md:gap-16.75 items-center font-semibold w-full">
+              <div className="dark:bg-[#01040D] bg-[#f3f3f3] flex flex-col md:flex-row xl:w-auto p-6.25 rounded-[15px] gap-4 md:gap-16.75 items-center font-semibold w-full">
                 <div className="flex flex-col gap-1.25 w-full md:w-[211px]">
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Actual Leverage</p>
-                    <div className="text-sm">{leverage}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{leverage}</div>
                   </div>
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Free Margin</p>
-                    <div className="text-sm">{freeMargin}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{freeMargin}</div>
                   </div>
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Equity</p>
-                    <div className="text-sm">{equity}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{equity}</div>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.25 w-full md:w-[211px]">
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">
                       Available for Withdrawal
                     </p>
-                    <div className="text-sm">{availableForWithdrawal}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{availableForWithdrawal}</div>
                   </div>
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Balance</p>
-                    <div className="text-sm">{balance}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{balance}</div>
                   </div>
-                  <div className="flex justify-between w-full">
+                  <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Credit</p>
-                    <div className="text-sm">{credit}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{credit}</div>
                   </div>
                 </div>
               </div>

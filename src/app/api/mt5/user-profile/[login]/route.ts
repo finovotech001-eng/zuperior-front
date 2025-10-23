@@ -19,9 +19,9 @@ export async function GET(
 
     const { login } = await params;
 
-    if (!login) {
+    if (!login || login === '0' || !/^\d+$/.test(String(login))) {
       return NextResponse.json(
-        { success: false, message: 'Login parameter is required' },
+        { success: false, message: 'Valid login parameter is required' },
         { status: 400 }
       );
     }

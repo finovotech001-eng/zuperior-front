@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Step1FormProps } from "@/components/withdraw/types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { store } from "@/store";
 import { toast } from "sonner";
 import axios from "axios";
@@ -39,11 +39,32 @@ export function Step1FormPayout({
   const [kycStep, setKycStep] = useState<
     "unverified" | "partial" | "verified" | ""
   >("");
+  const [approvedWallets, setApprovedWallets] = useState<string[]>([]);
 
   // KYC Step
   useEffect(() => {
     setKycStep(store.getState().kyc.verificationStatus);
   }, []);
+
+  // Load approved payment methods (wallet addresses)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+        const base = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${base}/user/payment-methods`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const json = await res.json();
+        if (json?.status === 'Success') {
+          const list = (json.data || []).filter((pm: any) => pm.status === 'approved').map((pm: any) => pm.address);
+          setApprovedWallets(list);
+          if (list.length && !toWallet) setToWallet(list[0]);
+        }
+      } catch {}
+    };
+    load();
+  }, [setToWallet, toWallet]);
 
   // Amount Validation
   const validateAmount = () => {
@@ -52,7 +73,8 @@ export function Step1FormPayout({
       return false;
     }
     const amountNum = parseFloat(amount);
-    const balance = parseFloat(selectedAccount.margin_free);
+    // Use account balance for withdrawal availability display/validation
+    const balance = parseFloat(selectedAccount.balance);
 
     if (isNaN(amountNum) || amountNum <= 0) {
       toast.error("Please enter a valid amount");
@@ -88,13 +110,15 @@ export function Step1FormPayout({
 
     setIsValidating(true);
     try {
-      const { data } = await axios.post("/api/payout-address-legal", {
-        address: toWallet.trim(),
-        chain_id: selectedNetwork.split("@")[0],
-      });
-
-      if (data.code !== "00000" || !data.data?.result) {
-        throw new Error(data.data?.result || "Invalid wallet address");
+      // If selected from approved list, we skip external validation
+      if (!approvedWallets.includes(toWallet.trim())) {
+        const { data } = await axios.post("/api/payout-address-legal", {
+          address: toWallet.trim(),
+          chain_id: selectedNetwork.split("@")[0],
+        });
+        if (data.code !== "00000" || !data.data?.result) {
+          throw new Error(data.data?.result || "Invalid wallet address");
+        }
       }
       return true;
     } catch (error) {
@@ -137,6 +161,8 @@ export function Step1FormPayout({
         <Label className="text-sm dark:text-white/75 text-black mb-1">
           Account
         </Label>
+        {/** De-duplicate and sanitize account list */}
+        {(() => { return null; })()}
         <Select
           onValueChange={(value) => {
             const found = accounts.find(
@@ -150,38 +176,54 @@ export function Step1FormPayout({
             <SelectValue placeholder="Select Account" />
           </SelectTrigger>
           <SelectContent>
-            {accounts.map((account) => (
-              <SelectItem
-                key={account.acc}
-                value={account.acc.toString()}
-                disabled={parseFloat(account.margin_free) === 0}
-              >
-                <span className="px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">
-                  MT5
-                </span>
-                <span className="text-black dark:text-white/75">
-                  {account.acc}
-                </span>
-                <span className="text-xs  text-black dark:text-white/75">
-                  ${parseFloat(account.margin_free).toFixed(2)}
-                </span>
-              </SelectItem>
-            ))}
+            {useMemo(() => {
+              const seen = new Set<string>();
+              return accounts
+                .filter((account) => {
+                  const id = String(account.acc ?? '').trim();
+                  if (!id || id === '0' || seen.has(id)) return false;
+                  seen.add(id);
+                  return true;
+                })
+                .map((account, index) => (
+                  <SelectItem
+                    key={`${account.acc}-${index}`}
+                    value={account.acc.toString()}
+                    disabled={parseFloat(account.balance) === 0}
+                  >
+                    <span className="px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">
+                      MT5
+                    </span>
+                    <span className="text-black dark:text-white/75">
+                      {account.acc}
+                    </span>
+                    <span className="text-xs  text-black dark:text-white/75">
+                      ${parseFloat(account.balance).toFixed(2)}
+                    </span>
+                  </SelectItem>
+                ));
+            }, [accounts])}
           </SelectContent>
         </Select>
       </div>
 
       {/* WALLET ADDRESS */}
       <div className="mt-4">
-        <Label className="text-sm dark:text-white/75 text-black mb-1">
-          Wallet Address
-        </Label>
-        <Input
-          value={toWallet}
-          onChange={(e) => setToWallet(e.target.value)}
-          placeholder="Enter your wallet address"
-          className="border-[#362e36] p-5 text-black dark:text-white/75 dark:bg-[#070307] focus:ring-[#8046c9] w-full "
-        />
+        <Label className="text-sm dark:text-white/75 text-black mb-1">Wallet Address</Label>
+        <Select value={toWallet} onValueChange={setToWallet}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder={approvedWallets.length ? "Select wallet" : "No approved wallets found"} />
+          </SelectTrigger>
+          <SelectContent>
+            {approvedWallets.length === 0 ? (
+              <SelectItem disabled value="__no_wallets__">No approved wallets found</SelectItem>
+            ) : (
+              approvedWallets.map((addr) => (
+                <SelectItem key={addr} value={addr}>{addr}</SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* AMOUNT */}

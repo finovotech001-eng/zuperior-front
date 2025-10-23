@@ -48,6 +48,9 @@ export interface MT5State {
   isFetchingGroups?: boolean;
   lastAccountsFetchAt?: number | null;
   lastGroupsFetchAt?: number | null;
+
+  // Track which clientId the cached state belongs to
+  ownerClientId?: string | null;
 }
 
 // Small helper to throttle rapid duplicate dispatches
@@ -92,44 +95,39 @@ export const fetchUserMt5Accounts = createAsyncThunk(
   "mt5/fetchUserAccounts",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await mt5Service.getUserMt5Accounts();
+      // Fetch accounts strictly from DB for stability
+      const db = await mt5Service.getUserMt5AccountsFromDb();
+      const records = db?.data?.accounts || db?.accounts || [];
+      if (!records || records.length === 0) return [];
 
-      console.log('🔍 MT5 Service response:', response);
-
-      // Handle response format - check if Success is false
-      if (response.Success === false) {
-        console.log("⚠️ Failed to fetch MT5 accounts or no accounts found");
-        return [];
-      }
-
-      // Get the accounts data
-      const accounts = response.Data || [];
-
-      if (accounts.length === 0) {
-        console.log("No MT5 accounts found for user");
-        return [];
-      }
-
-      // Transform MT5 API data to match expected MT5Account format
-      const transformedAccounts = accounts.map((account: any) => ({
-        accountId: String(account.Login),
-        name: account.Name,
-        group: account.Group,
-        leverage: account.Leverage,
-        balance: account.Balance || 0,
-        equity: account.Equity || 0,
-        credit: account.Credit || 0,
-        margin: account.Margin || 0,
-        marginFree: account.MarginFree || 0,
-        marginLevel: account.MarginLevel || 0,
-        profit: account.Profit || 0,
-        isEnabled: account.IsEnabled !== false, // Default to true if not specified
-        createdAt: account.Registration || new Date().toISOString(),
-        updatedAt: account.LastAccess || new Date().toISOString()
+      // Map to minimal account objects; balances refreshed separately
+      const transformedAccountsRaw = records.map((a: any) => ({
+        accountId: String(a.accountId ?? a.Login ?? ''),
+        name: '',
+        group: '',
+        leverage: 0,
+        balance: 0,
+        equity: 0,
+        credit: 0,
+        margin: 0,
+        marginFree: 0,
+        marginLevel: 0,
+        profit: 0,
+        isEnabled: true,
+        createdAt: a.createdAt || new Date().toISOString(),
+        updatedAt: a.createdAt || new Date().toISOString(),
       }));
 
-      console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
-      console.log('📋 Transformed accounts data:', transformedAccounts);
+      // Sanitize: remove invalid/duplicate ids (e.g., '0')
+      const seenIds = new Set<string>();
+      const transformedAccounts = transformedAccountsRaw.filter((a: any) => {
+        const id = (a?.accountId ?? '').trim();
+        if (!id || id === '0' || !/^\d+$/.test(id) || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
+
+      console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts (DB list)`);
       return transformedAccounts;
     } catch (error: any) {
       console.error("❌ Error in fetchUserMt5Accounts:", error);
@@ -354,6 +352,7 @@ const initialState: MT5State = {
   isFetchingGroups: false,
   lastAccountsFetchAt: null,
   lastGroupsFetchAt: null,
+  ownerClientId: null,
 };
 
 // --------------------
@@ -363,6 +362,20 @@ const mt5AccountSlice = createSlice({
   name: "mt5",
   initialState,
   reducers: {
+    // Clear MT5 state when switching users to avoid cross-user leakage from persisted cache
+    resetForNewClient: (state, action: PayloadAction<string | null>) => {
+      state.accounts = [];
+      state.groups = [];
+      state.selectedAccount = null;
+      state.totalBalance = 0;
+      state.isLoading = false;
+      state.error = null;
+      state.isFetchingAccounts = false;
+      state.isFetchingGroups = false;
+      state.lastAccountsFetchAt = null;
+      state.lastGroupsFetchAt = null;
+      state.ownerClientId = action.payload ?? null;
+    },
     setSelectedAccount: (state, action: PayloadAction<MT5Account | null>) => {
       state.selectedAccount = action.payload;
     },
@@ -433,6 +446,10 @@ const mt5AccountSlice = createSlice({
         console.log(`💰 Total Balance calculated: $${state.totalBalance}`);
         console.log('📊 Redux state updated with accounts:', action.payload);
         console.log('📊 Number of accounts stored:', action.payload.length);
+        // Stamp the current owner so we can detect user switches later
+        if (typeof window !== 'undefined') {
+          state.ownerClientId = localStorage.getItem('clientId');
+        }
       })
       .addCase(fetchUserMt5Accounts.rejected, (state, action) => {
         state.isLoading = false;
@@ -519,6 +536,10 @@ const mt5AccountSlice = createSlice({
 // --------------------
 // Exports
 // --------------------
-export const { setSelectedAccount, clearError, updateAccountBalance } =
-  mt5AccountSlice.actions;
+export const {
+  setSelectedAccount,
+  clearError,
+  updateAccountBalance,
+  resetForNewClient,
+} = mt5AccountSlice.actions;
 export default mt5AccountSlice.reducer;

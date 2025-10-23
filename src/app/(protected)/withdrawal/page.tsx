@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Tabs } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useFetchUserData } from "@/hooks/useFetchUserData";
 
 type CryptoData = {
   symbol: string;
@@ -36,9 +37,7 @@ type Cryptocurrency = {
 };
 
 export default function WithdrawalDepositPage() {
-  const [cryptocurrencies, setCryptocurrencies] = useState<Cryptocurrency[]>(
-    []
-  );
+  const [cryptocurrencies, setCryptocurrencies] = useState<Cryptocurrency[]>([]);
   const [transferMethod, setTransferMethod] = useState<
     "between_accounts" | "to_another_user"
   >("between_accounts");
@@ -64,61 +63,30 @@ export default function WithdrawalDepositPage() {
     }
   }, [isUnverified]);
 
-  // Fetch crypto list from API
+  // Ensure latest MT5 balances are fetched on page open
+  const { fetchAllData } = useFetchUserData();
   useEffect(() => {
-    const fetchCrypto = async () => {
-      try {
-        const res = await axios.get("/api/crypto-currency");
-        const tokens: CryptoData[] = res.data.data;
+    fetchAllData(true);
+  }, [fetchAllData]);
 
-        const groupedMap = new Map<string, Cryptocurrency>();
-
-        tokens.forEach((token) => {
-          const id = token.name;
-          if (!groupedMap.has(id)) {
-            groupedMap.set(id, {
-              id,
-              name: token.name,
-              symbol: token.symbol,
-              icon: token.logoUrl,
-              network: token.network,
-              networks: [
-                { blockchain: token.blockchain, logoUrl: token.logoUrl },
-              ],
-            });
-          } else {
-            const existing = groupedMap.get(id)!;
-            if (
-              !existing.networks.some((n) => n.blockchain === token.blockchain)
-            ) {
-              existing.networks.push({
-                blockchain: token.blockchain,
-                logoUrl: token.logoUrl,
-              });
-            }
-          }
-        });
-
-        const groupedArray = Array.from(groupedMap.values());
-
-        // Move USDT-BEP20 to the end:
-        const idx = groupedArray.findIndex((c) => c.name === "USDT-BEP20");
-        if (idx > -1) {
-          const [usdtBep20] = groupedArray.splice(idx, 1);
-          groupedArray.push(usdtBep20);
-        }
-
-        setCryptocurrencies(groupedArray);
-      } catch (error) {
-        console.error("Failed to fetch crypto data", error);
-      }
-    };
-
-    fetchCrypto();
+  // Use only USDT-TRC20 for withdrawals
+  useEffect(() => {
+    setCryptocurrencies([
+      {
+        id: 'USDT-TRC20',
+        name: 'USDT-TRC20',
+        symbol: 'USDT',
+        icon: '/trc20.png',
+        network: 'TRC20',
+        networks: [{ blockchain: 'TRC20', logoUrl: '/trc20.png' }],
+      },
+    ]);
   }, []);
 
   const handleCryptoSelect = (crypto: Cryptocurrency) => {
     setSelectedCrypto(crypto);
+    // Refresh balances just before opening dialog
+    fetchAllData(true);
     setDepositDialogOpen(true);
   };
 

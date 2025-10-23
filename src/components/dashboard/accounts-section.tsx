@@ -18,14 +18,26 @@ interface AccountsSectionProps {
   onOpenNewAccount: () => void;
 }
 
+// Derive human friendly account plan from MT5 group string
+const deriveAccountPlan = (group?: string | null): string | null => {
+  if (!group) return null;
+  const g = group.toLowerCase();
+  if (g.includes('pro')) return 'Pro';
+  if (g.includes('standard')) return 'Standard';
+  return null;
+};
+
 // Helper function to map MT5Account to TpAccountSnapshot
 const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => {
+  const requestedType = deriveAccountPlan(mt5Account.group);
   return {
     tradingplatformaccountsid: parseInt(mt5Account.accountId),
     account_name: parseInt(mt5Account.accountId),
     platformname: "MT5",
     acc: parseInt(mt5Account.accountId),
     account_type: "Live", // All MT5 accounts are live for now
+    // Show account plan (Pro/Standard) derived from the MT5 group
+    account_type_requested: requestedType,
     leverage: mt5Account.leverage || 100,
     balance: (mt5Account.balance || 0).toString(),
     credit: (mt5Account.credit || 0).toString(),
@@ -35,7 +47,6 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     margin_level: (mt5Account.marginLevel || 0).toString(),
     closed_pnl: (mt5Account.profit || 0).toString(),
     open_pnl: "0",
-    account_type_requested: null,
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(mt5Account.accountId),
@@ -48,9 +59,13 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
   const [open, setOpen] = useState(false);
   const { theme } = useTheme();
 
-  const accounts = useSelector((state: RootState) => state.mt5.accounts);
+  const { accounts, ownerClientId } = useSelector((state: RootState) => state.mt5);
+  const currentClientId = typeof window !== 'undefined' ? localStorage.getItem('clientId') : null;
 
-  const hasBasicAccountInfo = accounts && accounts.length > 0;
+  const hasBasicAccountInfo =
+    accounts &&
+    accounts.length > 0 &&
+    (!ownerClientId || !currentClientId || ownerClientId === currentClientId);
 
   const [activeTab, setActiveTab] = useState<"live" | "demo" | "archived">(
     "live"

@@ -5,11 +5,7 @@ import { Step2ConfirmationProps } from "./types";
 import fallbackImg from "@/assets/binance.png";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { TpAccountSnapshot } from "@/types/user-details";
-import { store } from "@/store";
-import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 
 export function Step2ConfirmationPayout({
   amount,
@@ -30,8 +26,6 @@ export function Step2ConfirmationPayout({
   setPayoutId: (id: string) => void;
 }) {
   const [isApiProcessing, setIsApiProcessing] = useState(false);
-  const userData = store.getState().user.data;
-  const dispatch = useAppDispatch();
 
   // Function to check payout status
   const checkPayoutStatus = useCallback(
@@ -53,41 +47,7 @@ export function Step2ConfirmationPayout({
     []
   );
 
-  // Function to store payout data in Supabase
-  const storePayoutData = async (cid: string) => {
-    try {
-      if (selectedAccount === null) {
-        throw new Error("Account details not available");
-      }
-      // Insert into Supabase
-      const { data, error } = await supabase
-        .from('withdraw_cid')
-        .insert([
-          {
-            accountname: userData?.accountname,
-            email: userData?.email1,
-            account_type: selectedAccount.account_type || '',
-            acc: (selectedAccount.acc).toString() || '',
-            wallet_address: toWallet,
-            amount: parseFloat(amount.toString()),
-            cid: cid,
-            status: 'pending'
-          }
-        ])
-        .select();
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message);
-      }
-
-      console.log('Payout data stored successfully:', data);
-      return data;
-    } catch (error) {
-      console.error('Error storing payout data:', error);
-      throw error;
-    }
-  };
+  // Removed Supabase storage: we save directly in backend DB
 
   // Function to handle payout API call
   const handlePayout = async () => {
@@ -99,102 +59,31 @@ export function Step2ConfirmationPayout({
     setIsApiProcessing(true);
 
     try {
-      // Step 1: Make the payout request
-      const payoutResponse = await fetch('/api/payout', {
+      // Create withdrawal request in our backend (pending)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const resp = await fetch('/api/withdraw/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          currency: selectedCrypto.name,
-          address: toWallet,
-          amount: amount.toString(),
-          remark: `Payout to ${userData?.accountname}`,
-          memo: `Payment for ${amount} ${selectedCrypto.name}`
+          mt5AccountId: selectedAccount.acc,
+          amount: Number(amount),
+          walletAddress: toWallet,
         }),
       });
+      const json = await resp.json();
+      if (!resp.ok || !json?.success) throw new Error(json?.message || 'Failed to create withdrawal');
 
-      const payoutData = await payoutResponse.json();
-      console.log("Payout API response:", payoutData);
-
-      if (!payoutResponse.ok) {
-        throw new Error(payoutData.error || payoutData.message || 'Failed to process payout');
-      }
-
-      if (payoutData.code !== "00000" || !payoutData.data?.cid) {
-        throw new Error(payoutData.msg || "Invalid response from payout API");
-      }
-      
-      // Extract cid from response
-      const cid = payoutData.data.cid;
-      
-      // Step 2: Store payout data in Supabase
-      await storePayoutData(cid);
-      await handleWithdraw()
-      
-      // Step 3: Check payout status
-      const statusData = await checkPayoutStatus(cid);
-      console.log("Payout status:", statusData);
-      
-      if (statusData.code === "00000") {
-        setPayoutId(cid);
-        handleContinueToPayment();
-      } else {
-        throw new Error(statusData.msg || "Payout verification failed");
-      }
+      const cid = json.data?.id || '';
+      setPayoutId(cid);
+      handleContinueToPayment();
 
     } catch (err: unknown) {
       toast.error((err as Error).message || 'An error occurred while processing the payout');
     } finally {
       setIsApiProcessing(false);
-    }
-  };
-
-  // To Do: integrate with actual withdraw API which sends the req to a pending state, not the completed state
-  const handleWithdraw = async () => {
-    try {
-      const token = await dispatch(fetchAccessToken()).unwrap();
-
-      toast("Processing Withdrawal...", {
-        description: "Please wait while we process your transaction.",
-      });
-      if (selectedAccount === null) return;
-
-      const formData = new URLSearchParams();
-      formData.append("account_number", (selectedAccount?.acc).toString() || "");
-      formData.append("amount", amount.toString() || "0");
-      formData.append("access_token", token);
-
-      const response = await fetch("/api/withdraw", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Withdrawal failed");
-      }
-
-      const data = await response.json();
-      if (data.status === "success") {
-        toast.success("Withdrawal Completed", {
-          description:
-            "Your funds have been successfully withdrawn from your account.",
-          duration: 4000,
-        });
-      }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Withdrawal failed";
-      toast.error("Withdrawal Failed", {
-        description: errorMessage,
-        duration: 6000,
-      });
-    } finally {
-      toast.dismiss();
     }
   };
 
@@ -226,31 +115,24 @@ export function Step2ConfirmationPayout({
         <div className="space-y-2 flex justify-between items-center text-sm">
           <p className="text-black dark:text-white/75">Payment Method</p>
           <div className="flex items-center">
-            {paymentMethod === "" && selectedCrypto?.name ? (
-              <>
-                <Image
-                  src={selectedCrypto.icon}
-                  alt={selectedCrypto.name}
-                  className="h-6 w-6 mr-2"
-                  width={24}
-                  height={24}
-                />
-                <p className="text-black dark:text-white/75">{selectedCrypto?.name}</p>
-              </>
-            ) : (
-              <>
-                {paymentMethod && (
+            {(() => {
+              const methodName = (selectedCrypto?.name || paymentMethod || 'USDT-TRC20');
+              const iconSrc = methodName.toUpperCase().includes('TRC20')
+                ? '/trc20.png'
+                : (selectedCrypto?.icon || (paymentMethod ? paymentImages[paymentMethod] : undefined) || fallbackImg);
+              return (
+                <>
                   <Image
-                    src={paymentImages[paymentMethod] || fallbackImg}
-                    alt="Payment Method"
+                    src={iconSrc}
+                    alt={methodName}
                     className="h-6 w-6 mr-2"
                     width={24}
                     height={24}
                   />
-                )}
-                <p className="text-black dark:text-white/75">{paymentMethod}</p>
-              </>
-            )}
+                  <p className="text-black dark:text-white/75">{methodName}</p>
+                </>
+              );
+            })()}
           </div>
         </div>
 

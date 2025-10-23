@@ -37,7 +37,33 @@ export function WithdrawPayoutDialog({
  /*  const [accountDetails, setAccountDetails] = useState<AccountDetails | null>(
     null
   ); */
-  const liveAccounts = useSelector((state: RootState) => state.accounts.data).filter((account) => account.account_type === "Live");
+  // Prefer MT5 accounts from the new flow; fall back to legacy snapshot
+  const mt5Accounts = useSelector((state: RootState) => state.mt5.accounts);
+  const legacyAccounts = useSelector((state: RootState) => state.accounts.data).filter((a) => a.account_type === 'Live');
+
+  const mapMt5ToTp = (a: any): TpAccountSnapshot => ({
+    tradingplatformaccountsid: parseInt(a.accountId),
+    account_name: parseInt(a.accountId),
+    platformname: 'MT5',
+    acc: parseInt(a.accountId),
+    account_type: 'Live',
+    leverage: a.leverage || 100,
+    balance: String(a.balance ?? 0),
+    credit: String(a.credit ?? 0),
+    equity: String(a.equity ?? 0),
+    margin: String(a.margin ?? 0),
+    margin_free: String(a.marginFree ?? 0),
+    margin_level: String(a.marginLevel ?? 0),
+    closed_pnl: String(a.profit ?? 0),
+    open_pnl: '0',
+    account_type_requested: (a.group || '').toLowerCase().includes('pro') ? 'Pro' : (a.group || '').toLowerCase().includes('standard') ? 'Standard' : null,
+    provides_balance_history: true,
+    tp_account_scf: { tradingplatformaccountsid: parseInt(a.accountId), cf_1479: a.name || '' },
+  });
+
+  const liveAccounts: TpAccountSnapshot[] = mt5Accounts?.length
+    ? mt5Accounts.map(mapMt5ToTp)
+    : legacyAccounts;
   const [selectedAccount, setSelectedAccount] = useState<TpAccountSnapshot | null>(null);
   const [payoutId, setPayoutId] = useState<string | null>(null);
 
@@ -154,9 +180,7 @@ export function WithdrawPayoutDialog({
         className="border-2 border-transparent p-6 text-white rounded-[18px] flex flex-col items-center w-full  [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,theme(colors.purple.400/48%))_border-box] animate-border"
         disableOutsideClick={true}
       >
-        <DialogTitle className="sr-only">
-          {/* {selectedTab === "deposit" ? "Deposit Funds" : "Withdraw Funds"} */}
-        </DialogTitle>
+        <DialogTitle className="text-xl font-semibold">Withdraw Funds</DialogTitle>
 
         <DialogHeader className="w-full py-7">
           <div className="flex items-center justify-between w-full pt-6">

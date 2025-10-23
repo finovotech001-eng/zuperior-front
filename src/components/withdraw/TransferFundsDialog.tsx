@@ -39,8 +39,17 @@ const TransferFundsDialog = ({
   const accounts = useSelector((state: RootState) => state.mt5.accounts);
   const token = state.auth.token || localStorage.getItem('userToken');
 
-  // Show all accounts as they are - no filtering
-  const filteredAccounts = accounts;
+  // Filter invalid/duplicate accounts (e.g., id '0')
+  const filteredAccounts = (() => {
+    const seen = new Set<string>();
+    const arr = accounts.filter((a) => {
+      const id = String(a?.accountId ?? '').trim();
+      if (!id || id === '0' || !/^\d+$/.test(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    return arr;
+  })();
 
   const [paymentMethod, setPaymentMethod] = useState<string>(method);
   const [fromAccount, setFromAccount] = useState<string>("");
@@ -394,4 +403,3 @@ const TransferFundsDialog = ({
 };
 
 export default TransferFundsDialog;
-

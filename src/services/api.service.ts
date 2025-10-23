@@ -210,7 +210,13 @@ const mt5Service = {
       const ok = normalizeOk(db);
       if (!ok.success) return { Success: false, Data: [] };
 
-      const accountIds: string[] = ok.data?.accounts?.map((a: any) => a.accountId).filter(Boolean) ?? [];
+      // Clean incoming IDs (unique, numeric, non-zero)
+      const rawIds: string[] = ok.data?.accounts?.map((a: any) => a.accountId).filter(Boolean) ?? [];
+      const accountIds = Array.from(new Set(
+        rawIds
+          .map((id: any) => String(id).trim())
+          .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
+      ));
       if (!accountIds.length) return { Success: false, Data: [] };
 
       const profiles = await Promise.all(
