@@ -10,7 +10,6 @@ const buildEmailHtml = (otp: string, name?: string) => `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#121828;border-radius:12px;overflow:hidden">
       <tr>
         <td style="background:linear-gradient(90deg,#6242a5,#9f8bcf);padding:16px 20px">
-          <img src="cid:zuperior-logo" width="28" height="28" style="display:block;border:0;outline:none" alt="Zuperior logo"/>
           <h1 style="margin:0;font-size:20px;color:#fff">Zuperior</h1>
         </td>
       </tr>
@@ -29,6 +28,54 @@ const buildEmailHtml = (otp: string, name?: string) => `
     </table>
   </div>
 `;
+
+// Responsive email (no attachments). Supports dark/light in clients that honor prefers-color-scheme.
+const buildResponsiveEmailHtml = (otp: string, name?: string) => `
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
+    <style>
+      body{margin:0;padding:24px;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a}
+      .card{max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden}
+      .header{background:linear-gradient(90deg,#6242a5,#9f8bcf);padding:16px 20px}
+      .title{margin:0;font-size:20px;color:#ffffff}
+      .muted{color:#475569}
+      .code{letter-spacing:6px;font-weight:700;font-size:28px;text-align:center;color:#111827;margin:18px 0 8px}
+      .panel{margin-top:22px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;color:#475569;font-size:12px}
+      .foot{margin-top:24px;font-size:12px;color:#475569}
+      @media (prefers-color-scheme: dark){
+        body{background:#0b0f1a;color:#e6e6e6}
+        .card{background:#121828}
+        .muted{color:#94a3b8}
+        .code{color:#ffffff}
+        .panel{border-color:#1f2937;color:#94a3b8}
+        .foot{color:#94a3b8}
+      }
+    </style>
+  </head>
+  <body>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card">
+      <tr>
+        <td class="header">
+          <h1 class="title">Zuperior</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px">
+          <p class="muted" style="margin:0 0 12px 0;font-size:14px">${name ? `Hi ${name},` : "Hi,"}</p>
+          <p class="muted" style="margin:0 0 16px 0;font-size:14px">Use the one-time code below to verify your email address.</p>
+          <div class="code">${otp}</div>
+          <p class="muted" style="margin:0 0 6px 0;font-size:12px;text-align:center">This code will expire in 10 minutes.</p>
+          <div class="panel">If you didn't request this email, you can safely ignore it.</div>
+          <p class="foot">— Team Zuperior</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 
 export async function POST(req: NextRequest) {
   const { email, name } = await req.json();
@@ -59,14 +106,8 @@ export async function POST(req: NextRequest) {
     to: email,
     subject: "Verify your email • Zuperior",
     text: `Your OTP code is: ${otp}. It expires in 10 minutes.`,
-    html: buildEmailHtml(otp, name),
-    attachments: [
-      {
-        filename: "logo.png",
-        path: `${process.cwd()}/public/logo.png`,
-        cid: "zuperior-logo",
-      },
-    ],
+    html: buildResponsiveEmailHtml(otp, name),
+    
   };
 
   try {
