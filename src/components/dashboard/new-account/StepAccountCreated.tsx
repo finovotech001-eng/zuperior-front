@@ -56,67 +56,67 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
       <div className="rounded-[15px] leading-8 bg-white dark:bg-[#050105] px-6 border border-[#251e25] mt-2 md:mt-4 mx-auto w-auto md:w-[396px]">
         <div className="py-2">
           <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold pr-2 text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Server:
             </span>
-            <span className="text-[14px] font-semibold text-start w-[140px] text-black dark:text-white capitalize">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white capitalize">
               ZuperiorFX-Limited
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               MT5 Login:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/74 w-[140px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
               {latestAccount?.object?.tp_id || latestAccount?.object?.crm_account_id || "N/A"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+          <div className="flex justify-between items-center">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Password:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/75 w-[150px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
               {password || "N/A"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Account Type:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/74 w-[140px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
               Live
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Leverage:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/75 w-[140px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
               1:{latestAccount?.leverage || "N/A"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Balance:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/74 w-[140px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
               ${latestAccount?.balance || "0.00"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
           <div className="flex justify-between items-center md:mb-4">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f]">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Account Group:
             </span>
-            <span className="text-[14px] font-semibold text-black dark:text-white/75 w-[140px]">
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
               {latestAccount?.group === 'real\\Bbook\\Pro\\dynamic-2000x-10P' ? 'Pro' : 'Standard'}
             </span>
-            <Image className="h-4 w-4 cursor-pointer" src={copy} alt="" />
+            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
         </div>
       </div>
@@ -140,10 +140,10 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
             <div className="flex items-center">
               <Image className="h-9 w-9 mr-4 cursor-pointer" src={web} alt="" />
               <div className="flex flex-col">
-                <span className="text-[14px] font-medium text-black dark:text-white/75">
+                <span className="text-[14px] font-semibold text-black dark:text-white">
                   Web Terminal
                 </span>
-                <span className="text-[13px] font-medium text-black dark:text-white/75">
+                <span className="text-[13px] font-semibold text-black dark:text-white/75">
                   Trade directly from browser
                 </span>
               </div>

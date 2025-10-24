@@ -21,7 +21,7 @@ interface PaymentMethod {
   approvedAt?: string;
   rejectionReason?: string;
 }
-
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 export default function PaymentMethodsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ export default function PaymentMethodsPage() {
   const fetchPaymentMethods = async () => {
     try {
       const token = localStorage.getItem("userToken");
-      const response = await fetch("http://localhost:5000/api/user/payment-methods", {
+      const response = await fetch(`${API_URL}/api/user/payment-methods`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
