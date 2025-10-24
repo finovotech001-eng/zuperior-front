@@ -37,7 +37,7 @@ export default function PaymentMethodsPage() {
   const fetchPaymentMethods = async () => {
     try {
       const token = localStorage.getItem("userToken");
-      const response = await fetch(`${API_URL}/api/user/payment-methods`, {
+      const response = await fetch(`${API_URL}/user/payment-methods`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
