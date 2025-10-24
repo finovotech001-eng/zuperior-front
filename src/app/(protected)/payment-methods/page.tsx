@@ -60,7 +60,7 @@ export default function PaymentMethodsPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem("userToken");
-      const response = await fetch("http://localhost:5000/api/user/payment-methods", {
+      const response = await fetch(`${API_URL}/user/payment-methods`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
