@@ -268,10 +268,14 @@ export function NewAccountDialog({
           updatedAt: result.updatedAt
         });
 
-        // Fetch fresh account details from the API using proxy
+        // Fetch fresh account details from the API using correct endpoint
         console.log("🔄 Fetching fresh account details from API...");
         try {
-          const profileResponse = await fetch(`/api/proxy/users/${result.accountId}/getClientProfile`);
+          const profileResponse = await fetch(`/api/mt5/user-profile/${result.accountId}`, {
+            headers: {
+              'Authorization': `Bearer ${token || localStorage.getItem('userToken')}`
+            }
+          });
           const profileData = await profileResponse.json();
           console.log("✅ Fresh account profile:", profileData);
 
@@ -341,7 +345,9 @@ export function NewAccountDialog({
               body: JSON.stringify({
                 accountId: result.accountId,
                 userName: userName,
-                userEmail: userEmail
+                userEmail: userEmail,
+                password: masterPassword,
+                leverage: parseInt(leverage) || 100
               })
             });
 

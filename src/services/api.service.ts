@@ -218,16 +218,37 @@ const mt5Service = {
           .map((id: any) => String(id).trim())
           .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
       ));
+      
+      console.log(`📊 Found ${rawIds.length} accounts in DB, ${accountIds.length} valid after cleaning`);
+      console.log('🔢 Account IDs:', accountIds);
+      
       if (!accountIds.length) return { Success: false, Data: [] };
 
-      const profiles = await Promise.all(
-        accountIds.map((id) => safe(mt5Service.getMt5AccountProfile(id, { signal: opts?.signal })))
+      // Fetch all profiles in parallel with no delay
+      console.log('⚡ Fetching profiles in parallel for', accountIds.length, 'accounts...');
+      const profilePromises = accountIds.map((id) => 
+        safe(mt5Service.getMt5AccountProfile(id, { signal: opts?.signal }))
       );
+      const profiles = await Promise.all(profilePromises);
+      console.log('⚡ Profile fetching completed');
+
+      // Log which profiles failed to fetch
+      profiles.forEach((profile, idx) => {
+        const id = accountIds[idx];
+        if (!profile || !profile.success) {
+          console.warn(`⚠️ Failed to fetch profile for account ${id}:`, profile);
+        }
+      });
 
       const valid = profiles
         ?.filter(Boolean)
         ?.map((p: any) => (p && p.success ? p.data : null))
         ?.filter(Boolean) ?? [];
+
+      console.log(`✅ Successfully fetched ${valid.length} out of ${accountIds.length} account profiles`);
+      if (valid.length < accountIds.length) {
+        console.warn(`⚠️ Missing ${accountIds.length - valid.length} account profiles`);
+      }
 
       return { Success: true, Data: valid };
     } catch (error: any) {

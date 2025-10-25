@@ -80,8 +80,9 @@ export async function POST(request: NextRequest) {
       try {
         const accountId = data.data.mt5Login.toString();
         console.log('💾 Storing accountId:', accountId);
+        console.log('🔐 Storing password and leverage:', { leverage, hasPassword: !!masterPassword });
 
-        // Call internal API to store in database
+        // Call internal API to store in database with password and leverage
         const storeResponse = await fetch(`${API_URL}/mt5/store-account`, {
           method: 'POST',
           headers: {
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             accountId: accountId,
+            password: masterPassword,
+            leverage: leverage,
             mt5Data: data
           })
         });

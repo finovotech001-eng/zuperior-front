@@ -8,6 +8,7 @@ import { mt5Service } from "@/services/api.service";
 export interface MT5Account {
   accountId: string;
   createdAt?: string;
+  password?: string; // MT5 master password (stored in DB)
   // Additional fields from API response (not stored in DB)
   name?: string;
   group?: string;
@@ -149,11 +150,14 @@ export const fetchUserMt5Accounts = createAsyncThunk(
     }
   },
   {
-    // ✅ ADD: skip if already fetching or if fetched very recently (1.5s)
+    // ✅ ADD: skip if already fetching, but allow force refresh by checking if lastAccountsFetchAt is null
     condition: (_, { getState }) => {
       const state = getState() as { mt5: MT5State };
       const s = state.mt5;
       if (s.isFetchingAccounts) return false;
+      // Allow immediate fetch if lastAccountsFetchAt is null (force refresh after account creation)
+      if (s.lastAccountsFetchAt === null) return true;
+      // Otherwise, throttle to prevent excessive fetching (1.5s)
       if (within(s.lastAccountsFetchAt, 1500)) return false;
       return true;
     },
@@ -401,6 +405,17 @@ const mt5AccountSlice = createSlice({
         );
       }
     },
+    addAccountOptimistically: (state, action: PayloadAction<MT5Account>) => {
+      // Add new account immediately without waiting for fetch
+      const exists = state.accounts.some(acc => acc.accountId === action.payload.accountId);
+      if (!exists) {
+        state.accounts.push(action.payload);
+        state.totalBalance += (action.payload.balance || 0);
+        console.log('🚀 Account added optimistically:', action.payload.accountId);
+      }
+      // Reset throttling to allow immediate refresh
+      state.lastAccountsFetchAt = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -468,8 +483,20 @@ const mt5AccountSlice = createSlice({
       })
       .addCase(createMt5Account.fulfilled, (state, action) => {
         state.isLoading = false;
-        // After successful account creation, refresh the accounts data
-        // This will be handled by dispatching fetchUserMt5Accounts in the component
+        // Immediately add the new account to state (optimistic update)
+        const newAccount = action.payload;
+        console.log('🚀 Adding new account to state immediately:', newAccount);
+        
+        // Check if account already exists to avoid duplicates
+        const exists = state.accounts.some(acc => acc.accountId === newAccount.accountId);
+        if (!exists) {
+          state.accounts.push(newAccount);
+          state.totalBalance += (newAccount.balance || 0);
+          console.log(`✅ New account added! Total accounts: ${state.accounts.length}`);
+        }
+        
+        // Reset throttling to allow immediate refresh
+        state.lastAccountsFetchAt = null;
       })
       .addCase(createMt5Account.rejected, (state, action) => {
         state.isLoading = false;
@@ -537,6 +564,6 @@ const mt5AccountSlice = createSlice({
 // --------------------
 // Exports
 // --------------------
-export const { setSelectedAccount, clearError, updateAccountBalance,resetForNewClient } =
+export const { setSelectedAccount, clearError, updateAccountBalance, resetForNewClient, addAccountOptimistically } =
   mt5AccountSlice.actions;
 export default mt5AccountSlice.reducer;

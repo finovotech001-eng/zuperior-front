@@ -15,12 +15,14 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = await request.json();
-    const { accountId, userName, userEmail } = body;
+    const { accountId, userName, userEmail, password, leverage } = body;
 
     console.log('🔄 API: Storing MT5 account in database...');
     console.log('📊 Account ID:', accountId);
     console.log('👤 User Name:', userName);
     console.log('📧 User Email:', userEmail);
+    console.log('🔐 Password provided:', !!password);
+    console.log('⚡ Leverage:', leverage);
 
     if (!accountId) {
       return NextResponse.json(
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call server-side API to store MT5 account
+    // Call server-side API to store MT5 account with password and leverage
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
     const response = await axios.post(
       `${baseUrl}/mt5/store-account`,
@@ -44,6 +46,8 @@ export async function POST(request: NextRequest) {
         accountId: accountId.toString(),
         userName: userName,
         userEmail: userEmail,
+        password: password,
+        leverage: leverage
       },
       {
         headers: {
