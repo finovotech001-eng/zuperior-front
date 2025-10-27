@@ -3,7 +3,7 @@ import {
   becomePartner, becomePartnerBlack, dashboard, dashboardBlack, deposits,
   depositsBlack, platforms, platformsBlack, support, supportBlack, settings, settingsBlack, tools, toolsBlack,
   transactions, transactionsBlack, withdrawals, withdrawalsBlack,
-  wallet,
+  wallet, walletBlack,
   // accounts, accountsBlack
 } from "@/lib/sidebar-assets";
 
@@ -24,14 +24,14 @@ export const getMenuItems = ({ theme }: { theme: string }): MenuItem[] => {
   const overviewImage = theme === "dark" ? dashboard : dashboardBlack;
   const depositImage = theme === "dark" ? deposits : depositsBlack;
   const withdrawImage = theme === "dark" ? withdrawals : withdrawalsBlack;
-  
+
   const transactionsImage = theme === "dark" ? transactions : transactionsBlack;
   const partnerImage = theme === "dark" ? becomePartner : becomePartnerBlack;
   const toolsImage = theme === "dark" ? tools : toolsBlack;
   const platformsImage = theme === "dark" ? platforms : platformsBlack;
   const supportImage = theme === "dark" ? support : supportBlack;
   const settingsImage = theme === "dark" ? settings : settingsBlack;
-  const walletImage = wallet;
+  const walletImage = theme === "dark" ? wallet : walletBlack;
   // const accountsImage = theme === "dark" ? accounts : accountsBlack;
 
 
