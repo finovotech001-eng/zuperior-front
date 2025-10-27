@@ -51,32 +51,32 @@ export function USDTManualStep4Confirmation({
         <h2 className="text-2xl font-bold dark:text-white/75 text-black mb-2">
            Payment Request Created! 
         </h2>
-        <p className="text-white/60">
+        <p className="text-gray-600 dark:text-white/60">
           Your manual deposit request has been submitted successfully
         </p>
       </div>
 
       {/* Payment Details */}
-      <div className="bg-white/5 rounded-lg p-6 mb-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Payment Details</h3>
+      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#0B0710] border border-gray-200 dark:border-white/10 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Details</h3>
 
         <div className="space-y-4">
           <div>
-            <Label className="text-sm text-white/60">Amount</Label>
-            <p className="text-lg font-semibold text-white">{amount} USDT</p>
+            <Label className="text-sm text-gray-600 dark:text-white/60">Amount</Label>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">{amount} USDT</p>
           </div>
 
           <div>
-            <Label className="text-sm text-white/60">Payment Address</Label>
-            <div className="flex items-center justify-between bg-white/10 rounded-lg p-3">
-              <span className="font-mono text-sm text-white/80">
+            <Label className="text-sm text-gray-600 dark:text-white/60">Payment Address</Label>
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-lg p-3">
+              <span className="font-mono text-sm text-gray-700 dark:text-white/80">
                 {paymentAddress}
               </span>
               <Button
                 onClick={handleCopyAddress}
                 variant="ghost"
                 size="sm"
-                className="text-white hover:bg-white/10"
+                className="dark:text-white text-gray-900 hover:bg-gray-100 dark:hover:bg-white/10"
               >
                 <Copy className="w-4 h-4" />
               </Button>
@@ -84,16 +84,16 @@ export function USDTManualStep4Confirmation({
           </div>
 
           <div>
-            <Label className="text-sm text-white/60">Transaction ID</Label>
-            <div className="flex items-center justify-between bg-white/10 rounded-lg p-3">
-              <span className="font-mono text-sm text-white/80">
+            <Label className="text-sm text-gray-600 dark:text-white/60">Transaction ID</Label>
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-lg p-3">
+              <span className="font-mono text-sm text-gray-700 dark:text-white/80">
                 {transactionId}
               </span>
               <Button
                 onClick={handleCopyTransactionId}
                 variant="ghost"
                 size="sm"
-                className="text-white hover:bg-white/10"
+                className="dark:text-white text-gray-900 hover:bg-gray-100 dark:hover:bg-white/10"
               >
                 <Copy className="w-4 h-4" />
               </Button>
@@ -101,21 +101,21 @@ export function USDTManualStep4Confirmation({
           </div>
 
           <div>
-            <Label className="text-sm text-white/60">Request ID</Label>
-            <p className="font-mono text-sm text-white/80">{depositRequestId}</p>
+            <Label className="text-sm text-gray-600 dark:text-white/60">Request ID</Label>
+            <p className="font-mono text-sm text-gray-700 dark:text-white/80">{depositRequestId}</p>
           </div>
 
           <div>
-            <Label className="text-sm text-white/60">Account</Label>
-            <p className="text-white/80">{selectedAccount}</p>
+            <Label className="text-sm text-gray-600 dark:text-white/60">Account</Label>
+            <p className="text-gray-700 dark:text-white/80">{selectedAccount}</p>
           </div>
         </div>
       </div>
 
       {/* Instructions */}
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-        <h4 className="font-semibold text-white mb-2">🎯 What's Next?</h4>
-        <ul className="text-sm text-white/80 space-y-1">
+      <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-lg p-4 mb-6">
+        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">🎯 What's Next?</h4>
+        <ul className="text-sm text-gray-700 dark:text-white/80 space-y-1">
           <li>✅ Your payment request is being processed</li>
           <li>🔄 Admin will review and approve your deposit</li>
           <li>💰 Funds will be credited to your MT5 account</li>
@@ -137,7 +137,7 @@ export function USDTManualStep4Confirmation({
 
         <Button
           variant="outline"
-          className="w-full text-white border-white/20 hover:bg-white/10"
+          className="w-full dark:text-white text-gray-900 border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
           onClick={() => {
             window.open(`/transactions/${depositRequestId}`, '_blank');
           }}

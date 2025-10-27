@@ -166,7 +166,7 @@ export function Step1Form({
               value={selectedAccount}
               disabled={accounts.length === 0}
             >
-              <SelectTrigger className="border-[#362e36] p-5 flex items-center w-full text-white focus:ring-[#8046c9]">
+              <SelectTrigger className="border-[#362e36] p-5 flex items-center w-full dark:text-white/75 text-black dark:bg-transparent bg-white focus:ring-[#8046c9]">
                 <SelectValue placeholder="Select Account">
                   {selectedAccountObj ? (
                     <span className="flex items-center">

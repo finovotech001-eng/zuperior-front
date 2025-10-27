@@ -39,7 +39,7 @@ export function USDTManualStep2Instructions({
         Pay with USDT TRC20 QR
       </h2>
 
-      <div className="bg-white/5 rounded-lg p-6 mb-6">
+      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#0B0710] border border-gray-200 dark:border-white/10 shadow-sm">
         <div className="flex items-start gap-4">
           {/* USDT Logo and TRON Logo */}
           <div className="relative">
@@ -54,9 +54,9 @@ export function USDTManualStep2Instructions({
           {/* Payment Details */}
           <div className="flex-1">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-white mb-2">USDT TRC20 QR Network</h3>
-              <h4 className="text-md font-medium text-white/80 mb-2">Payment Address</h4>
-              <p className="text-sm font-mono text-white/60 mb-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">USDT TRC20 QR Network</h3>
+              <h4 className="text-md font-medium text-gray-700 dark:text-white/80 mb-2">Payment Address</h4>
+              <p className="text-sm font-mono text-gray-600 dark:text-white/60 mb-3">
                 Twinxa7902309<br />
                 skjhfsdlhflks<br />
                 jdhlkLL
@@ -65,7 +65,7 @@ export function USDTManualStep2Instructions({
                 onClick={handleCopyAddress}
                 variant="outline"
                 size="sm"
-                className="text-white border-white/20 hover:bg-white/10"
+                className="dark:text-white text-gray-900 border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
               >
                 {copied ? (
                   <>
@@ -84,18 +84,18 @@ export function USDTManualStep2Instructions({
         </div>
 
         {/* Instructions */}
-        <div className="mt-6 pt-6 border-t border-white/10">
-          <h4 className="text-lg font-semibold text-white mb-4">Scan to send USDT</h4>
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Scan to send USDT</h4>
 
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-4">
-            <p className="text-red-400 text-sm">
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg p-4 mb-4">
+            <p className="text-red-600 dark:text-red-400 text-sm">
               Please make sure to send exactly {amount} USDT to the address above
             </p>
           </div>
 
           <div className="space-y-2">
-            <h5 className="font-semibold text-white">Instructions</h5>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-white/80">
+            <h5 className="font-semibold text-gray-900 dark:text-white">Instructions</h5>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 dark:text-white/80">
               <li>Send exactly {amount} USDT to the address above</li>
               <li>Use TRC20 network for USDT transfers</li>
               <li>Your deposit will be processed within 24 hours</li>

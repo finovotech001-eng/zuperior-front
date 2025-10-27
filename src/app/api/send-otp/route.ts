@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import path from "path";
 
 // Helper to generate a 6-digit OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -40,7 +41,7 @@ const buildResponsiveEmailHtml = (otp: string, name?: string) => `
     <style>
       body{margin:0;padding:24px;background:#f6f7fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a}
       .card{max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden}
-      .header{background:linear-gradient(90deg,#6242a5,#9f8bcf);padding:16px 20px}
+      .header{background:linear-gradient(90deg,#6242a5,#9f8bcf);padding:16px 20px;display:flex;align-items:center;gap:10px}
       .title{margin:0;font-size:20px;color:#ffffff}
       .muted{color:#475569}
       .code{letter-spacing:6px;font-weight:700;font-size:28px;text-align:center;color:#111827;margin:18px 0 8px}
@@ -60,6 +61,7 @@ const buildResponsiveEmailHtml = (otp: string, name?: string) => `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card">
       <tr>
         <td class="header">
+          <img src="cid:zuperior-logo" alt="Zuperior" style="height:28px;border:0;outline:none;display:block" />
           <h1 class="title">Zuperior</h1>
         </td>
       </tr>
@@ -107,11 +109,23 @@ export async function POST(req: NextRequest) {
     subject: "Verify your email • Zuperior",
     text: `Your OTP code is: ${otp}. It expires in 10 minutes.`,
     html: buildResponsiveEmailHtml(otp, name),
-    
+    attachments: [
+      {
+        filename: "logo.png",
+        path: path.resolve(process.cwd(), "public/logo.png"),
+        cid: "zuperior-logo",
+      },
+    ],
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log("📧 OTP email sent", {
+      to: email,
+      messageId: info?.messageId,
+      accepted: info?.accepted,
+      response: info?.response,
+    });
 
     // Set secure cookies to verify later (hash only)
     const res = NextResponse.json({ success: true });
