@@ -192,27 +192,41 @@ const mt5Service = {
     );
   },
 
-  /** Get MT5 account profile for a specific login (via Next route) */
+  /** Get MT5 account profile for a specific login
+   * Prefer the existing proxy route `/api/proxy/users/:login`.
+   * Fallback to `/api/mt5/user-profile/:login` if proxy is unavailable.
+   */
   getMt5AccountProfile: async (login: string | number, opts?: { signal?: AbortSignal }) => {
     const key = `mt5-profile:${login}`;
-    return singleFlight(key, (signal) =>
-      api.get(`/api/mt5/user-profile/${login}`, { signal: opts?.signal ?? signal }).then(r => {
-        const norm = normalizeOk(r.data);
-        return norm; // { success, data }
-      }),
-      opts?.signal
-    );
+    return singleFlight(key, async (signal) => {
+      // Try proxy route first
+      try {
+        const r = await api.get(`/api/proxy/users/${login}`, { signal: opts?.signal ?? signal });
+        return normalizeOk(r.data);
+      } catch (e) {
+        // Fallback to backend-routed path
+        try {
+          const r2 = await api.get(`/api/mt5/user-profile/${login}`, { signal: opts?.signal ?? signal });
+          return normalizeOk(r2.data);
+        } catch (e2) {
+          throw e2;
+        }
+      }
+    }, opts?.signal);
   },
 
   /** Get all MT5 accounts for current user (new flow) */
   getUserMt5Accounts: async (opts?: { signal?: AbortSignal }) => {
     try {
       const db = await mt5Service.getUserMt5AccountsFromDb({ signal: opts?.signal });
+      console.log('🔍 Raw DB response:', JSON.stringify(db, null, 2));
       const ok = normalizeOk(db);
+      console.log('📊 Normalized response:', JSON.stringify(ok, null, 2));
       if (!ok.success) return { Success: false, Data: [] };
 
       // Clean incoming IDs (unique, numeric, non-zero)
       const rawIds: string[] = ok.data?.accounts?.map((a: any) => a.accountId).filter(Boolean) ?? [];
+      console.log('🔢 Raw account IDs from DB:', rawIds);
       const accountIds = Array.from(new Set(
         rawIds
           .map((id: any) => String(id).trim())
@@ -240,17 +254,18 @@ const mt5Service = {
         }
       });
 
-      const valid = profiles
-        ?.filter(Boolean)
-        ?.map((p: any) => (p && p.success ? p.data : null))
-        ?.filter(Boolean) ?? [];
+      // Merge results: include all DB accounts; if profile failed, fallback to minimal object
+      const merged = accountIds.map((id, idx) => {
+        const p: any = profiles[idx];
+        if (p && p.success && p.data) return p.data;
+        // Minimal shape expected by consumers: must include Login
+        return { Login: Number(id) };
+      });
 
-      console.log(`✅ Successfully fetched ${valid.length} out of ${accountIds.length} account profiles`);
-      if (valid.length < accountIds.length) {
-        console.warn(`⚠️ Missing ${accountIds.length - valid.length} account profiles`);
-      }
+      const successCount = merged.filter((m: any) => m && typeof m.Login !== 'undefined' && Object.keys(m).length > 1).length;
+      console.log(`✅ Successfully fetched ${successCount} profiles; included ${merged.length} accounts total with fallbacks`);
 
-      return { Success: true, Data: valid };
+      return { Success: true, Data: merged };
     } catch (error: any) {
       console.error('❌ Error fetching user MT5 accounts:', error?.message || error);
       return { Success: false, Data: [], error: error?.message };

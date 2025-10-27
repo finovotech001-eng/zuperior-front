@@ -96,7 +96,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
     try {
       const response = await mt5Service.getUserMt5Accounts();
 
-      console.log('🔍 MT5 Service response:', response);
+      console.log('🔍 MT5 Service response:', JSON.stringify(response, null, 2));
 
       // Handle response format - check if Success is false
       if (response.Success === false) {
@@ -106,6 +106,9 @@ export const fetchUserMt5Accounts = createAsyncThunk(
 
       // Get the accounts data
       const accounts = response.Data || [];
+
+      console.log(`📊 Received ${accounts.length} accounts from service`);
+      console.log('📋 Raw accounts data:', JSON.stringify(accounts, null, 2));
 
       if (accounts.length === 0) {
         console.log("No MT5 accounts found for user");
@@ -131,7 +134,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
       }));
 
       console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
-      console.log('📋 Transformed accounts data:', transformedAccounts);
+      console.log('📋 Transformed accounts data:', JSON.stringify(transformedAccounts, null, 2));
       return transformedAccounts;
     } catch (error: any) {
       console.error("❌ Error in fetchUserMt5Accounts:", error);

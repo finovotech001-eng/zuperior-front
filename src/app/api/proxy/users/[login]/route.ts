@@ -6,7 +6,8 @@ export async function GET(
 ) {
   try {
     const { login } = await params;
-    const targetUrl = `http://18.130.5.209:5003/api/Users/${login}`;
+    // Use MT5 Manager endpoint that returns the client profile
+    const targetUrl = `http://18.130.5.209:5003/api/Users/${login}/getClientProfile`;
 
     console.log('Proxying user profile request to:', targetUrl);
 
@@ -52,6 +53,28 @@ export async function GET(
       }
     );
   }
+}
+
+// Handle preflight requests to avoid 405 in some environments
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
+// Provide a minimal HEAD handler
+export async function HEAD() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 export async function POST(

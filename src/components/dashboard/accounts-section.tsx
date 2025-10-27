@@ -199,7 +199,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
         <TabsContent value="live">
           {hasBasicAccountInfo ? (
             accounts
-              ?.filter((account) => account.isEnabled)
+              // Show all accounts consistently; do not hide on isEnabled flag
               .map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (

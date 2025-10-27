@@ -243,7 +243,8 @@ const AuthForm = () => {
       setIsLoading(true);
 
       const loginData = {
-        email: loginEmail.trim(),
+        // Normalize email to lowercase to match registration/storage
+        email: loginEmail.trim().toLowerCase(),
         password: loginPassword,
       };
 
