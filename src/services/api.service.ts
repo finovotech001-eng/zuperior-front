@@ -240,26 +240,85 @@ const mt5Service = {
 
       // Fetch all profiles in parallel with no delay
       console.log('⚡ Fetching profiles in parallel for', accountIds.length, 'accounts...');
-      const profilePromises = accountIds.map((id) => 
-        safe(mt5Service.getMt5AccountProfile(id, { signal: opts?.signal }))
-      );
+      console.log('🔢 Account IDs to fetch:', accountIds);
+      
+      const profilePromises = accountIds.map(async (id, idx) => {
+        try {
+          console.log(`📡 Fetching profile ${idx + 1}/${accountIds.length} for account ${id}...`);
+          
+          // Retry logic for newly created accounts
+          let lastError;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const profile = await mt5Service.getMt5AccountProfile(id, { signal: opts?.signal });
+              
+              if (profile && profile.success && profile.data && profile.data.Login) {
+                console.log(`✅ Profile fetch successful for account ${id} (attempt ${attempt}):`, 
+                  `Login: ${profile.data.Login}, Name: ${profile.data.Name || 'N/A'}`);
+                return profile;
+              } else {
+                console.warn(`⚠️ Invalid profile data for account ${id} (attempt ${attempt}):`, profile);
+                lastError = new Error('Invalid profile data returned');
+              }
+            } catch (error) {
+              console.error(`❌ Profile fetch failed for account ${id} (attempt ${attempt}):`, error);
+              lastError = error;
+              // Wait 500ms before retry
+              if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+            }
+          }
+          
+          throw lastError || new Error('Profile fetch failed after retries');
+        } catch (error) {
+          console.error(`❌ Profile fetch FAILED for account ${id} after retries:`, error);
+          return null;
+        }
+      });
+      
       const profiles = await Promise.all(profilePromises);
-      console.log('⚡ Profile fetching completed');
+      console.log('⚡ Profile fetching completed for all accounts');
 
       // Log which profiles failed to fetch
       profiles.forEach((profile, idx) => {
         const id = accountIds[idx];
         if (!profile || !profile.success) {
           console.warn(`⚠️ Failed to fetch profile for account ${id}:`, profile);
+          if (profile?.error) {
+            console.error(`❌ Profile error details for account ${id}:`, profile.error);
+          }
         }
       });
 
       // Merge results: include all DB accounts; if profile failed, fallback to minimal object
       const merged = accountIds.map((id, idx) => {
         const p: any = profiles[idx];
-        if (p && p.success && p.data) return p.data;
-        // Minimal shape expected by consumers: must include Login
-        return { Login: Number(id) };
+        
+        console.log(`🔍 Merging account ${id} (idx: ${idx}):`, {
+          hasProfile: !!p,
+          success: p?.success,
+          hasData: !!p?.data,
+          login: p?.data?.Login,
+          keys: p?.data ? Object.keys(p.data).length : 0
+        });
+        
+        // If profile failed (null from safe function) or doesn't have success/data
+        if (!p || !p.success || !p.data) {
+          console.warn(`⚠️ Profile fetch failed for account ${id}, returning minimal object`);
+          return { Login: Number(id) };
+        }
+        
+        const profileData = p.data;
+        
+        // Check if profile data has Login: 0 or invalid data
+        if (profileData && (profileData.Login === 0 || !profileData.Login || Object.keys(profileData).length <= 1)) {
+          console.warn(`⚠️ Profile data invalid for account ${id}:`, profileData);
+          console.warn(`🔍 Profile keys count: ${Object.keys(profileData).length}, Login: ${profileData.Login}`);
+          return { Login: Number(id) };
+        }
+        
+        return profileData;
       });
 
       const successCount = merged.filter((m: any) => m && typeof m.Login !== 'undefined' && Object.keys(m).length > 1).length;

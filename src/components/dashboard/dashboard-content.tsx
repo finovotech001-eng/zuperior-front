@@ -1,7 +1,7 @@
 "use client";
 
 import VerificationAlert from "../verification-alert";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { TextAnimate } from "@/components/ui/text-animate";
 import { useAppSelector } from "@/store/hooks";
 
@@ -63,9 +63,15 @@ export function DashboardContent() {
   );
 
   // Handle new account dialog close with data refresh
-  const handleNewAccountDialogClose = (open: boolean) => {
+  const handleNewAccountDialogClose = useCallback((open: boolean) => {
     setNewAccountDialogOpen(open);
-  };
+    
+    // When dialog closes (open = false), force refresh MT5 accounts to show newly created account
+    if (!open) {
+      console.log("🔄 Dialog closed after account creation - forcing data refresh...");
+      fetchAllData(true); // Force refresh to show new account
+    }
+  }, [fetchAllData]);
 
   // Show skeleton when loading
   if (isLoading && !hasData) {

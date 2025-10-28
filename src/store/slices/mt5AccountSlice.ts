@@ -116,22 +116,46 @@ export const fetchUserMt5Accounts = createAsyncThunk(
       }
 
       // Transform MT5 API data to match expected MT5Account format
-      const transformedAccounts = accounts.map((account: any) => ({
-        accountId: String(account.Login),
-        name: account.Name,
-        group: account.Group,
-        leverage: account.Leverage,
-        balance: account.Balance || 0,
-        equity: account.Equity || 0,
-        credit: account.Credit || 0,
-        margin: account.Margin || 0,
-        marginFree: account.MarginFree || 0,
-        marginLevel: account.MarginLevel || 0,
-        profit: account.Profit || 0,
-        isEnabled: account.IsEnabled !== false, // Default to true if not specified
-        createdAt: account.Registration || new Date().toISOString(),
-        updatedAt: account.LastAccess || new Date().toISOString()
-      }));
+      const transformedAccounts = accounts.map((account: any) => {
+        // Handle accounts with incomplete data (newly created accounts)
+        if (!account || Object.keys(account).length <= 1) {
+          console.warn('⚠️ Account profile incomplete (likely newly created):', account);
+          // Return minimal valid account
+          return {
+            accountId: String(account.Login),
+            name: 'Loading...', // Placeholder
+            group: 'Loading...',
+            leverage: 0,
+            balance: 0,
+            equity: 0,
+            credit: 0,
+            margin: 0,
+            marginFree: 0,
+            marginLevel: 0,
+            profit: 0,
+            isEnabled: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+        }
+        
+        return {
+          accountId: String(account.Login),
+          name: account.Name,
+          group: account.Group,
+          leverage: account.Leverage,
+          balance: account.Balance || 0,
+          equity: account.Equity || 0,
+          credit: account.Credit || 0,
+          margin: account.Margin || 0,
+          marginFree: account.MarginFree || 0,
+          marginLevel: account.MarginLevel || 0,
+          profit: account.Profit || 0,
+          isEnabled: account.IsEnabled !== false, // Default to true if not specified
+          createdAt: account.Registration || new Date().toISOString(),
+          updatedAt: account.LastAccess || new Date().toISOString()
+        };
+      });
 
       console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
       console.log('📋 Transformed accounts data:', JSON.stringify(transformedAccounts, null, 2));

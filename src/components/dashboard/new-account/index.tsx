@@ -233,10 +233,13 @@ export function NewAccountDialog({
         // Check if account was actually created (accountId should not be empty)
         if (!result.accountId || result.accountId === "0") {
           console.error("❌ MT5 account creation failed - accountId is empty");
+          console.error("🔍 Full result object:", result);
           toast.error("MT5 account creation failed - please check API configuration");
+          setLoadingStep2(false);
           return;
         }
 
+        console.log("✅ Account created successfully - Account ID:", result.accountId);
         toast.success(`Your MT5 account has been created successfully! Account ID: ${result.accountId}`);
 
         // Set the latest account data for the success step
@@ -334,29 +337,31 @@ export function NewAccountDialog({
             if (!userName || !userEmail) {
               console.error("❌ User name or email not found in user data. Available fields:", Object.keys(user));
               console.error("❌ Full user data:", user);
-              return;
-            }
-
-            const storeResponse = await fetch('/api/mt5/store-account', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                accountId: result.accountId,
-                userName: userName,
-                userEmail: userEmail,
-                password: masterPassword,
-                leverage: parseInt(leverage) || 100
-              })
-            });
-
-            if (storeResponse.ok) {
-              const storeData = await storeResponse.json();
-              console.log("✅ MT5 account stored in database:", storeData);
+              // Don't block the success screen - just skip database storage
+              console.warn("⚠️ Proceeding without database storage");
             } else {
-              const errorData = await storeResponse.json().catch(() => ({}));
-              console.error("❌ Failed to store MT5 account in database:", storeResponse.statusText, errorData);
+
+              const storeResponse = await fetch('/api/mt5/store-account', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  accountId: result.accountId,
+                  userName: userName,
+                  userEmail: userEmail,
+                  password: masterPassword,
+                  leverage: parseInt(leverage) || 100
+                })
+              });
+
+              if (storeResponse.ok) {
+                const storeData = await storeResponse.json();
+                console.log("✅ MT5 account stored in database:", storeData);
+              } else {
+                const errorData = await storeResponse.json().catch(() => ({}));
+                console.error("❌ Failed to store MT5 account in database:", storeResponse.statusText, errorData);
+              }
             }
           } else {
             console.warn("⚠️ No user token or user data found, skipping database storage");
