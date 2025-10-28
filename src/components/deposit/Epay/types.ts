@@ -18,6 +18,7 @@ export interface CreditStep2Props {
   handleContinueToPayment: () => void;
   currency: string | undefined;
   setCurrency: (val: string) => void;
+  accounts?: any[];
 }
 
 export interface CreditStep3Props {

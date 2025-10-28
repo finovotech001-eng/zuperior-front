@@ -104,8 +104,20 @@ export async function getKycStatus(): Promise<KycStatusResponse> {
     });
     return response.data;
   } catch (error: any) {
-    console.error("❌ Error fetching KYC status:", error?.response?.data || error.message);
-    throw error;
+    // If no KYC record exists (404) or any other error, return default KYC state
+    console.log("ℹ️ No KYC record found or error fetching KYC status, returning defaults");
+    
+    // Return a valid response structure with default values
+    return {
+      success: true,
+      message: 'No KYC record found',
+      data: {
+        id: '',
+        isDocumentVerified: false,
+        isAddressVerified: false,
+        verificationStatus: 'unverified'
+      }
+    };
   }
 }
 

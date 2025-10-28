@@ -12,6 +12,7 @@ export function CreditStep2Form({
   selectedAccount,
   currency,
   handleContinueToPayment,
+  accounts = [],
 }: CreditStep2Props & {
   selectedAccount: string;
   currency: string;
@@ -19,10 +20,21 @@ export function CreditStep2Form({
 }) {
   const hasShownConfirmationToast = useRef(false);
 
+  // Find the actual account from the accounts array
+  const account = accounts.find(acc => acc.accountId === selectedAccount);
+  
+  // Helper to extract account type from group name
+  const getAccountTypeFromGroup = (group?: string): string => {
+    if (!group) return "Standard";
+    if (group.includes('Pro')) return 'Pro';
+    if (group.includes('Standard')) return 'Standard';
+    return 'Standard';
+  };
+
   const accountDetails = selectedAccount
     ? {
-        accountNumber: selectedAccount.split("|")[0],
-        accountType: selectedAccount.split("|")[1],
+        accountNumber: selectedAccount,
+        accountType: account ? getAccountTypeFromGroup(account.group) : "Standard",
       }
     : null;
 

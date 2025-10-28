@@ -257,11 +257,11 @@ const mt5Service = {
                   `Login: ${profile.data.Login}, Name: ${profile.data.Name || 'N/A'}`);
                 return profile;
               } else {
-                console.warn(`⚠️ Invalid profile data for account ${id} (attempt ${attempt}):`, profile);
+                console.log(`ℹ️ Profile data not ready for account ${id} (attempt ${attempt}), will retry...`);
                 lastError = new Error('Invalid profile data returned');
               }
             } catch (error) {
-              console.error(`❌ Profile fetch failed for account ${id} (attempt ${attempt}):`, error);
+              console.log(`ℹ️ Profile fetch failed for account ${id} (attempt ${attempt}), will retry...`);
               lastError = error;
               // Wait 500ms before retry
               if (attempt < 2) {
@@ -272,7 +272,9 @@ const mt5Service = {
           
           throw lastError || new Error('Profile fetch failed after retries');
         } catch (error) {
-          console.error(`❌ Profile fetch FAILED for account ${id} after retries:`, error);
+          // This is expected for newly created accounts or accounts without profile data
+          // Returning null triggers the fallback mechanism (line 307-310)
+          console.log(`ℹ️ Profile not available for account ${id}, using fallback data`);
           return null;
         }
       });
@@ -284,10 +286,7 @@ const mt5Service = {
       profiles.forEach((profile, idx) => {
         const id = accountIds[idx];
         if (!profile || !profile.success) {
-          console.warn(`⚠️ Failed to fetch profile for account ${id}:`, profile);
-          if (profile?.error) {
-            console.error(`❌ Profile error details for account ${id}:`, profile.error);
-          }
+          console.log(`ℹ️ Profile not available for account ${id}, fallback will be used`);
         }
       });
 
@@ -305,7 +304,7 @@ const mt5Service = {
         
         // If profile failed (null from safe function) or doesn't have success/data
         if (!p || !p.success || !p.data) {
-          console.warn(`⚠️ Profile fetch failed for account ${id}, returning minimal object`);
+          console.log(`ℹ️ Using minimal profile data for account ${id}`);
           return { Login: Number(id) };
         }
         
@@ -313,8 +312,7 @@ const mt5Service = {
         
         // Check if profile data has Login: 0 or invalid data
         if (profileData && (profileData.Login === 0 || !profileData.Login || Object.keys(profileData).length <= 1)) {
-          console.warn(`⚠️ Profile data invalid for account ${id}:`, profileData);
-          console.warn(`🔍 Profile keys count: ${Object.keys(profileData).length}, Login: ${profileData.Login}`);
+          console.log(`ℹ️ Profile data incomplete for account ${id}, using minimal object`);
           return { Login: Number(id) };
         }
         
@@ -326,6 +324,11 @@ const mt5Service = {
 
       return { Success: true, Data: merged };
     } catch (error: any) {
+      // Handle 401 (authentication) errors gracefully without logging as error
+      if (error?.response?.status === 401 || error?.message?.includes('401')) {
+        console.log('ℹ️ Authentication required or no MT5 accounts found');
+        return { Success: false, Data: [] };
+      }
       console.error('❌ Error fetching user MT5 accounts:', error?.message || error);
       return { Success: false, Data: [], error: error?.message };
     }

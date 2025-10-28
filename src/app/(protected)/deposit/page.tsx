@@ -3,9 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import Image from "next/image";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TextAnimate } from "@/components/ui/text-animate";
-import { Tabs } from "@/components/ui/tabs";
 import { DepositDialog } from "@/components/deposit/DepositDialog";
 import { CreditCardDialog } from "@/components/deposit/Epay/CreditCardDialog";
 import { ManualDepositDialog } from "@/components/deposit/ManualDepositDialog";
@@ -34,23 +32,6 @@ type Cryptocurrency = {
   }[];
 };
 
-const cardMaskStyle: React.CSSProperties = {
-  WebkitMaskImage:
-    "linear-gradient(212deg,_rgb(49,27,71)_0%,_rgb(20,17,24)_100%)",
-  maskImage:
-    "linear-gradient(100deg, rgba(0, 0, 0, 0.1) 10%, rgba(0, 0, 0, 0.4) 100%)",
-  borderRadius: "15px",
-  opacity: 0.25,
-  position: "absolute",
-  padding: "1px",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 0,
-  pointerEvents: "none",
-};
-
 export default function DepositPage() {
   const [cryptocurrencies, setCryptocurrencies] = useState<Cryptocurrency[]>(
     []
@@ -61,7 +42,7 @@ export default function DepositPage() {
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [creditCardDialogOpen, setCreditCardDialogOpen] = useState(false);
   const [manualDepositDialogOpen, setManualDepositDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "crypto" | "bank">("all");
+  // Removed activeTab state since we removed the tabs
   const dispatch = useAppDispatch();
   const [lifetimeDeposit, setLifetimeDeposit] = useState<number>(0);
 
@@ -75,29 +56,32 @@ export default function DepositPage() {
 
         tokens.forEach((token) => {
           const id = token.name;
-          if (!groupedMap.has(id)) {
-            groupedMap.set(id, {
-              id,
-              name: token.name,
-              symbol: token.symbol,
-              icon: token.logoUrl,
-              networks: [
-                {
-                  blockchain: token.blockchain,
-                  logoUrl: token.logoUrl,
-                },
-              ],
-            });
+          // Only include TRC20 (both regular and QR versions)
+          if (token.name === "USDT-TRC20" || token.name === "USDT TRC20 QR") {
+            if (!groupedMap.has(id)) {
+              groupedMap.set(id, {
+                id,
+                name: token.name,
+                symbol: token.symbol,
+                icon: token.logoUrl,
+                networks: [
+                  {
+                    blockchain: token.blockchain,
+                    logoUrl: token.logoUrl,
+                  },
+                ],
+              });
+            }
           }
         });
 
         const cryptoList = Array.from(groupedMap.values());
 
+        // Sort: TRC20 QR first, then TRC20
         cryptoList.sort((a, b) => {
           const priority = (name: string) => {
-            if (name === "USDT-TRC20") return -2;
-            if (name === "USDT-ERC20") return -1;
-            if (name === "USDT-BEP20") return 1;
+            if (name === "USDT TRC20 QR") return -2;
+            if (name === "USDT-TRC20") return -1;
             return 0;
           };
 
@@ -157,23 +141,13 @@ export default function DepositPage() {
     }
   }, []);
 
-  // Filter items based on active tab
+  // Filter items - show crypto options and credit card option
   const filteredItems = useMemo(() => {
-    if (activeTab === "all") {
-      return [
-        ...cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto })),
-        { type: "bank", data: null },
-      ];
-    } else if (activeTab === "crypto") {
-      return cryptocurrencies.map((crypto) => ({
-        type: "crypto",
-        data: crypto,
-      }));
-    } else {
-      // bank tab
-      return [{ type: "bank", data: null }];
-    }
-  }, [cryptocurrencies, activeTab]);
+    return [
+      ...cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto })),
+      { type: "bank", data: null },
+    ];
+  }, [cryptocurrencies]);
 
   return (
     <div className="flex flex-col dark:bg-[#01040D]">
@@ -200,50 +174,6 @@ export default function DepositPage() {
             All Payment Methods
           </TextAnimate> */}
         </div>
-
-        <Tabs
-          defaultValue="all"
-          value={activeTab}
-          onValueChange={(value) => {
-            if (
-              value &&
-              (value === "all" || value === "crypto" || value === "bank")
-            ) {
-              setActiveTab(value);
-            }
-          }}
-          className="mb-[16px] mt-4"
-        >
-          <div className="flex items-center mt-3">
-            <ToggleGroup
-              type="single"
-              value={activeTab}
-              onValueChange={(value) => {
-                if (
-                  value &&
-                  (value === "all" || value === "crypto" || value === "bank")
-                ) {
-                  setActiveTab(value);
-                }
-              }}
-              className="p-2 relative rounded-[10px]"
-            >
-              <div
-                style={cardMaskStyle}
-                className="border border-[#6545a7] dark:border-white/45"
-              />
-              <ToggleGroupItem value="all" className="z-10 cursor-pointer">
-                All
-              </ToggleGroupItem>
-              <ToggleGroupItem value="crypto" className="z-10 cursor-pointer">
-                Crypto
-              </ToggleGroupItem>
-              <ToggleGroupItem value="bank" className="z-10 cursor-pointer">
-                Bank Transfers
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </Tabs>
 
         {/* Payment Cards */}
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -325,26 +255,6 @@ function PaymentMethodCard({
         <h3 className="mt-4 text-[18px] font-bold text-black dark:text-white">
           {name}
         </h3>
-
-        {/* Show 1$ changer text */}
-   {name === "USDT-TRC20" && (
-  <p className="mt-2 px-3 py-2 text-red-700 text-xs transition-all duration-200 flex items-center justify-center
-  group-hover:bg-transparent
-  hover:bg-gradient-to-r from-white to-[#f4e7f6]
-  dark:group-hover:bg-transparent dark:from-[#330F33] dark:to-[#1C061C]">
-  <span className=" mr-2">⚠️</span>
-  <span>Note: Add $1 extra when sending USDT via ERC20 to cover the network fee.</span>
-</p>
-)}
-
-{name === "USDT-ERC20" && (
-  <p className="mt-2 px-3 py-2 text-red-700 text-xs transition-all duration-200 flex items-center justify-center
-  hover:bg-gradient-to-r from-white to-[#f4e7f6]
-  dark:group-hover:bg-transparent dark:from-[#330F33] dark:to-[#1C061C]">
-  <span className="mr-2">⚠️</span> Note: Add $1 extra when sending USDT via ERC20 to cover the network fee.
-</p>
-)}
-
       </div>
     </div>
   );

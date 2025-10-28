@@ -16,6 +16,7 @@ import { CreditStep2Form } from "./CreditStep2Form";
 import { CreditStep3Form } from "./CreditStep3Form";
 import CreditCardSuccess from "@/app/(protected)/creditCardSuccess/page";
 import CreditCardFailed from "@/app/(protected)/creditCardFailed/page";
+import { toast } from "sonner";
 
 export function CreditCardDialog({
   open,
@@ -92,56 +93,84 @@ export function CreditCardDialog({
 
     try {
       const account = filteredAccounts.find(
-        (account) => account.acc.toString() === selectedAccount
+        (account) => account.accountId === selectedAccount
       );
+
+      // Get account type from group name
+      const getAccountTypeFromGroup = (group?: string): string => {
+        if (!group) return "Standard";
+        if (group.includes('Pro')) return 'Pro';
+        if (group.includes('Standard')) return 'Standard';
+        return 'Standard';
+      };
+
+      const accountType = getAccountTypeFromGroup(account?.group);
 
       const buildRedirectUrl = (path: string) => {
         const url = new URL(`${window.location.origin}${path}`);
-        url.searchParams.append("orderid", `order_${Date.now()}`);
         url.searchParams.append("currency", currency);
         url.searchParams.append("tranmt", amount);
-        url.searchParams.append("transactionid", `txn_${Date.now()}`);
         return url;
       };
 
-      const successUrl = buildRedirectUrl("/creditCardSuccess");
-      const failureUrl = buildRedirectUrl("/creditCardFailed");
+      const successUrl = buildRedirectUrl("/deposit/success");
+      const failureUrl = buildRedirectUrl("/deposit/cancel");
+
+      console.log('💳 Initiating Cregis card payment:', {
+        amount,
+        currency,
+        account_number: selectedAccount,
+        account_type: accountType,
+        account_group: account?.group,
+      });
 
       const response = await fetch("/api/epay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          countrycode: "+91",
-          mobilenumber: "9999999999",
           orderAmount: amount,
-          user_name: "Customer Name",
-          orderCurrency: currency,
-          account_number: selectedAccount,
-          account_type: account?.account_type || "Live",
           success_url: successUrl.toString(),
           failure_url: failureUrl.toString(),
+          account_number: selectedAccount,
+          account_type: accountType,
         }),
       });
 
       const data = await response.json();
+      console.log('💳 API response:', data);
 
       if (response.status !== 200) {
-        throw new Error(data.error?.message || "Payment initiation failed");
+        console.error('❌ API returned error:', data);
+        throw new Error(data.error || data.details || data.message || "Payment initiation failed");
       }
 
-      if (data.orderId && data.transactionId) {
-        successUrl.searchParams.set("orderid", data.orderId);
-        successUrl.searchParams.set("transactionid", data.transactionId);
-
-        failureUrl.searchParams.set("orderid", data.orderId);
+      if (!data.redirectUrl) {
+        console.error('❌ No redirect URL in response:', data);
+        throw new Error("No payment URL received from server");
       }
 
+      console.log('✅ Payment URL received, redirecting user to Cregis payment page');
       setRedirectUrl(data.redirectUrl);
       setStep(3);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Payment initiation failed"
-      );
+      console.error('❌ Payment initiation failed:', err);
+      let errorMessage = err instanceof Error ? err.message : "Payment initiation failed";
+      
+      // Provide user-friendly error messages
+      if (errorMessage.includes('whitelist')) {
+        errorMessage = "IP whitelist error: Please contact support to add your server IP to Cregis whitelist";
+        toast.error("Configuration Required", {
+          description: "Your server IP needs to be whitelisted in Cregis. Please contact support or check Cregis documentation.",
+          duration: 8000,
+        });
+      } else {
+        toast.error("Payment Error", {
+          description: errorMessage,
+          duration: 6000,
+        });
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -225,6 +254,7 @@ export function CreditCardDialog({
             handleContinueToPayment={handlePaymentContinue}
             currency={currency}
             setCurrency={setCurrency}
+            accounts={filteredAccounts}
           />
         )}
 

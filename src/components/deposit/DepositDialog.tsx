@@ -607,13 +607,18 @@ export function DepositDialog({
 
       setCheckoutData(data.data);
 
+      // Handle payment_info array if it exists
       const cryptoInfo = data.data.payment_info?.find(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (item: any) => item.token_symbol === selectedCrypto?.symbol
       );
-      if (cryptoInfo) {
+      if (cryptoInfo && cryptoInfo.exchange_rate) {
         setExchangeRate(Number(cryptoInfo.exchange_rate) || 1);
+      } else {
+        setExchangeRate(1);
       }
+      
+      setCregisId(data.data.cregis_id);
 
       setStep(3);
     } catch (err) {
