@@ -10,10 +10,10 @@ import { Plus } from "lucide-react";
 import { TextAnimate } from "@/components/ui/text-animate";
 import { useState } from "react";
 import OpenTicketFlow from "./_components/OpenTicketFlow";
-// import TicketList from "./_components/TicketList";
-// import TicketDetails from "./_components/TicketDetails";
+import TicketList from "./_components/TicketList";
+import TicketDetails from "./_components/TicketDetails";
 import { TicketFormData } from "./_components/types";
-// import { Ticket } from "@/services/getTickets";
+import { Ticket } from "@/services/getTickets";
 import {
   createTicket,
   TicketPriority,
@@ -28,6 +28,9 @@ export default function SupportHub() {
 
   const [loading, setLoading] = useState(false);
   const [openTicketMode, setOpenTicketMode] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("All");
 
   const handleTicketSubmit = async (data: TicketFormData) => {
     setLoading(true);
@@ -62,6 +65,15 @@ export default function SupportHub() {
         onBack={() => setOpenTicketMode(false)}
         onSubmit={handleTicketSubmit}
         loading={loading}
+      />
+    );
+  }
+
+  if (selectedTicket) {
+    return (
+      <TicketDetails
+        ticketId={selectedTicket}
+        onBack={() => setSelectedTicket(null)}
       />
     );
   }
@@ -223,6 +235,21 @@ export default function SupportHub() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Previous Tickets Section */}
+      <TextAnimate
+        as="h3"
+        duration={0.2}
+        className="mb-4 mt-8 text-xl sm:text-2xl font-semibold dark:text-white/75"
+      >
+        Your Tickets
+      </TextAnimate>
+
+      <TicketList
+        selectedStatus={selectedStatus}
+        searchQuery={searchQuery}
+        onTicketClick={(ticket) => setSelectedTicket(ticket.id)}
+      />
     </div>
   );
 }

@@ -87,25 +87,33 @@ export interface AddReplyResponse {
  */
 export async function getTickets(
   params: GetTicketsParams = {},
-  access_token: string
+  access_token?: string
 ): Promise<Ticket[]> {
   try {
+    // Get token from localStorage if not provided
+    const token = access_token || (typeof window !== 'undefined' ? localStorage.getItem('userToken') : null);
+    
+    if (!token) {
+      console.error('No access token available for fetching tickets');
+      throw new Error('Authentication required');
+    }
+
     const queryParams = new URLSearchParams();
     if (params.status) queryParams.append('status', params.status);
     if (params.ticket_type) queryParams.append('ticket_type', params.ticket_type);
     if (params.search) queryParams.append('search', params.search);
 
     const response = await axios.get<GetTicketsResponse>(
-      `${API_URL}/support/tickets?${queryParams.toString()}`,
+      `/api/support/tickets?${queryParams.toString()}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       }
     );
 
-    return response.data.data;
+    return response.data.data || [];
   } catch (error) {
     console.error('Error fetching tickets:', error);
     throw error;
@@ -117,14 +125,20 @@ export async function getTickets(
  */
 export async function getTicketById(
   ticketId: string | number,
-  access_token: string
+  access_token?: string
 ): Promise<TicketWithReplies> {
   try {
+    const token = access_token || (typeof window !== 'undefined' ? localStorage.getItem('userToken') : null);
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const response = await axios.get<GetTicketResponse>(
-      `${API_URL}/support/tickets/${ticketId}`,
+      `/api/support/tickets/${ticketId}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       }
@@ -143,15 +157,21 @@ export async function getTicketById(
 export async function addTicketReply(
   ticketId: string | number,
   params: AddReplyParams,
-  access_token: string
+  access_token?: string
 ): Promise<TicketReply> {
   try {
+    const token = access_token || (typeof window !== 'undefined' ? localStorage.getItem('userToken') : null);
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const response = await axios.post<AddReplyResponse>(
-      `${API_URL}/support/tickets/${ticketId}/replies`,
+      `/api/support/tickets/${ticketId}/replies`,
       params,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       }
