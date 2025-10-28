@@ -14,6 +14,13 @@ export const fetchAccessToken = createAsyncThunk<
       },
     });
 
+    // Check if response has error indicator
+    if (response.data?.success === false || response.data?.error) {
+      const errorMsg = response.data?.message || response.data?.error || "Failed to fetch token";
+      console.error("Access token API error:", response.data);
+      return rejectWithValue(errorMsg);
+    }
+
     if (!response.data?.access_token) {
       console.error("Access token not returned from API:", response.data);
       return rejectWithValue("Access token not returned");
@@ -23,11 +30,12 @@ export const fetchAccessToken = createAsyncThunk<
     return response.data.access_token;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch token"
-      );
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to fetch token";
+      console.error("Axios error in fetchAccessToken:", errorMessage);
+      return rejectWithValue(errorMessage);
     } else if (error instanceof Error) {
       return rejectWithValue(error.message);
     } else {

@@ -16,7 +16,7 @@ interface CreateTicketParams {
   title: string; // Mandatory
   parent_id: string; // Mandatory
   status: TicketStatus; // Mandatory
-  access_token: string; // Mandatory
+  access_token?: string; // Optional - backend will fetch it if not provided
 
   assigned_to?: string;
   ticket_type?: string;
@@ -42,25 +42,42 @@ interface CreateTicketParams {
 }
 
 interface CreateTicketResponse {
-  ticketid: string;
+  success: boolean;
   message?: string;
-  status?: string;
-  status_code?: string;
-  error?: string;
-  ticket_no: string;
-  // aur bhi fields add kar sakte ho based on actual API response
+  data: {
+    id: number;
+    ticket_no: string;
+    parent_id: string;
+    title: string;
+    description?: string;
+    ticket_type?: string;
+    priority: string;
+    status: string;
+    account_number?: string;
+    created_at: string;
+    updated_at?: string;
+    last_reply_at?: string;
+  };
 }
 
 export async function createTicket(
   params: CreateTicketParams
 ): Promise<CreateTicketResponse> {
   try {
+    // Backend expects these fields: title, description, ticket_type, priority, account_number
+    // parent_id and status are handled by the backend from the authenticated user
+    const { parent_id, status, access_token, ...bodyParams } = params;
+    
+    // Get auth token from localStorage
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    
     const response = await axios.post<CreateTicketResponse>(
-      "/api/ticket/create",
-      params, // JSON bhejenge, backend usko x-www-form-urlencoded bana dega
+      "/api/support/tickets",
+      bodyParams,
       {
         headers: {
           "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
       }
     );

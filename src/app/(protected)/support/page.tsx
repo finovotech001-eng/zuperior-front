@@ -1,78 +1,51 @@
 "use client";
 
 // import Image from "next/image";
-import { Search, MessageCircle, ChevronDown, Info, Mail } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSelector } from "react-redux";
 import { RootState, store } from "@/store";
 import { Plus } from "lucide-react";
 import { TextAnimate } from "@/components/ui/text-animate";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import OpenTicketFlow from "./_components/OpenTicketFlow";
+// import TicketList from "./_components/TicketList";
+// import TicketDetails from "./_components/TicketDetails";
 import { TicketFormData } from "./_components/types";
+// import { Ticket } from "@/services/getTickets";
 import {
   createTicket,
   TicketPriority,
   TicketStatus,
 } from "@/services/createTicket";
 import { toast } from "sonner";
-import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
-
-const statusOptions = [
-  "All",
-  "New",
-  "Under Review",
-  "Action Required",
-  "Escalated to provider",
-  "Reopened",
-  "Solution Provided",
-  "Closed",
-];
 
 export default function SupportHub() {
   const userName = useSelector(
     (state: RootState) => state.user.data?.accountname
   )?.split(" ")[0];
 
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const dispatch = useAppDispatch();
-
-  const handleStatusChange = useCallback((status: string) => {
-    setSelectedStatus(status);
-  }, []);
-
-  // Ticket flow states
   const [openTicketMode, setOpenTicketMode] = useState(false);
 
   const handleTicketSubmit = async (data: TicketFormData) => {
     setLoading(true);
     try {
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
+      // Backend will handle parent_id and status from authenticated user
       const params = {
         title: data.subject,
-        parent_id: store.getState().user.data?.crm_account_id.toString() || "",
-        status: "Open" as TicketStatus,
+        parent_id: "", // Not sent to backend
+        status: "Open" as TicketStatus, // Not sent to backend
         priority: (data.priority.toLowerCase() as TicketPriority) || "normal",
         description: data.description,
         ticket_type: data.category,
-        access_token: freshToken,
         ...(data.account_number && { account_number: data.account_number }),
       };
 
       const response = await createTicket(params);
       toast.success(
-        "Ticket created successfully! Ticket No: " + response.ticket_no
+        "Ticket created successfully! Ticket No: " + response.data.ticket_no
       );
     } catch (err) {
       console.log("Failed to create ticket:", err);
@@ -82,23 +55,6 @@ export default function SupportHub() {
       setOpenTicketMode(false);
     }
   };
-
-  const statusList = useMemo(
-    () =>
-      statusOptions.map((status) => (
-        <DropdownMenuItem
-          key={status}
-          onClick={() => handleStatusChange(status)}
-          className="cursor-pointer py-2.5 px-3
-            dark:hover:bg-[#23203a] dark:hover:text-fuchsia-300
-            hover:bg-gray-300 hover:text-black
-            dark:text-white/60 transition-colors"
-        >
-          {status}
-        </DropdownMenuItem>
-      )),
-    [handleStatusChange]
-  );
 
   if (openTicketMode) {
     return (
@@ -266,61 +222,6 @@ export default function SupportHub() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Tickets Section */}
-      <TextAnimate
-        as="h1"
-        duration={0.2}
-        className="mb-4 mt-6 text-2xl font-semibold dark:text-white/75 "
-      >
-        My tickets
-      </TextAnimate>
-
-      <div className="rounded-lg p-6 bg-white dark:bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429] border-2 dark:border-[#1D1825] border-gray-300">
-        {/* Controls Bar */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Status Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-transparent"
-              >
-                Active statuses: {selectedStatus}
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-44 dark:bg-[#110f17] dark:text-white/50"
-            >
-              {statusList}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Search Bar */}
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Empty State */}
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-            <Info className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <p className="text-lg dark:text-white/75 font-medium">
-            You don&apos;t have any tickets
-          </p>
-        </div>
       </div>
     </div>
   );

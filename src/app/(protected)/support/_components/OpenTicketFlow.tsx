@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +24,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TicketFormData } from "./types";
-import { store } from "@/store";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { MT5Account } from "@/store/slices/mt5AccountSlice";
+import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
+import { useAppDispatch } from "@/store/hooks";
 
 interface OpenTicketFlowProps {
   onBack: () => void;
@@ -83,6 +87,7 @@ export default function OpenTicketFlow({
   loading,
 }: OpenTicketFlowProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
 
   // Form state
   const [subject, setSubject] = useState("");
@@ -91,7 +96,48 @@ export default function OpenTicketFlow({
   const [accountNumber, setAccountNumber] = useState<string | undefined>(
     undefined
   );
-  const accounts = store.getState().accounts.data || [];
+  
+  // Get MT5 accounts from Redux store - same as dashboard uses
+  const mt5Accounts: MT5Account[] = useSelector((state: RootState) => state.mt5.accounts);
+
+  // Fetch MT5 accounts on mount if empty
+  useEffect(() => {
+    if (mt5Accounts.length === 0) {
+      console.log("🔄 Fetching MT5 accounts for support form...");
+      dispatch(fetchUserMt5Accounts());
+    }
+  }, [dispatch, mt5Accounts.length]);
+  
+  // Convert MT5Account to TpAccountSnapshot format for consistency
+  const accounts = mt5Accounts.map((account: MT5Account) => ({
+    tradingplatformaccountsid: parseInt(account.accountId),
+    account_name: parseInt(account.accountId),
+    platformname: "MT5",
+    acc: parseInt(account.accountId),
+    account_type: "Live",
+    leverage: account.leverage || 100,
+    balance: (account.balance || 0).toString(),
+    credit: (account.credit || 0).toString(),
+    equity: (account.equity || 0).toString(),
+    margin: (account.margin || 0).toString(),
+    margin_free: (account.marginFree || 0).toString(),
+    margin_level: (account.marginLevel || 0).toString(),
+    closed_pnl: (account.profit || 0).toString(),
+    open_pnl: "0",
+    account_type_requested: null,
+    provides_balance_history: true,
+    tp_account_scf: {
+      tradingplatformaccountsid: parseInt(account.accountId),
+      cf_1479: account.name || ""
+    }
+  }));
+
+  // Debug: Log accounts when they change
+  useEffect(() => {
+    console.log("📊 MT5 accounts from store:", mt5Accounts.length);
+    console.log("📊 All accounts (converted):", accounts.length);
+    console.log("📊 Accounts:", accounts);
+  }, [mt5Accounts, accounts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,25 +261,39 @@ export default function OpenTicketFlow({
                  <SelectTrigger className="border-[#362e36] p-5 dark:bg-[#070307] flex items-center w-full dark:text-white/75 text-black focus:ring-[#8046c9]">
                     <SelectValue placeholder="Select Account" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {accounts
-                      .filter(
-                        (acc) => acc?.account_type === "Live" && acc?.acc !== 0
-                      )
-                      .map((account) => (
+                  <SelectContent className="dark:bg-[#110f17] max-h-[300px]">
+                    {accounts.length > 0 ? (
+                      accounts
+                        .filter((acc, index, self) => {
+                          // Filter out duplicates and invalid accounts
+                          const accountId = acc?.acc?.toString();
+                          return accountId && accountId !== "0" && 
+                                 self.findIndex(a => a?.acc?.toString() === accountId) === index;
+                        })
+                        .map((account, index) => (
                         <SelectItem
-                          key={account?.acc}
-                          value={(account?.acc).toString()}
+                          key={`account-${account?.acc}-${index}`}
+                          value={(account?.acc || "").toString()}
+                          className="dark:hover:bg-[#1a1720] cursor-pointer"
                         >
-                          <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[10px]">
-                            MT5
-                          </span>
-                          <span>{account?.acc}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ${parseFloat(account?.balance).toFixed(2)}
-                          </span>
+                          <div className="flex items-center gap-3 w-full">
+                            <span className="bg-[#9F8ACF]/30 px-2 py-1 rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-xs">
+                              MT5
+                            </span>
+                            <span className="font-semibold dark:text-white text-black">
+                              {account?.acc}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              ${parseFloat(account?.balance || "0").toFixed(2)}
+                            </span>
+                          </div>
                         </SelectItem>
-                      ))}
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                        No accounts available
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
