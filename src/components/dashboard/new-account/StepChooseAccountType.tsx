@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { Button } from "../../ui/button";
 import { DialogTitle } from "../../ui/dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AccountTypeCard } from "./accountTypeCard";
 import { mt5Service } from "@/services/api.service";
 
@@ -71,19 +70,8 @@ export const StepChooseAccountType: React.FC<StepChooseAccountTypeProps> = ({
         Choose account type
       </DialogTitle>
       <div className="space-y-6 mt-6">
-        <div
-          className="relative w-full overflow-hidden"
-          ref={scrollRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ cursor: isDragging ? "grabbing" : "grab" }}
-        >
-          <div className="flex space-x-4 w-[450px] md:w-max overflow-x-auto scrollbar-hide scroll-smooth">
+        <div className="relative w-full flex justify-center">
+          <div className="flex space-x-4 w-full md:w-[540px]">
             <AccountTypeCard
               userRole="For Beginners"
               title="Standard"
@@ -106,26 +94,6 @@ export const StepChooseAccountType: React.FC<StepChooseAccountTypeProps> = ({
           Continue
         </Button>
       </div>
-      <button
-        onClick={handleScrollLeft}
-        className="absolute -left-8 md:-left-10 top-1/2 -translate-y-1/2 z-10 p-1 md:p-2 rounded-full cursor-pointer dark:text-white text-black hover:bg-white/5"
-      >
-        <ChevronLeft size={20} />
-        <div
-          style={arrowMaskStyle as React.CSSProperties}
-          className="border dark:border-white/50 border-black pointer-events-none"
-        />
-      </button>
-      <button
-        onClick={handleScrollRight}
-        className="absolute -right-8 md:-right-10 top-1/2 -translate-y-1/2 z-10 p-1 md:p-2 rounded-full dark:text-white text-black cursor-pointer hover:bg-white/5"
-      >
-        <ChevronRight size={20} />
-        <div
-          style={arrowMaskStyle as React.CSSProperties}
-          className="border dark:border-white/50 border-black pointer-events-none rotate-180"
-        />
-      </button>
     </div>
   );
 };
