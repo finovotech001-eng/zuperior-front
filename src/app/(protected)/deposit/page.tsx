@@ -12,6 +12,7 @@ import { store } from "@/store";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 import { getLifetimeDeposit } from "@/services/depositLimitService";
+import { CardLoader } from "@/components/ui/loading";
 
 type CryptoData = {
   symbol: string;
@@ -45,10 +46,12 @@ export default function DepositPage() {
   // Removed activeTab state since we removed the tabs
   const dispatch = useAppDispatch();
   const [lifetimeDeposit, setLifetimeDeposit] = useState<number>(0);
+  const [isLoadingCrypto, setIsLoadingCrypto] = useState(true);
 
   useEffect(() => {
     const fetchCrypto = async () => {
       try {
+        setIsLoadingCrypto(true);
         const res = await axios.get("/api/crypto-currency");
         const tokens: CryptoData[] = res.data.data;
 
@@ -91,6 +94,8 @@ export default function DepositPage() {
         setCryptocurrencies(cryptoList);
       } catch (err) {
         console.error("Failed to fetch crypto data", err);
+      } finally {
+        setIsLoadingCrypto(false);
       }
     };
 
@@ -148,6 +153,11 @@ export default function DepositPage() {
       { type: "bank", data: null },
     ];
   }, [cryptocurrencies]);
+
+  // Show loading state while fetching crypto data
+  if (isLoadingCrypto) {
+    return <CardLoader message="Loading deposit options..." />;
+  }
 
   return (
     <div className="flex flex-col dark:bg-[#01040D]">

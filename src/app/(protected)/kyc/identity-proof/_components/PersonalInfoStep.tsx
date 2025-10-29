@@ -7,6 +7,15 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MoveLeft } from "lucide-react";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import countries from "@/lib/countries.json";
+import Image from "next/image";
 
 interface PersonalInfoStepProps {
   firstName: string;
@@ -16,6 +25,7 @@ interface PersonalInfoStepProps {
   setFirstName: (value: string) => void;
   setLastName: (value: string) => void;
   setPhoneNumber: (value: string) => void;
+  setCountry: (value: string) => void;
   onNext: () => void;
 }
 
@@ -27,13 +37,12 @@ export default function PersonalInfoStep({
   setFirstName,
   setLastName,
   setPhoneNumber,
+  setCountry,
   onNext,
 }: PersonalInfoStepProps) {
-  const displayCountry = !country || country === "Unknown" ? "India" : country;
-
   const handleNext = () => {
-    if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
-      toast.error("Some required information is missing.");
+    if (!firstName.trim() || !lastName.trim() || !country) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
@@ -56,15 +65,33 @@ export default function PersonalInfoStep({
           <div className="space-y-3">
             <>
               <label htmlFor="country" className="text-xs font-medium mb-1">
-                Country
+                Country <span className="text-red-500">*</span>
               </label>
-              <Input
-                id="country"
-                placeholder="Country"
-                value={displayCountry}
-                disabled
-                className="border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black"
-              />
+              <Select
+                value={country || ""}
+                onValueChange={setCountry}
+              >
+                <SelectTrigger className="border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black">
+                  <SelectValue placeholder="Select Country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map(({ name, code }) => (
+                    <SelectItem key={code} value={code}>
+                      <div className="flex items-center">
+                        <Image
+                          src={`https://flagcdn.com/24x18/${code.toLowerCase()}.png`}
+                          alt={code}
+                          className="inline-block mr-2"
+                          width={24}
+                          height={18}
+                          style={{ objectFit: "cover", verticalAlign: "middle" }}
+                        />
+                        {name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </>
             <>
               <label htmlFor="firstName" className="text-xs font-medium mb-1">
@@ -87,18 +114,6 @@ export default function PersonalInfoStep({
                 placeholder="Last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black"
-              />
-            </>
-            <>
-              <label htmlFor="phoneNumber" className="text-xs font-medium mb-1">
-                Phone Number
-              </label>
-              <Input
-                id="phoneNumber"
-                placeholder="Phone Number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
                 className="border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black"
               />
             </>

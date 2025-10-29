@@ -41,6 +41,7 @@ export default function VerifyPage() {
   const [firstName, setFirstName] = useState(user?.accountname.split(" ")[0] || "");
   const [lastName, setLastName] = useState(user?.accountname.split(" ")[1] || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
+  const [selectedCountry, setSelectedCountry] = useState(country || "");
   const [isLoading, setIsLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("");
   const [declinedReason, setDeclinedReason] = useState<string | null>(null);
@@ -165,10 +166,11 @@ const handleSubmit = async () => {
             firstName={firstName}
             lastName={lastName}
             phoneNumber={phoneNumber}
-            country={country}
+            country={selectedCountry}
             setFirstName={setFirstName}
             setLastName={setLastName}
             setPhoneNumber={setPhoneNumber}
+            setCountry={setSelectedCountry}
             onNext={nextStep}
           />
         );

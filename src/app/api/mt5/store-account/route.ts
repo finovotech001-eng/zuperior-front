@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = await request.json();
-    const { accountId, userName, userEmail, password, leverage } = body;
+    const { accountId, userName, userEmail,accountType, password, leverage } = body;
 
     console.log('🔄 API: Storing MT5 account in database...');
     console.log('📊 Account ID:', accountId);
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         accountId: accountId.toString(),
         userName: userName,
         userEmail: userEmail,
+        accountType: accountType,
         password: password,
         leverage: leverage
       },

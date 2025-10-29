@@ -138,6 +138,53 @@ export async function POST(request: NextRequest) {
     console.log('Users POST proxy response status:', response.status);
     console.log('Users POST proxy response data:', data);
 
+    // After MT5 account is created, determine and store accountType in our database
+    if (response.ok && data && body.group) {
+      console.log('🔍 Extracting group from MT5 response:', body.group);
+      
+      // Determine account type from group (handle both single and double backslashes)
+      const groupFromRequest = body.group;
+      const groupLower = groupFromRequest.toLowerCase();
+      const isDemoGroup = groupLower.includes('demo');
+      const accountType = isDemoGroup ? 'Demo' : 'Live';
+      
+      console.log('📝 Determined account type:', accountType, 'from group:', groupFromRequest);
+      
+      // If we got an accountId from the response, store it in our database
+      const accountId = data?.Login || data?.login || data?.Data?.Login || data?.Data?.login;
+      
+      if (accountId) {
+        try {
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+          const token = request.headers.get('authorization');
+          
+          console.log('💾 Storing account with accountType:', accountType);
+          
+          const storeResponse = await fetch(`${backendUrl}/mt5/store-account`, {
+            method: 'POST',
+            headers: {
+              'Authorization': token || '',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              accountId: accountId.toString(),
+              accountType: accountType,
+              group: groupFromRequest,
+              leverage: body.leverage || 100
+            })
+          });
+          
+          if (storeResponse.ok) {
+            console.log('✅ Account stored with accountType:', accountType);
+          } else {
+            console.error('❌ Failed to store account with accountType');
+          }
+        } catch (storeError) {
+          console.error('❌ Error storing account with accountType:', storeError);
+        }
+      }
+    }
+
     return new NextResponse(JSON.stringify(data), {
       status: response.status,
       headers,

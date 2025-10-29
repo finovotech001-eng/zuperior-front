@@ -37,14 +37,39 @@ interface StepAccountCreatedProps {
     updatedAt?: string;
   } | null;
   password: string;
+  accountType: string;
   onOpenChange: (open: boolean) => void;
 }
 
 export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
   latestAccount,
   password,
+  accountType,
   onOpenChange,
-}) => (
+}) => {
+  // Handle MT5 Download link
+  const handleMt5Download = () => {
+    const downloadUrl = "https://download.mql5.com/cdn/web/zuperior.fx.limited/mt5/zuperiorfx5setup.exe";
+    window.open(downloadUrl, '_blank');
+  };
+
+  // Handle Web Terminal link with auto-login
+  const handleWebTerminal = () => {
+    const token = localStorage.getItem('userToken');
+    const clientId = localStorage.getItem('clientId');
+    
+    if (!token || !clientId) {
+      console.error('No authentication credentials found');
+      return;
+    }
+
+    // Get terminal URL from environment variable
+    const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'https://trade.zuperior.com';
+    const terminalUrl = `${terminalBaseUrl}/login?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}&autoLogin=true`;
+    window.open(terminalUrl, '_blank');
+  };
+
+  return (
   <div className="w-full">
     <DialogTitle className="text-[20px] md:text-[28px] text-center mt-4 font-semibold dark:text-white/75 text-black">
       Account created successfully
@@ -87,7 +112,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
               Account Type:
             </span>
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
-              Live
+              {accountType || (latestAccount?.group?.startsWith('demo') ? 'Demo' : 'Live')}
             </span>
             <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
@@ -114,7 +139,8 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
               Account Group:
             </span>
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
-              {latestAccount?.group === 'real\\Bbook\\Pro\\dynamic-2000x-10P' ? 'Pro' : 'Standard'}
+              {latestAccount?.group?.includes('Pro') ? 'Pro' : 
+               latestAccount?.group?.includes('Standard') ? 'Standard' : 'N/A'}
             </span>
             <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
           </div>
@@ -122,7 +148,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
       </div>
       <div className="rounded-[15px] bg-white dark:bg-[#050105] px-6 border border-[#1a131a] mt-2 md:mt-4 mx-auto w-auto md:w-[396px]">
         <div className="space-y-3 mt-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleMt5Download}>
             <div className="flex items-center">
               <Image className="h-9 w-9 mr-4 cursor-pointer" src={mt5} alt="" />
               <div className="flex flex-col">
@@ -136,7 +162,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
             </div>
             <Image className="h-4 w-4 cursor-pointer" src={download} alt="" />
           </div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 cursor-pointer hover:opacity-80 transition-opacity" onClick={handleWebTerminal}>
             <div className="flex items-center">
               <Image className="h-9 w-9 mr-4 cursor-pointer" src={web} alt="" />
               <div className="flex flex-col">
@@ -164,5 +190,6 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 

@@ -34,7 +34,7 @@ const RegisterStep2OtpForm: React.FC<RegisterStep2OtpFormProps> = ({
   return (
     <div className="flex flex-col items-center">
       <p className="text-sm text-gray-300 text-center mb-2">
-        Enter the 6-digit code sent to your email/phone.
+        Enter the 6-digit code sent to your email.
         <br />
         <span className="text-xs text-gray-400">
           This code is valid for 10 minutes.

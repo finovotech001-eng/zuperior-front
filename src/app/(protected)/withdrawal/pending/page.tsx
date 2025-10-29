@@ -16,6 +16,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import axios from "axios";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
+import { PageLoader } from "@/components/ui/loading";
 interface WithdrawalData {
   id: number;
   accountname: string;
@@ -238,9 +239,7 @@ export default function PendingWithdrawPage() {
 
   if (isLoading) {
     return (
-      <div className="text-white text-xl flex items-center justify-center">
-        Loading withdrawals...
-      </div>
+      <PageLoader message="Loading withdrawals..." fullScreen={false} />
     );
   }
 

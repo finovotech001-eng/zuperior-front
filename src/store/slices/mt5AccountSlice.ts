@@ -9,6 +9,7 @@ export interface MT5Account {
   accountId: string;
   createdAt?: string;
   password?: string; // MT5 master password (stored in DB)
+  accountType?: string; // Live or Demo (stored in DB)
   // Additional fields from API response (not stored in DB)
   name?: string;
   group?: string;
@@ -134,6 +135,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
             marginLevel: 0,
             profit: 0,
             isEnabled: true,
+            accountType: account.accountType || 'Live', // Preserve accountType from database
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
@@ -152,6 +154,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
           marginLevel: account.MarginLevel || 0,
           profit: account.Profit || 0,
           isEnabled: account.IsEnabled !== false, // Default to true if not specified
+          accountType: account.accountType || 'Live', // Preserve accountType from database
           createdAt: account.Registration || new Date().toISOString(),
           updatedAt: account.LastAccess || new Date().toISOString()
         };
@@ -506,6 +509,7 @@ const mt5AccountSlice = createSlice({
       // Create Account
       .addCase(createMt5Account.pending, (state) => {
         state.isLoading = true;
+        state.isFetchingAccounts = true;
         state.error = null;
       })
       .addCase(createMt5Account.fulfilled, (state, action) => {
@@ -516,7 +520,7 @@ const mt5AccountSlice = createSlice({
         
         // Check if account already exists to avoid duplicates
         const exists = state.accounts.some(acc => acc.accountId === newAccount.accountId);
-        if (!exists) {
+        if (!exists && newAccount.accountId) {
           state.accounts.push(newAccount);
           state.totalBalance += (newAccount.balance || 0);
           console.log(`✅ New account added! Total accounts: ${state.accounts.length}`);
@@ -524,6 +528,7 @@ const mt5AccountSlice = createSlice({
         
         // Reset throttling to allow immediate refresh
         state.lastAccountsFetchAt = null;
+        state.isFetchingAccounts = false;
       })
       .addCase(createMt5Account.rejected, (state, action) => {
         state.isLoading = false;

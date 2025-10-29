@@ -82,6 +82,13 @@ export async function POST(request: NextRequest) {
         console.log('💾 Storing accountId:', accountId);
         console.log('🔐 Storing password and leverage:', { leverage, hasPassword: !!masterPassword });
 
+        // Determine account type from group (same logic as backend)
+        const groupLower = group.toLowerCase();
+        const isDemoGroup = groupLower.includes('demo');
+        const accountType = isDemoGroup ? 'Demo' : 'Live';
+        
+        console.log('📝 Determined account type:', accountType, 'from group:', group);
+
         // Call internal API to store in database with password and leverage
         const storeResponse = await fetch(`${API_URL}/mt5/store-account`, {
           method: 'POST',
@@ -91,6 +98,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             accountId: accountId,
+            accountType: accountType,
             password: masterPassword,
             leverage: leverage,
             mt5Data: data

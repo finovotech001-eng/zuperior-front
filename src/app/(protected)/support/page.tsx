@@ -22,9 +22,29 @@ import {
 import { toast } from "sonner";
 
 export default function SupportHub() {
-  const userName = useSelector(
-    (state: RootState) => state.user.data?.accountname
-  )?.split(" ")[0];
+  // Get username from multiple possible sources
+  const userName = useSelector((state: RootState) => {
+    // Try accountname first (from MT5/CRM API)
+    const accountname = state.user.data?.accountname;
+    if (accountname) return accountname.split(" ")[0];
+    
+    // Try name field
+    const name = state.user.data?.name;
+    if (name) return name.split(" ")[0];
+    
+    // Try from localStorage as fallback
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        return user?.name?.split(" ")[0] || user?.accountname?.split(" ")[0];
+      }
+    } catch (e) {
+      console.error("Error parsing stored user:", e);
+    }
+    
+    return "User";
+  });
 
   const [loading, setLoading] = useState(false);
   const [openTicketMode, setOpenTicketMode] = useState(false);

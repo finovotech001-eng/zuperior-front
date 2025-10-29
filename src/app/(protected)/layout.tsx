@@ -43,9 +43,12 @@ export default function ProtectedLayout({
     }
   }, [router, dispatch]);
 
+  // Get user data for Crisp
+  const userData = useAppSelector((state) => state.user.data);
+  
   // Initialize Crisp chat after component mounts
   useEffect(() => {
-    if (authChecked) {
+    if (authChecked && userData) {
       // Initialize Crisp chat
       window.$crisp = [];
       window.CRISP_WEBSITE_ID = "067edae6-7a19-49e6-aaf8-b79cc4d0ce25";
@@ -61,17 +64,25 @@ export default function ProtectedLayout({
       if (!existingScript) {
         document.head.appendChild(script);
 
-        // Hide Crisp chat by default after it loads
+        // Set user data in Crisp and hide chat by default
         script.onload = () => {
           setTimeout(() => {
             if (window.$crisp) {
+              // Set user identity for chat
+              window.$crisp.push(["set", "user:email", userData.email1 || ""]);
+              window.$crisp.push(["set", "user:nickname", userData.accountname || ""]);
+              
+              // Add custom data
+              window.$crisp.push(["set", "session:data", [[["user_id", localStorage.getItem('userId') || ""], ["account_name", userData.accountname || ""]]]]);
+              
+              // Hide Crisp chat by default
               window.$crisp.push(["do", "chat:hide"]);
             }
           }, 1000); // Wait 1 second for Crisp to fully initialize
         };
       }
     }
-  }, [authChecked]);
+  }, [authChecked, userData]);
 
   // Don't render layout until auth is confirmed
   if (!authChecked) return null;

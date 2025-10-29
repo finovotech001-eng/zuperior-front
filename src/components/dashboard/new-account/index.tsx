@@ -14,6 +14,7 @@ import { StepChooseAccountType } from "./StepChooseAccountType";
 import { StepPrepareAccount } from "./StepPrepareAccount";
 import { StepAccountCreated } from "./StepAccountCreated";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
+import { CardLoader } from "@/components/ui/loading";
 
 interface NewAccountResponse {
   status: string;
@@ -56,11 +57,13 @@ export function NewAccountDialog({
   const [currency, setCurrency] = useState("USD");
   const [password, setPassword] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [topUpAmount, setTopUpAmount] = useState("");
   const [errors, setErrors] = useState<{
     accountName?: string;
     password?: string;
     leverage?: string;
     currency?: string;
+    topUpAmount?: string;
   }>({});
   const [loadingStep2, setLoadingStep2] = useState(false);
   // const [platform, setPlatform] = useState("");
@@ -134,6 +137,7 @@ export function NewAccountDialog({
     setCurrency("USD");
     setAccountName("");
     setPassword("");
+    setTopUpAmount("");
     setPasswordVisible(false);
     setErrors({});
     setLoadingStep2(false);
@@ -187,22 +191,41 @@ export function NewAccountDialog({
   const handleSubmit = async () => {
     if (!validateStep2()) return;
 
+    // Validate account plan was selected
+    if (!accountPlan || (accountPlan !== "standard" && accountPlan !== "pro")) {
+      console.error("❌ Invalid account plan selected:", accountPlan);
+      toast.error("Please go back and select an account plan (Standard or Pro)");
+      setLoadingStep2(false);
+      return;
+    }
+
     try {
       setLoadingStep2(true);
 
-      // Map account plan to MT5 group
+      // Map account plan to MT5 group based on account type (Live or Demo)
       let group = "";
+      const isDemo = accountType.toLowerCase() === "demo";
+      
       if (accountPlan === "standard") {
-        group = "real\\Bbook\\Standard\\dynamic-2000x-20Pips";
+        if (isDemo) {
+          group = "demo\\Standard\\dynamic-2000x-20PAbook";
+        } else {
+          group = "real\\Bbook\\Standard\\dynamic-2000x-20Pips";
+        }
       } else if (accountPlan === "pro") {
-        group = "real\\Bbook\\Pro\\dynamic-2000x-10P";
+        if (isDemo) {
+          group = "demo\\Pro\\dynamic-2000x-10PAbook";
+        } else {
+          group = "real\\Bbook\\Pro\\dynamic-2000x-10P";
+        }
       } else {
         console.error("❌ Invalid account plan selected:", accountPlan);
         toast.error("Please select a valid account plan");
+        setLoadingStep2(false);
         return;
       }
 
-      console.log("✅ Account plan selected:", accountPlan, "→ Group:", group);
+      console.log("✅ Account type:", accountType, "| Plan:", accountPlan, "→ Group:", group);
 
       // Generate passwords for MT5 (master and investor)
       const masterPassword = password.trim();
@@ -219,10 +242,10 @@ export function NewAccountDialog({
         country: "",
         city: "",
         phone: "",
-        comment: `Created from CRM - ${accountPlan} account`
+        comment: `Created from CRM - ${accountType} ${accountPlan} account`
       };
 
-      console.log("🚀 Creating MT5 Account - Final API payload:", JSON.stringify(payload, null, 2));
+      console.log("🚀 Creating MT5 Account - Type:", accountType, "| Final payload:", JSON.stringify(payload, null, 2));
 
       const result = await dispatch(createMt5Account(payload)).unwrap();
 
@@ -242,11 +265,45 @@ export function NewAccountDialog({
         console.log("✅ Account created successfully - Account ID:", result.accountId);
         toast.success(`Your MT5 account has been created successfully! Account ID: ${result.accountId}`);
 
+        // Add balance to demo account if topUpAmount is provided
+        if (isDemo && topUpAmount && parseFloat(topUpAmount) > 0) {
+          try {
+            console.log("💰 Adding balance to demo account:", result.accountId, "Amount:", topUpAmount);
+            const balanceResponse = await fetch(`/api/mt5/deposit`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+              },
+              body: JSON.stringify({
+                login: result.accountId,
+                balance: parseFloat(topUpAmount),
+                comment: "Initial demo account balance"
+              })
+            });
+            
+            // Check if response is ok
+            if (balanceResponse.ok) {
+              const balanceData = await balanceResponse.json();
+              console.log("✅ Balance added successfully:", balanceData);
+              toast.success(`Balance of $${topUpAmount} added to demo account`);
+            } else {
+              const errorData = await balanceResponse.json().catch(() => ({}));
+              console.error("❌ Failed to add balance:", errorData);
+              toast.error(`Account created but failed to add balance: ${errorData.message || 'Unknown error'}`);
+            }
+          } catch (balanceError) {
+            console.error("❌ Error adding balance to demo account:", balanceError);
+            toast.error("Account created but failed to add balance");
+          }
+        }
+
         // Set the latest account data for the success step
         setLatestAccount({
           status: "success",
           status_code: "200",
           message: "Account created successfully",
+          accountType: accountType,
           _token: "",
           object: {
             crm_account_id: parseInt(result.accountId) || 0,
@@ -350,6 +407,7 @@ export function NewAccountDialog({
                   accountId: result.accountId,
                   userName: userName,
                   userEmail: userEmail,
+                  accountType:accountType,
                   password: masterPassword,
                   leverage: parseInt(leverage) || 100
                 })
@@ -380,7 +438,8 @@ export function NewAccountDialog({
 
     } catch (err: any) {
       console.error("MT5 account creation failed:", err);
-      toast.error(err.message || "Failed to create MT5 account");
+      const errorMessage = err?.message || err?.data?.message || "Failed to create MT5 account. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setLoadingStep2(false);
     }
@@ -466,7 +525,13 @@ export function NewAccountDialog({
           />
         )}
 
-        {step === 2 && (
+        {step === 2 && loadingStep2 && (
+          <div className="w-full">
+            <CardLoader message="Creating your account..." />
+          </div>
+        )}
+
+        {step === 2 && !loadingStep2 && (
           <StepPrepareAccount
             accountType={accountType}
             handleAccountChange={handleAccountChange}
@@ -480,6 +545,8 @@ export function NewAccountDialog({
             setPassword={setPassword}
             passwordVisible={passwordVisible}
             setPasswordVisible={setPasswordVisible}
+            topUpAmount={topUpAmount}
+            setTopUpAmount={setTopUpAmount}
             errors={errors}
             loadingStep2={loadingStep2}
             handleSubmit={async () => {
@@ -495,6 +562,7 @@ export function NewAccountDialog({
           <StepAccountCreated
             latestAccount={latestAccount}
             password={password}
+            accountType={accountType}
             onOpenChange={onOpenChange}
           />
         )}

@@ -27,11 +27,14 @@ interface StepPrepareAccountProps {
   setPassword: (value: string) => void;
   passwordVisible: boolean;
   setPasswordVisible: (v: boolean) => void;
+  topUpAmount: string;
+  setTopUpAmount: (value: string) => void;
   errors: {
     accountName?: string;
     password?: string;
     leverage?: string;
     currency?: string;
+    topUpAmount?: string;
   };
   loadingStep2: boolean;
   handleSubmit: () => Promise<void>;
@@ -51,6 +54,8 @@ export const StepPrepareAccount: React.FC<StepPrepareAccountProps> = ({
   setPassword,
   passwordVisible,
   setPasswordVisible,
+  topUpAmount,
+  setTopUpAmount,
   errors,
   loadingStep2,
   handleSubmit,
@@ -173,6 +178,29 @@ export const StepPrepareAccount: React.FC<StepPrepareAccountProps> = ({
           <p className="text-red-400 text-[10px] mt-1">{errors.password}</p>
         )}
       </div>
+      {accountType.toLowerCase() === "demo" && (
+        <div className="space-y-1">
+          <Label htmlFor="topUpAmount" className="dark:text-white/75 text-black text-[14px]">
+            Top Up Amount (Optional)
+          </Label>
+          <Input
+            id="topUpAmount"
+            type="number"
+            value={topUpAmount}
+            onChange={(e) => setTopUpAmount(e.target.value)}
+            placeholder="0.00"
+            className="border-gray-300 dark:border-[#FFFFFF]/15 
+               rounded-[12px] cursor-pointer w-full 
+               bg-white dark:bg-[#050105] 
+               text-black dark:text-white 
+               placeholder:text-black dark:placeholder:text-white/25 
+               p-5"
+          />
+          {errors.topUpAmount && (
+            <p className="text-red-400 text-[10px] mt-1">{errors.topUpAmount}</p>
+          )}
+        </div>
+      )}
       <div className="flex flex-col">
         <Button
           className="flex-1 cursor-pointer bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white hover:bg-[#9d6ad9] flex items-center justify-center"

@@ -35,7 +35,7 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     account_name: parseInt(mt5Account.accountId),
     platformname: "MT5",
     acc: parseInt(mt5Account.accountId),
-    account_type: "Live", // All MT5 accounts are live for now
+    account_type: (mt5Account as any).accountType || "Live", // Use account type from database
     // Show account plan (Pro/Standard) derived from the MT5 group
     account_type_requested: requestedType,
     leverage: mt5Account.leverage || 100,
@@ -199,7 +199,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
         <TabsContent value="live">
           {hasBasicAccountInfo ? (
             accounts
-              // Show all accounts consistently; do not hide on isEnabled flag
+              .filter((account) => ((account as any).accountType || "Live") === "Live")
               .map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (
@@ -207,7 +207,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
                     key={`${mappedAccount.tradingplatformaccountsid}-${index}`}
                     accountId={mappedAccount.acc}
                     platformName={mappedAccount.platformname}
-                    accountType={mappedAccount.account_type}
+                    accountType={(account as any).accountType || "Live"}
                     accountDetails={mappedAccount}
                   />
                 );
@@ -222,17 +222,16 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
         {/* Demo Accounts */}
         <TabsContent value="demo">
           {(() => {
-            // For now, MT5 doesn't have demo accounts, but we'll show the message
-            const demoAccounts: MT5Account[] = [];
+            const demoAccounts = accounts.filter((account) => ((account as any).accountType || "Live") === "Demo");
             if (demoAccounts.length > 0) {
-              return demoAccounts.map((account) => {
+              return demoAccounts.map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (
                   <AccountDetails
-                    key={mappedAccount.tradingplatformaccountsid}
+                    key={`${mappedAccount.tradingplatformaccountsid}-${index}`}
                     accountId={mappedAccount.acc}
                     platformName={mappedAccount.platformname}
-                    accountType={mappedAccount.account_type}
+                    accountType={(account as any).accountType || "Demo"}
                     accountDetails={mappedAccount}
                   />
                 );

@@ -155,7 +155,7 @@ const AccountDetails = ({
                       </span>
                     </>
                   ) : (
-                    String(text).charAt(0).toUpperCase() + String(text).slice(1)
+                    String(text)
                   )}
                 </div>
               ))}

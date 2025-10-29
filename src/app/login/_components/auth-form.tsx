@@ -208,14 +208,34 @@ const AuthForm = () => {
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
+  // Handle forgot password
+  const handleForgotPassword = async () => {
+    if (!loginEmail.trim()) {
+      setValidationErrors((prev) => ({ ...prev, email: "Email is required" }));
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      // Call forgot password API
+      const response = await authService.forgotPassword(loginEmail);
+      toast.success("Password reset link sent to your email!");
+      setForgotMode(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Failed to send reset link. Please try again.";
+      toast.error(errorMessage);
+      console.error("Forgot password error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (forgotMode) {
-      // For forgot password, we'll implement a simple email notification
-      toast.info("Password reset feature will be implemented soon.");
-      setForgotMode(false);
+      await handleForgotPassword();
       return;
     }
 

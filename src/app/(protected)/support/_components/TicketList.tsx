@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Calendar } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { getTickets, Ticket } from "@/services/getTickets";
+import { CardLoader } from "@/components/ui/loading";
 
 interface TicketListProps {
   selectedStatus: string;
@@ -63,7 +64,7 @@ export default function TicketList({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Loading tickets...</div>
+        <CardLoader message="Loading your tickets..." />
       </div>
     );
   }

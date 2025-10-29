@@ -130,21 +130,7 @@ function ProfileComponent({ profile, loading }: ProfileComponentProps) {
                         {displayName}
                       </TextAnimate>
                     )}
-                  </div>
-
-                  <div className="flex items-center gap-1 mt-2">
-                    <p className="text-[13px] tracking-[-0.05em] leading-[1.1em] font-semibold text-gray-700 dark:text-white/50">
-                      User ID:{" "}
-                      <span className="text-[14px] leading-[1.1em] font-semibold text-black dark:text-white/75">
-                        {userId || "N/A"}
-                      </span>
-                    </p>
-                    <CopyButton
-                      text={userId}
-                      className="pl-1"
-                      size={12}
-                    />
-                  </div>
+                  </div>       
                 </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { User } from "@/types/user-details";
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { setAccounts, setBalance } from "./accountsSlice";
-import { setAddressVerified, setDocumentVerified } from "./kycSlice";
+import { setAddressVerified, setDocumentVerified, setKycFromDatabase } from "./kycSlice";
 import { store } from "..";
 
 interface UserState {
@@ -49,12 +49,28 @@ export const getUser = createAsyncThunk<
       if (userData.verification_status === "Verified") {
         dispatch(setDocumentVerified(true));
         dispatch(setAddressVerified(true));
+        dispatch(setKycFromDatabase({
+          isDocumentVerified: true,
+          isAddressVerified: true,
+          verificationStatus: "verified"
+        }));
       } else if (userData.verification_status === "Partially Verified") {
         // Assuming document is verified if partially verified
         dispatch(setDocumentVerified(true));
+        dispatch(setAddressVerified(false));
+        dispatch(setKycFromDatabase({
+          isDocumentVerified: true,
+          isAddressVerified: false,
+          verificationStatus: "partial"
+        }));
       } else {
         dispatch(setDocumentVerified(false));
         dispatch(setAddressVerified(false));
+        dispatch(setKycFromDatabase({
+          isDocumentVerified: false,
+          isAddressVerified: false,
+          verificationStatus: "unverified"
+        }));
       }
 
       const balance =

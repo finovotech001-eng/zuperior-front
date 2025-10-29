@@ -97,6 +97,14 @@ const authService = {
     authService.clearAuthData();
     if (typeof window !== 'undefined') window.location.href = '/login';
   },
+
+  forgotPassword: async (email: string) => {
+    const response = await api.post('/api/password/forget', {
+      email: email,
+      accessToken: typeof window !== 'undefined' ? localStorage.getItem('userToken') : '',
+    });
+    return response.data;
+  },
 };
 
 // --- Helpers ---
@@ -224,9 +232,21 @@ const mt5Service = {
       console.log('📊 Normalized response:', JSON.stringify(ok, null, 2));
       if (!ok.success) return { Success: false, Data: [] };
 
-      // Clean incoming IDs (unique, numeric, non-zero)
-      const rawIds: string[] = ok.data?.accounts?.map((a: any) => a.accountId).filter(Boolean) ?? [];
+      // Clean incoming IDs (unique, numeric, non-zero) and create a map for accountType
+      const dbAccounts = ok.data?.accounts ?? [];
+      const rawIds: string[] = dbAccounts.map((a: any) => a.accountId).filter(Boolean);
+      
+      // Create a map of accountId -> accountType from database
+      const accountTypeMap = new Map<string, string>();
+      dbAccounts.forEach((acc: any) => {
+        if (acc.accountId) {
+          accountTypeMap.set(acc.accountId, acc.accountType || 'Live');
+        }
+      });
+      
       console.log('🔢 Raw account IDs from DB:', rawIds);
+      console.log('📝 Account type map:', Array.from(accountTypeMap.entries()));
+      
       const accountIds = Array.from(new Set(
         rawIds
           .map((id: any) => String(id).trim())
@@ -305,7 +325,10 @@ const mt5Service = {
         // If profile failed (null from safe function) or doesn't have success/data
         if (!p || !p.success || !p.data) {
           console.log(`ℹ️ Using minimal profile data for account ${id}`);
-          return { Login: Number(id) };
+          return { 
+            Login: Number(id),
+            accountType: accountTypeMap.get(id) || 'Live'
+          };
         }
         
         const profileData = p.data;
@@ -313,10 +336,17 @@ const mt5Service = {
         // Check if profile data has Login: 0 or invalid data
         if (profileData && (profileData.Login === 0 || !profileData.Login || Object.keys(profileData).length <= 1)) {
           console.log(`ℹ️ Profile data incomplete for account ${id}, using minimal object`);
-          return { Login: Number(id) };
+          return { 
+            Login: Number(id),
+            accountType: accountTypeMap.get(id) || 'Live'
+          };
         }
         
-        return profileData;
+        // Add accountType from database to the merged profile data
+        return {
+          ...profileData,
+          accountType: accountTypeMap.get(id) || 'Live'
+        };
       });
 
       const successCount = merged.filter((m: any) => m && typeof m.Login !== 'undefined' && Object.keys(m).length > 1).length;
