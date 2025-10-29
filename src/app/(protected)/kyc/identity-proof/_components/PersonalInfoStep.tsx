@@ -71,7 +71,7 @@ export default function PersonalInfoStep({
                 value={country || ""}
                 onValueChange={setCountry}
               >
-                <SelectTrigger className="border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black">
+                <SelectTrigger className="w-full border-[#2a3247] bg-white dark:bg-[#01040D] dark:text-white text-black">
                   <SelectValue placeholder="Select Country" />
                 </SelectTrigger>
                 <SelectContent>
