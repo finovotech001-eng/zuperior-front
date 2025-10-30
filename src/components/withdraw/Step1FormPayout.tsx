@@ -180,6 +180,9 @@ export function Step1FormPayout({
               const seen = new Set<string>();
               return accounts
                 .filter((account) => {
+                  // Only show Live accounts
+                  const accountType = (account as any).accountType || account.account_type || 'Live';
+                  if (accountType !== 'Live') return false;
                   const id = String(account.acc ?? '').trim();
                   if (!id || id === '0' || seen.has(id)) return false;
                   seen.add(id);

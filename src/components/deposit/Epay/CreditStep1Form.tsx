@@ -199,7 +199,13 @@ export function CreditStep1Form({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="border-[#1e171e] bg-white dark:bg-[#060207]">
-                {accounts.map((account, index) => (
+                {accounts
+                  .filter((account) => {
+                    // Only show Live accounts
+                    const accountType = account.accountType || 'Live';
+                    return accountType === 'Live';
+                  })
+                  .map((account, index) => (
                   <SelectItem
                     key={`${account.accountId}-${index}`}
                     value={account.accountId}

@@ -194,7 +194,11 @@ export function Step1Form({
               </SelectTrigger>
               <SelectContent className="border-[#1e171e] dark:bg-[#060207]">
                 {accounts
-                  .filter((account) => account.account_type !== "Demo")
+                  .filter((account) => {
+                    // Only show Live accounts
+                    const accountType = account.account_type || (account as any).accountType || 'Live';
+                    return accountType === 'Live';
+                  })
                   .filter((account => String(account.acc ?? '').trim() !== '' && String(account.acc) !== '0'))
                   .filter((account) => /^\d+$/.test(String(account.acc)))
                   .reduce((unique: any[], acc) => {

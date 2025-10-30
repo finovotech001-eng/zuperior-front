@@ -41,13 +41,15 @@ export default function TransactionsPage() {
     dispatch(fetchUserMt5Accounts());
   }, [dispatch]);
 
-  // Map accounts to dropdown items
+  // Map accounts to dropdown items - only Live accounts
   const accounts =
     useSelector((state: RootState) =>
-      state.mt5.accounts.map((account) => ({
-        id: String(account.accountId ?? account.login ?? account.id),
-        type: account.group || "Live",
-      }))
+      state.mt5.accounts
+        .filter((account) => (account.accountType || 'Live') === 'Live')
+        .map((account) => ({
+          id: String(account.accountId ?? account.login ?? account.id),
+          type: account.group || "Live",
+        }))
     ) || [];
 
   const [activeTab, setActiveTab] = useState<"all" | "deposits" | "withdrawals">("all");

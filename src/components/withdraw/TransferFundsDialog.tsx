@@ -206,7 +206,13 @@ const TransferFundsDialog = ({
                       <SelectValue placeholder="Select Account" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredAccounts.map((account, index) => (
+                      {filteredAccounts
+                        .filter((account) => {
+                          // Only show Live accounts
+                          const accountType = account?.accountType || 'Live';
+                          return accountType === 'Live';
+                        })
+                        .map((account, index) => (
                         <SelectItem
                           key={`${account?.accountId || 'no-id'}-${index}`}
                           value={account?.accountId?.toString() || ''}
@@ -252,7 +258,13 @@ const TransferFundsDialog = ({
                       <SelectValue placeholder="Select Account" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredAccounts.map((account, index) => (
+                      {filteredAccounts
+                        .filter((account) => {
+                          // Only show Live accounts
+                          const accountType = account?.accountType || 'Live';
+                          return accountType === 'Live';
+                        })
+                        .map((account, index) => (
                         <SelectItem
                           key={`${account?.accountId || 'no-id'}-${index}-to`}
                           value={account?.accountId?.toString() || ''}

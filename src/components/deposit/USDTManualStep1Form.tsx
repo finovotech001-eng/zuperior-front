@@ -193,7 +193,11 @@ export function USDTManualStep1Form({
           </SelectTrigger>
           <SelectContent className="border-[#1e171e] dark:bg-[#060207]">
             {accounts
-              .filter((account) => account.isEnabled)
+              .filter((account) => {
+                // Only show Live accounts that are enabled
+                const accountType = account.accountType || 'Live';
+                return accountType === 'Live' && account.isEnabled;
+              })
               .map((account, index) => (
                 <SelectItem
                   key={`${account.accountId}-${index}`}

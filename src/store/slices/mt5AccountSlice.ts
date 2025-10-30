@@ -428,11 +428,13 @@ const mt5AccountSlice = createSlice({
       if (account) {
         account.balance = action.payload.balance;
         account.equity = action.payload.equity;
-        // Calculate total balance from accounts that have balance
-        state.totalBalance = state.accounts.reduce(
-          (sum, acc) => sum + (acc.balance || 0),
-          0
-        );
+        // Calculate total balance from Live accounts only
+        state.totalBalance = state.accounts
+          .filter((acc) => (acc.accountType || 'Live') === 'Live')
+          .reduce(
+            (sum, acc) => sum + (acc.balance || 0),
+            0
+          );
       }
     },
     addAccountOptimistically: (state, action: PayloadAction<MT5Account>) => {
@@ -440,8 +442,13 @@ const mt5AccountSlice = createSlice({
       const exists = state.accounts.some(acc => acc.accountId === action.payload.accountId);
       if (!exists) {
         state.accounts.push(action.payload);
-        state.totalBalance += (action.payload.balance || 0);
-        console.log('🚀 Account added optimistically:', action.payload.accountId);
+        // Only add to total balance if it's a Live account
+        if ((action.payload.accountType || 'Live') === 'Live') {
+          state.totalBalance += (action.payload.balance || 0);
+          console.log('🚀 Live account added optimistically:', action.payload.accountId);
+        } else {
+          console.log('🚀 Demo/Non-Live account added (not included in balance):', action.payload.accountId);
+        }
       }
       // Reset throttling to allow immediate refresh
       state.lastAccountsFetchAt = null;
@@ -485,12 +492,14 @@ const mt5AccountSlice = createSlice({
         state.isFetchingAccounts = false;              // ✅ ADD
         state.lastAccountsFetchAt = Date.now();        // ✅ ADD
         state.accounts = action.payload;
-        // Calculate total balance from all accounts
-        state.totalBalance = state.accounts.reduce(
-          (sum, acc) => sum + (acc.balance || 0),
-          0
-        );
-        console.log(`💰 Total Balance calculated: $${state.totalBalance}`);
+        // Calculate total balance from Live accounts only
+        state.totalBalance = state.accounts
+          .filter((acc) => (acc.accountType || 'Live') === 'Live')
+          .reduce(
+            (sum, acc) => sum + (acc.balance || 0),
+            0
+          );
+        console.log(`💰 Total Balance calculated from Live accounts only: $${state.totalBalance}`);
         console.log('📊 Redux state updated with accounts:', action.payload);
         console.log('📊 Number of accounts stored:', action.payload.length);
         if (typeof window !== 'undefined') {
@@ -522,8 +531,13 @@ const mt5AccountSlice = createSlice({
         const exists = state.accounts.some(acc => acc.accountId === newAccount.accountId);
         if (!exists && newAccount.accountId) {
           state.accounts.push(newAccount);
-          state.totalBalance += (newAccount.balance || 0);
-          console.log(`✅ New account added! Total accounts: ${state.accounts.length}`);
+          // Only add to total balance if it's a Live account
+          if ((newAccount.accountType || 'Live') === 'Live') {
+            state.totalBalance += (newAccount.balance || 0);
+            console.log(`✅ New Live account added! Total accounts: ${state.accounts.length}`);
+          } else {
+            console.log(`✅ New Demo/Non-Live account added (not included in balance). Total accounts: ${state.accounts.length}`);
+          }
         }
         
         // Reset throttling to allow immediate refresh
@@ -580,11 +594,13 @@ const mt5AccountSlice = createSlice({
         );
         if (account) {
           Object.assign(account, accountData);
-          // Calculate total balance from accounts that have balance
-          state.totalBalance = state.accounts.reduce(
-            (sum, acc) => sum + (acc.balance || 0),
-            0
-          );
+          // Calculate total balance from Live accounts only
+          state.totalBalance = state.accounts
+            .filter((acc) => (acc.accountType || 'Live') === 'Live')
+            .reduce(
+              (sum, acc) => sum + (acc.balance || 0),
+              0
+            );
         }
       })
       .addCase(refreshMt5AccountProfile.rejected, (state, action) => {
