@@ -7,6 +7,7 @@ import globe from "@/assets/globe.svg";
 import download from "@/assets/Download.svg";
 import web from "@/assets/web.png";
 import copy from "@/assets/copy.svg";
+import { CopyButton } from "@/components/CopyButton";
 
 interface StepAccountCreatedProps {
   latestAccount: {
@@ -87,7 +88,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white capitalize">
               ZuperiorFX-Limited
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text="ZuperiorFX-Limited" className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
@@ -96,53 +97,61 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
               {latestAccount?.object?.tp_id || latestAccount?.object?.crm_account_id || "N/A"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={String(latestAccount?.object?.tp_id || latestAccount?.object?.crm_account_id || "")} className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Password:
             </span>
-            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
-              {password || "N/A"}
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
+              {password}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={password} className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Account Type:
             </span>
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
-              {accountType || (latestAccount?.group?.startsWith('demo') ? 'Demo' : 'Live')}
+              {accountType}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={accountType} className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Leverage:
             </span>
-            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
-              1:{latestAccount?.leverage || "N/A"}
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
+              1:{latestAccount?.leverage ?? "N/A"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={`1:${latestAccount?.leverage ?? ""}`} className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
               Balance:
             </span>
             <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
-              ${latestAccount?.balance || "0.00"}
+              ${latestAccount?.balance?.toFixed?.(2) ?? "0.00"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={`$${latestAccount?.balance?.toFixed?.(2) ?? "0.00"}`} className="h-4 w-4 ml-2" />
           </div>
           <div className="flex justify-between items-center md:mb-4">
             <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
-              Account Group:
+              Account:
             </span>
-            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/75">
-              {latestAccount?.group?.includes('Pro') ? 'Pro' : 
-               latestAccount?.group?.includes('Standard') ? 'Standard' : 'N/A'}
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
+              {latestAccount?.group ?? "Standard"}
             </span>
-            <Image className="h-4 w-4 cursor-pointer ml-2" src={copy} alt="" />
+            <CopyButton text={latestAccount?.group ?? "Standard"} className="h-4 w-4 ml-2" />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
+              Group:
+            </span>
+            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
+              {latestAccount?.group ?? "Standard"}
+            </span>
+            <CopyButton text={latestAccount?.group ?? "Standard"} className="h-4 w-4 ml-2" />
           </div>
         </div>
       </div>
