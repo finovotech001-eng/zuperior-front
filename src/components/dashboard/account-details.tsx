@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Candle from "@/assets/icons/candle.png";
 import linearDots from "@/assets/icons/linear-dots.png";
@@ -31,20 +31,29 @@ import TradeNowDialouge from "./tradeNow-dialouge";
 import TransferFundsDialog from "../withdraw/TransferFundsDialog";
 import { TpAccountSnapshot } from "@/types/user-details";
 import { AccountInfoDialog } from "../AccountInfoDialog";
+import { useDispatch } from "react-redux";
+import { refreshMt5AccountProfile } from "@/store/slices/mt5AccountSlice";
 
 const AccountDetails = ({
   accountId,
   accountType,
   platformName,
   accountDetails,
+  isReady,
 }: {
   accountId: number;
   accountType?: string;
   platformName: string;
   accountDetails: TpAccountSnapshot;
+  isReady?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const { theme } = useTheme();
+  const dispatch = useDispatch();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const inViewRef = useRef<boolean>(true);
+  const inFlightRef = useRef<boolean>(false);
+  const failureCountRef = useRef<number>(0);
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -105,8 +114,68 @@ const AccountDetails = ({
   // Ensure numbers align vertically across rows (tabular figures)
   const numericStyle: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
+  // Observe visibility of this account row
+  useEffect(() => {
+    if (!rootRef.current) return;
+    const el = rootRef.current;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        inViewRef.current = entry.isIntersecting;
+      }
+    }, { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Poll account profile for live updates; quick until ready, then slower
+  useEffect(() => {
+    let timer: any;
+    const scheduleNext = (delay: number) => {
+      timer = setTimeout(tick, delay);
+    };
+    const tick = () => {
+      const visibleTab = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+      if (!visibleTab || !inViewRef.current || inFlightRef.current) {
+        scheduleNext(isReady ? 5000 : 500);
+        return;
+      }
+      inFlightRef.current = true;
+      // @ts-ignore dispatch thunk
+      dispatch(refreshMt5AccountProfile(Number(accountDetails?.acc)))
+        .then(() => {
+          failureCountRef.current = 0;
+        })
+        .catch(() => {
+          failureCountRef.current += 1;
+        })
+        .finally(() => {
+          inFlightRef.current = false;
+          const backoff = failureCountRef.current >= 3 ? 10000 : (isReady ? 5000 : 500);
+          scheduleNext(backoff);
+        });
+    };
+    // Run immediately if not ready so the loader triggers an instant fetch
+    if (!isReady) {
+      tick();
+    } else {
+      scheduleNext(5000);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, accountDetails?.acc]);
+
+  const showSkeleton = !isReady;
   return (
-    <div className="rounded-[15px] p-[15px] pl-2 bg-[#fbfafd] dark:bg-gradient-to-r dark:from-[#110F17] dark:to-[#1E1429] mb-1.5 relative flex flex-col gap-5">
+    <div ref={rootRef} className="rounded-[15px] p-[15px] pl-2 bg-[#fbfafd] dark:bg-gradient-to-r dark:from-[#110F17] dark:to-[#1E1429] mb-1.5 relative flex flex-col gap-5">
+      {showSkeleton && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[15px] bg-black/30">
+          <svg className="animate-spin h-6 w-6 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span className="ml-2 text-xs text-white/80">Loading…</span>
+        </div>
+      )}
       <div
         style={maskStyle}
         className="border-2 border-black/50 dark:border-white/50 pointer-events-none"
@@ -115,9 +184,14 @@ const AccountDetails = ({
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2 lg:gap-0 xl:gap-2">
           <div className="flex items-center gap-2.5 md:min-w-45">
-            <h3 className={`text-[28px] font-bold tracking-tighter leading-8`}>
-              {balance}
-            </h3>
+            {showSkeleton ? (
+              <div className="h-8 w-24 bg-black/10 dark:bg-white/10 rounded animate-pulse" />
+            ) : (
+              <h3 className={`text-[28px] font-bold tracking-tighter leading-8`}>
+                {balance}
+              </h3>
+            )}
+            {!showSkeleton && (
             <p className="font-semibold opacity-75 text-xs -tracking-[0.03em]">
               PnL
               <span className="ml-1 tracking-tighter font-bold dark:text-[#ff4d4d] text-red-600">
@@ -131,6 +205,7 @@ const AccountDetails = ({
                 </span>
               </span>
             </p>
+            )}
           </div>
 
           {/* Show these only on MD Account Details*/}

@@ -8,6 +8,7 @@ import { mt5Service } from "@/services/api.service";
 export interface MT5Account {
   accountId: string;
   createdAt?: string;
+  updatedAt?: string;
   password?: string; // MT5 master password (stored in DB)
   accountType?: string; // Live or Demo (stored in DB)
   // Additional fields from API response (not stored in DB)
@@ -24,6 +25,9 @@ export interface MT5Account {
   isEnabled?: boolean;
   platform?: string;
   status?: boolean;
+  // Client-side flags for UI/polling
+  isProfileReady?: boolean;
+  lastProfileUpdateAt?: number;
 }
 
 export interface MT5Group {
@@ -56,6 +60,18 @@ export interface MT5State {
 // Small helper to throttle rapid duplicate dispatches
 const within = (ts: number | null | undefined, ms: number) =>
   typeof ts === "number" && Date.now() - ts < ms;
+
+// Determine if an account payload is complete enough for the UI
+const isProfileComplete = (a: Partial<MT5Account>): boolean => {
+  return Boolean(
+    a &&
+      a.name &&
+      a.group &&
+      a.leverage !== undefined &&
+      a.balance !== undefined &&
+      a.equity !== undefined
+  );
+};
 
 // --------------------
 // Async Thunks
@@ -122,7 +138,7 @@ export const fetchUserMt5Accounts = createAsyncThunk(
         if (!account || Object.keys(account).length <= 1) {
           console.warn('⚠️ Account profile incomplete (likely newly created):', account);
           // Return minimal valid account
-          return {
+          const minimal: MT5Account = {
             accountId: String(account.Login),
             name: 'Loading...', // Placeholder
             group: 'Loading...',
@@ -137,11 +153,14 @@ export const fetchUserMt5Accounts = createAsyncThunk(
             isEnabled: true,
             accountType: account.accountType || 'Live', // Preserve accountType from database
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            isProfileReady: false,
+            lastProfileUpdateAt: Date.now(),
           };
+          return minimal;
         }
         
-        return {
+        const full: MT5Account = {
           accountId: String(account.Login),
           name: account.Name,
           group: account.Group,
@@ -156,8 +175,12 @@ export const fetchUserMt5Accounts = createAsyncThunk(
           isEnabled: account.IsEnabled !== false, // Default to true if not specified
           accountType: account.accountType || 'Live', // Preserve accountType from database
           createdAt: account.Registration || new Date().toISOString(),
-          updatedAt: account.LastAccess || new Date().toISOString()
+          updatedAt: account.LastAccess || new Date().toISOString(),
+          isProfileReady: true,
+          lastProfileUpdateAt: Date.now(),
         };
+        full.isProfileReady = isProfileComplete(full);
+        return full;
       });
 
       console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
@@ -256,7 +279,7 @@ export const createMt5Account = createAsyncThunk(
       console.log("📊 Redux slice - Account data with Login:", accountData);
 
       // Transform .NET Core user format to match expected MT5Account format
-      const transformedAccount = {
+      const transformedAccount: MT5Account = {
         accountId: String(accountData.Login),
         name: accountData.Name || data.name,
         group: accountData.Group || data.group,
@@ -270,7 +293,15 @@ export const createMt5Account = createAsyncThunk(
         profit: accountData.Profit || 0,
         isEnabled: accountData.IsEnabled !== undefined ? accountData.IsEnabled : true,
         createdAt: accountData.Registration || new Date().toISOString(),
-        updatedAt: accountData.LastAccess || new Date().toISOString()
+        updatedAt: accountData.LastAccess || new Date().toISOString(),
+        isProfileReady: isProfileComplete({
+          name: accountData.Name || data.name,
+          group: accountData.Group || data.group,
+          leverage: accountData.Leverage || data.leverage,
+          balance: accountData.Balance || 0,
+          equity: accountData.Equity || 0,
+        }),
+        lastProfileUpdateAt: Date.now(),
       };
 
       console.log("🔄 Redux slice - Transformed account:", transformedAccount);
@@ -587,13 +618,17 @@ const mt5AccountSlice = createSlice({
 
       // Refresh Profile
       .addCase(refreshMt5AccountProfile.fulfilled, (state, action) => {
-        const accountData = action.payload;
+        const accountData = action.payload as Partial<MT5Account> & { accountId: string };
         if (!accountData) return;
         const account = state.accounts.find(
           (acc) => acc.accountId === accountData.accountId
         );
         if (account) {
+          // Merge only provided fields to avoid wiping placeholders with undefined
           Object.assign(account, accountData);
+          account.lastProfileUpdateAt = Date.now();
+          account.isProfileReady = isProfileComplete(account);
+
           // Calculate total balance from Live accounts only
           state.totalBalance = state.accounts
             .filter((acc) => (acc.accountType || 'Live') === 'Live')

@@ -135,24 +135,7 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
             </span>
             <CopyButton text={`$${latestAccount?.balance?.toFixed?.(2) ?? "0.00"}`} className="h-4 w-4 ml-2" />
           </div>
-          <div className="flex justify-between items-center md:mb-4">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
-              Account:
-            </span>
-            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
-              {latestAccount?.group ?? "Standard"}
-            </span>
-            <CopyButton text={latestAccount?.group ?? "Standard"} className="h-4 w-4 ml-2" />
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[14px] font-semibold text-black dark:text-[#8e8c8f] w-[100px]">
-              Group:
-            </span>
-            <span className="text-[14px] font-semibold text-start flex-1 text-black dark:text-white/74">
-              {latestAccount?.group ?? "Standard"}
-            </span>
-            <CopyButton text={latestAccount?.group ?? "Standard"} className="h-4 w-4 ml-2" />
-          </div>
+                  
         </div>
       </div>
       <div className="rounded-[15px] bg-white dark:bg-[#050105] px-6 border border-[#1a131a] mt-2 md:mt-4 mx-auto w-auto md:w-[396px]">

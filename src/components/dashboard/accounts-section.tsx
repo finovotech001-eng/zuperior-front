@@ -59,7 +59,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
   const [open, setOpen] = useState(false);
   const { theme } = useTheme();
 
-  const { accounts, ownerClientId } = useSelector((state: RootState) => state.mt5);
+  const { accounts, ownerClientId, isFetchingAccounts } = useSelector((state: RootState) => state.mt5);
   const currentClientId = typeof window !== 'undefined' ? localStorage.getItem('clientId') : null;
 
   const hasBasicAccountInfo =
@@ -102,8 +102,10 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     pointerEvents: "none",
   };
 
+  const showOverlay = isFetchingAccounts && (!accounts || accounts.length === 0);
+
   return (
-    <div className="px-2.5 md:px-0">
+    <div className="px-2.5 md:px-0 relative">
       <div className="mb-2.5 flex items-end justify-between w-full">
         <AnimatePresence mode="wait">
           <motion.h2
@@ -151,6 +153,17 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
         }}
         className="mb-[16px] rounded-[15px] border border-dashed border-white/10 p-[15px] pt-2.5 dark:bg-transparent bg-white"
       >
+        {showOverlay && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[15px] bg-black/40 backdrop-blur-sm">
+            <div className="flex items-center">
+              <svg className="animate-spin h-7 w-7 text-white/80" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <span className="ml-3 text-sm font-semibold text-white/80">Loading account details…</span>
+            </div>
+          </div>
+        )}
         <div className="flex justify-center items-center">
           <ToggleGroup
             type="single"
@@ -197,7 +210,15 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
 
         {/* Live Accounts */}
         <TabsContent value="live">
-          {hasBasicAccountInfo ? (
+          {isFetchingAccounts && (!accounts || accounts.length === 0) ? (
+            <div className="flex items-center justify-center py-10">
+              <svg className="animate-spin h-6 w-6 text-white/70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <span className="ml-3 text-sm text-white/70">Fetching accounts…</span>
+            </div>
+          ) : hasBasicAccountInfo ? (
             accounts
               .filter((account) => ((account as any).accountType || "Live") === "Live")
               .map((account, index) => {
@@ -209,6 +230,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
                     platformName={mappedAccount.platformname}
                     accountType={(account as any).accountType || "Live"}
                     accountDetails={mappedAccount}
+                    isReady={Boolean((account as any).isProfileReady)}
                   />
                 );
               })
@@ -233,6 +255,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
                     platformName={mappedAccount.platformname}
                     accountType={(account as any).accountType || "Demo"}
                     accountDetails={mappedAccount}
+                    isReady={Boolean((account as any).isProfileReady)}
                   />
                 );
               });
