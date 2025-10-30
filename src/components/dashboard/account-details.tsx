@@ -66,6 +66,7 @@ const AccountDetails = ({
 
   
 
+  // Keep strict loading until full profile is ready
   // Show loading placeholders while data is being fetched
   const balance = `$${parseFloat(accountDetails.balance).toFixed(2)}`;
   const equity = `${parseFloat(accountDetails.equity).toFixed(2)}`; //${accountDetails.currency} To Do: think what to do about currency
@@ -141,7 +142,8 @@ const AccountDetails = ({
       }
       inFlightRef.current = true;
       // @ts-ignore dispatch thunk
-      dispatch(refreshMt5AccountProfile(Number(accountDetails?.acc)))
+      console.log(`[MT5] ⏩ Polling profile for login=${accountDetails?.acc} (isReady=${Boolean(isReady)})`);
+      (dispatch as any)(refreshMt5AccountProfile(Number(accountDetails?.acc)))
         .then(() => {
           failureCountRef.current = 0;
         })
@@ -150,8 +152,8 @@ const AccountDetails = ({
         })
         .finally(() => {
           inFlightRef.current = false;
-          const backoff = failureCountRef.current >= 3 ? 10000 : (isReady ? 5000 : 500);
-          scheduleNext(backoff);
+          // Aggressive polling until profile is ready
+          scheduleNext(isReady ? 5000 : 500);
         });
     };
     // Run immediately if not ready so the loader triggers an instant fetch

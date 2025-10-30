@@ -370,13 +370,22 @@ export const refreshMt5AccountProfile = createAsyncThunk(
   "mt5/refreshProfile",
   async (login: number, { rejectWithValue }) => {
     try {
+      console.log(`[MT5] 🔄 refreshMt5AccountProfile → requesting profile for login=${login}`);
       const response = await mt5Service.getMt5UserProfile(login);
       // Handle .NET Core API response format
       if (response.data?.Success === false) {
+        console.warn(`[MT5] ⚠️ refreshMt5AccountProfile failed (Success=false) for login=${login}:`, response.data?.Message);
         return rejectWithValue(response.data?.Message || "Failed to refresh MT5 profile");
       }
 
-      const profileData = response.data?.Data || response.data;
+      const profileData = response.data?.Data ?? response.data;
+      console.log(`[MT5] ✅ refreshMt5AccountProfile response for login=${login}:`, profileData);
+
+      // Guard: API sometimes returns 200 with empty/undefined body. Do not access properties.
+      if (!profileData || profileData.Login === undefined || profileData.Login === 0) {
+        console.warn(`[MT5] ⚠️ Empty or invalid profile payload for login=${login}. Will retry.`);
+        return rejectWithValue("Empty MT5 profile payload");
+      }
       // Transform .NET Core user format to match expected MT5Account format
       return {
         accountId: String(profileData.Login),
@@ -395,6 +404,7 @@ export const refreshMt5AccountProfile = createAsyncThunk(
         updatedAt: profileData.LastAccess
       };
     } catch (error: any) {
+      console.error(`[MT5] ❌ refreshMt5AccountProfile error for login=${login}:`, error?.response?.data || error?.message || error);
       if (error.response?.status === 401)
         return rejectWithValue("Authentication required. Please log in first.");
       return rejectWithValue(
@@ -628,6 +638,13 @@ const mt5AccountSlice = createSlice({
           Object.assign(account, accountData);
           account.lastProfileUpdateAt = Date.now();
           account.isProfileReady = isProfileComplete(account);
+          console.log(`[MT5] ✅ Profile merged for ${account.accountId}. isProfileReady=${account.isProfileReady}`, {
+            name: account.name,
+            group: account.group,
+            leverage: account.leverage,
+            balance: account.balance,
+            equity: account.equity,
+          });
 
           // Calculate total balance from Live accounts only
           state.totalBalance = state.accounts
@@ -640,6 +657,7 @@ const mt5AccountSlice = createSlice({
       })
       .addCase(refreshMt5AccountProfile.rejected, (state, action) => {
         state.error = action.payload as string;
+        console.warn(`[MT5] ❌ refreshMt5AccountProfile rejected:`, action.payload);
       });
   },
 });

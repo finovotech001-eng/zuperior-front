@@ -6,6 +6,7 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { fetchKycStatus } from "@/store/slices/kycSlice";
+import { useSessionCheck } from "@/hooks/useSessionCheck";
 
 // TypeScript declaration for Crisp
 declare global {
@@ -24,6 +25,9 @@ export default function ProtectedLayout({
   const dispatch = useAppDispatch();
 
   const [authChecked, setAuthChecked] = useState(false);
+  
+  // Enable session checking (WebSocket + polling) for account deletion
+  useSessionCheck();
 
   useEffect(() => {
     // Check authentication using localStorage
