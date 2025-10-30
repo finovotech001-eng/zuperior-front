@@ -40,12 +40,23 @@ function generateSignature(
   // Create string to sign: secretKey + sorted key-value pairs
   const stringToSign = secretKey + sorted.map(([k, v]) => `${k}${v}`).join("");
   
+  console.log("🔐 Generating signature:", {
+    paramsCount: filtered.length,
+    sortedKeys: sorted.map(([k]) => k),
+    stringToSignLength: stringToSign.length,
+    stringToSign: stringToSign.substring(0, 100) + "..."
+  });
+  
   // Generate MD5 hash in lowercase
-  return crypto
+  const signature = crypto
     .createHash("md5")
     .update(stringToSign)
     .digest("hex")
     .toLowerCase();
+  
+  console.log("✅ Generated signature:", signature);
+  
+  return signature;
 }
 
 /**

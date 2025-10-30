@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPaymentOrder } from "@/lib/cregis-payment.service";
+import { cookies } from "next/headers";
 
 const config = {
   SUCCESS_URL: process.env.CREGIS_SUCCESS_URL || "",
@@ -7,6 +8,8 @@ const config = {
   VALID_TIME: process.env.CREGIS_VALID_TIME || "",
   PAYER_ID: process.env.CREGIS_PAYER_ID || "",
 };
+
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +26,14 @@ export async function POST(req: NextRequest) {
 
     const { order_amount, order_currency, payer_id, valid_time, account_number, account_type, network, crypto_symbol } = body;
 
+    console.log('💳 Received checkout request:', {
+      order_amount,
+      order_currency,
+      account_number,
+      network,
+      crypto_symbol
+    });
+
     if (!order_amount || !order_currency) {
       return NextResponse.json(
         { error: "Missing required fields: order_amount, order_currency" },
@@ -30,12 +41,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!config.SUCCESS_URL || !config.CANCEL_URL) {
-      return NextResponse.json(
-        { error: "Missing environment variables: SUCCESS_URL or CANCEL_URL" },
-        { status: 500 }
-      );
-    }
+    // Use fallback URLs if not configured
+    const successUrl = config.SUCCESS_URL || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/deposit/success`;
+    const cancelUrl = config.CANCEL_URL || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/deposit/cancel`;
+    
+    console.log('📋 Using URLs:', { successUrl, cancelUrl });
 
     // Generate callback URL with additional parameters
     const callbackUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/cregis/payment-callback`);
@@ -47,10 +57,10 @@ export async function POST(req: NextRequest) {
       orderAmount: order_amount,
       orderCurrency: order_currency,
       callbackUrl: callbackUrl.toString(),
-      successUrl: config.SUCCESS_URL,
-      cancelUrl: config.CANCEL_URL,
+      successUrl: successUrl,
+      cancelUrl: cancelUrl,
       payerId: payer_id || config.PAYER_ID,
-      validTime: valid_time || Number(config.VALID_TIME),
+      validTime: valid_time || Number(config.VALID_TIME) || 600,
     });
 
     if (!result.success) {
@@ -63,6 +73,46 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Call backend to create crypto deposit record
+    if (account_number) {
+      try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get('token')?.value;
+
+        if (token) {
+          console.log('📞 Calling backend to create crypto deposit record...');
+          
+          const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-crypto`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              mt5AccountId: account_number,
+              amount: order_amount,
+              currency: order_currency,
+              network: network || 'TRC20',
+              cregisOrderId: result.data?.orderId,
+              paymentUrl: result.data?.paymentUrl,
+            }),
+          });
+
+          if (backendResponse.ok) {
+            const backendData = await backendResponse.json();
+            console.log('✅ Crypto deposit record created in backend:', backendData);
+          } else {
+            console.warn('⚠️ Failed to create crypto deposit record in backend:', await backendResponse.text());
+          }
+        } else {
+          console.warn('⚠️ No auth token found in cookies, skipping backend call');
+        }
+      } catch (backendError) {
+        console.error('❌ Error calling backend:', backendError);
+        // Continue even if backend call fails
+      }
     }
 
     // Transform Cregis response to match expected CheckoutData format
@@ -91,11 +141,15 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const error = err as Error;
+    
+    console.error("❌ Checkout API error:", error);
+    console.error("❌ Error stack:", error.stack);
 
     return NextResponse.json(
       {
         error: "Internal Server Error",
         details: error?.message || "Unknown error",
+        code: "INTERNAL_ERROR"
       },
       { status: 500 }
     );

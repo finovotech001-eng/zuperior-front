@@ -58,6 +58,7 @@
 // app/api/epay/route.ts - Updated to use Cregis Payment Gateway
 import { NextRequest, NextResponse } from "next/server";
 import { createPaymentOrder } from "@/lib/cregis-payment.service";
+import { cookies } from "next/headers";
 
 const config = {
   SUCCESS_URL: process.env.CREGIS_SUCCESS_URL || "",
@@ -65,6 +66,8 @@ const config = {
   VALID_TIME: process.env.CREGIS_VALID_TIME || "",
   PAYER_ID: process.env.CREGIS_PAYER_ID || "",
 };
+
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(req: NextRequest) {
   try {
@@ -166,6 +169,43 @@ export async function POST(req: NextRequest) {
     console.log("✅ Cregis payment order created successfully for card deposit");
     console.log("📋 Payment data:", JSON.stringify(result.data, null, 2));
 
+    // Call backend to create deposit record
+    try {
+      const cookieStore = await cookies();
+      const token = cookieStore.get('token')?.value;
+
+      if (token) {
+        console.log('📞 Calling backend to create deposit record...');
+        
+        const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-card`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            mt5AccountId: account_number,
+            amount: formattedAmount,
+            cregisOrderId: result.data?.orderId,
+            paymentUrl: result.data?.paymentUrl,
+            currency: 'USD',
+          }),
+        });
+
+        if (backendResponse.ok) {
+          const backendData = await backendResponse.json();
+          console.log('✅ Deposit record created in backend:', backendData);
+        } else {
+          console.warn('⚠️ Failed to create deposit record in backend:', await backendResponse.text());
+        }
+      } else {
+        console.warn('⚠️ No auth token found in cookies, skipping backend call');
+      }
+    } catch (backendError) {
+      console.error('❌ Error calling backend:', backendError);
+      // Continue even if backend call fails - we still want to return the payment URL
+    }
+
     // Return data in format expected by frontend
     return NextResponse.json({
       orderId: result.data?.orderId,
@@ -174,11 +214,17 @@ export async function POST(req: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Credit card deposit error:", error.message);
+    console.error("❌ Credit card deposit error:", error);
+    console.error("❌ Error stack:", error.stack);
+    
+    // Provide helpful error message
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     return NextResponse.json(
       {
         error: "Payment initiation failed",
-        details: error.message,
+        details: errorMessage,
+        code: "INTERNAL_ERROR"
       },
       { status: 500 }
     );
