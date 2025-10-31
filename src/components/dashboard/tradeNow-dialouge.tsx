@@ -77,29 +77,7 @@ const TradeNowDialouge = ({
                 className="space-y-4"
               >
                 {/* Exness terminal */}
-                <div
-                  onClick={() => setStep(3)}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full rounded-lg border-2 border-gray-300 dark:border-[#1D1825] p-4 cursor-pointer bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429]"
-                >
-                  <div className="flex items-center gap-3 mb-3 sm:mb-0">
-                    <Image
-                      src={tradingView}
-                      alt="MetaTrader"
-                      width={35}
-                      height={35}
-                    />
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium dark:text-white/75">
-                        Trading View terminal
-                      </span>
-                      <span className="text-sm dark:text-white/75">
-                        Trade directly from your browser
-                      </span>
-                    </div>
-                  </div>
-
-                  <ArrowRight className="shrink-0 self-end sm:self-auto" />
-                </div>
+                
 
                 <div
                   onClick={handleWebTerminalClick}
