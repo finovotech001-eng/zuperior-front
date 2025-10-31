@@ -158,7 +158,18 @@ export async function POST(request: NextRequest) {
           const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
           const token = request.headers.get('authorization');
           
-          console.log('💾 Storing account with accountType:', accountType);
+          // Determine package from group or accountPlan
+          let packageValue = body.accountPlan;
+          if (!packageValue) {
+            const groupLower = groupFromRequest.toLowerCase();
+            packageValue = groupLower.includes('pro') ? 'Pro' : 'Standard';
+          }
+          // Capitalize first letter
+          if (packageValue) {
+            packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1).toLowerCase();
+          }
+          
+          console.log('💾 Storing account with accountType:', accountType, 'and package:', packageValue);
           
           const storeResponse = await fetch(`${backendUrl}/mt5/store-account`, {
             method: 'POST',
@@ -170,7 +181,9 @@ export async function POST(request: NextRequest) {
               accountId: accountId.toString(),
               accountType: accountType,
               group: groupFromRequest,
-              leverage: body.leverage || 100
+              leverage: body.leverage || 100,
+              nameOnAccount: body.name,
+              package: packageValue
             })
           });
           

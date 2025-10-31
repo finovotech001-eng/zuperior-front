@@ -36,7 +36,7 @@ export function AccountTypeCard({
 
   return (
     <div
-      className={`group relative flex flex-col min-h-[280px] md:h-[312px] w-full md:w-[250px] cursor-pointer items-center text-center gap-[10px] md:gap-[15px] rounded-[15px] px-4 md:px-[25px] pt-4 md:pt-[15px] pb-6 md:pb-[30px] bg-gradient-to-b transition-all duration-200 ${selected
+      className={`group relative flex flex-col h-[312px] w-[240px] md:w-[250px] cursor-pointer items-center text-center gap-[10px] md:gap-[15px] rounded-[15px] px-3 md:px-[25px] pt-[15px] pb-[30px] bg-gradient-to-b transition-all duration-200 ${selected
         ? " dark:from-[#381138] dark:to-[#1C061C] bg-[#9F8BCF]"
         : " dark:from-[#381138]/15 dark:to-[#1C061C]/50  dark:border-0 border border-gray-300"
         }`}
@@ -47,43 +47,43 @@ export function AccountTypeCard({
         className="border border-white/50 pointer-events-none"
       />
       <div
-        className={`rounded-[15px] relative py-2 md:py-1.5 px-4 font-semibold text-xs md:text-xs text-black dark:text-white/75 flex items-center justify-center`}
+        className={`rounded-[15px] relative py-1.5 px-4 font-semibold text-xs text-black dark:text-white/75 flex items-center justify-center`}
       >
         <div
           style={roleMaskStyle as React.CSSProperties}
           className="border border-white/50 pointer-events-none"
         />
-        <p className="text-xs md:text-xs">{userRole}</p>
+        <p>{userRole}</p>
       </div>
-      <div className="flex-1 w-full">
+      <div className="flex-1">
         <h3
-          className={`font-bold text-center mb-2 md:mb-2.5 text-xl md:text-lg -tracking-[0.02em] bg-clip-text text-black dark:bg-gradient-to-r from-white to-[#9E9E9E]/95 dark:text-transparent`}
+          className={`font-bold text-center mb-2.5 text-lg -tracking-[0.02em] bg-clip-text text-black dark:bg-gradient-to-r from-white to-[#9E9E9E]/95 dark:text-transparent`}
         >
           {title}
         </h3>
 
-        <p className="text-xs md:text-xs dark:text-white/75 text-black leading-relaxed px-2 md:px-0">
+        <p className="text-xs dark:text-white/75 text-black  ">
           Perfect for newbies--Kick off your trading journey with micro lots.
         </p>
-        <div className="mt-4 md:mt-[15px] flex items-center flex-col gap-2.5 md:gap-2.5">
-          <p className={`text-xs md:text-xs font-semibold dark:text-white/75 text-black `}>
+        <div className="mt-[15px] flex items-center flex-col gap-2.5">
+          <p className={`text-xs font-semibold dark:text-white/75 text-black `}>
             Minimum Deposit{" "}
-            <span className="dark:text-white/75 text-black ml-1 text-sm md:text-sm">$10</span>
+            <span className="dark:text-white/75 text-black ml-1 text-sm">$10</span>
           </p>
           <div className="w-full h-px bg-gradient-to-r from-black via-[#736496] to-black" />
-          <p className={`text-xs md:text-xs font-semibold dark:text-white/75 text-black `}>
+          <p className={`text-xs font-semibold dark:text-white/75 text-black `}>
             Low Spreads{" "}
-            <span className="text-white/75 ml-1 text-sm md:text-sm">0.3 pips</span>
+            <span className="text-white/75 ml-1 text-sm">0.3 pips</span>
           </p>
           <div className="w-full h-px bg-gradient-to-r from-black via-[#736496] to-black" />
-          <p className={`text-xs md:text-xs font-semibold dark:text-white/75 text-black `}>
+          <p className={`text-xs font-semibold dark:text-white/75 text-black `}>
             Leverage{" "}
-            <span className="text-white/75 ml-1 text-sm md:text-sm">1:Unlimited</span>
+            <span className="text-white/75 ml-1 text-sm">1:Unlimited</span>
           </p>
           <div className="w-full h-px bg-gradient-to-r from-black via-[#736496] to-black" />
-          <p className={`text-xs md:text-xs font-semibold dark:text-white/75 text-black `}>
+          <p className={`text-xs font-semibold dark:text-white/75 text-black `}>
             Commissions upto{" "}
-            <span className="dark:text-white/75 text-black  ml-1 text-sm md:text-sm">15%</span>
+            <span className="dark:text-white/75 text-black  ml-1 text-sm">15%</span>
           </p>
         </div>
       </div>

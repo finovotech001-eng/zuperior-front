@@ -33,7 +33,6 @@ import { TpAccountSnapshot } from "@/types/user-details";
 import { AccountInfoDialog } from "../AccountInfoDialog";
 import { useDispatch } from "react-redux";
 import { refreshMt5AccountProfile } from "@/store/slices/mt5AccountSlice";
-import { TopUpDialog } from "./TopUpDialog";
 
 const AccountDetails = ({
   accountId,
@@ -113,7 +112,6 @@ const AccountDetails = ({
 
   const router = useRouter();
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
   // Ensure numbers align vertically across rows (tabular figures)
   const numericStyle: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
   
@@ -215,12 +213,17 @@ const AccountDetails = ({
           <div className="hidden md:flex items-center md:gap-1 lg:gap-1 xl:gap-2.5">
             {[
               accountType,
-              accountDetails?.account_type_requested,
+              accountDetails?.account_type_requested, // Package from database (Standard/Pro)
               platformName,
-              accountDetails?.tp_account_scf.cf_1479, // nickname
+              accountDetails?.tp_account_scf.cf_1479, // Name on Account from database
               accountId,
             ]
-              .filter((text) => text !== undefined && text !== "")
+              .filter((text) => {
+                // Only filter out undefined, null, empty strings - but show valid values even if they're "null" string
+                if (text === undefined || text === null) return false;
+                const str = String(text).trim();
+                return str !== "";
+              })
               .map((text, index, arr) => (
                 <div
                   className="flex bg-[#9F8ACF]/15 p-[5px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[13px] leading-[1.1em]"
@@ -281,22 +284,6 @@ const AccountDetails = ({
                     imageSrc={theme === "dark" ? arrowTopLeft : withdrawBlack}
                     text="Withdrawal"
                     onClick={() => router.push("/withdrawal")}
-                  />
-                </motion.div>
-              )}
-              {expanded && isDemoAccount && (
-                <motion.div
-                  key="topup"
-                  variants={buttonAnimation}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                >
-                  <Button
-                    ghost
-                    imageSrc={theme === "dark" ? arrowDown : arrowDepositBlack}
-                    text="Top Up"
-                    onClick={() => setTopUpDialogOpen(true)}
                   />
                 </motion.div>
               )}
@@ -368,14 +355,17 @@ const AccountDetails = ({
               <div className="flex md:hidden items-center gap-1 mb-3">
                 {[
                   accountType,
-                  accountDetails?.account_type_requested,
+                  accountDetails?.account_type_requested, // Package from database (Standard/Pro)
                   platformName,
-                  accountDetails?.tp_account_scf.cf_1479, // nickname
+                  accountDetails?.tp_account_scf.cf_1479, // Name on Account from database
                   accountId,
                 ]
-                  .filter(
-                    (text) => text !== undefined && text !== "" && text !== null
-                  )
+                  .filter((text) => {
+                    // Only filter out undefined, null, empty strings - but show valid values
+                    if (text === undefined || text === null) return false;
+                    const str = String(text).trim();
+                    return str !== "";
+                  })
                   .map((text, index, arr) => (
                     <div
                       className="flex bg-[#9F8ACF]/15 p-[4px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[12.5px] md:text-[13px] leading-[1.1em]"
@@ -486,22 +476,6 @@ const AccountDetails = ({
                       />
                     </motion.div>
                   )}
-                  {expanded && isDemoAccount && (
-                    <motion.div
-                      key="topup"
-                      variants={buttonAnimation}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                    >
-                      <Button
-                        ghost
-                        imageSrc={theme === "dark" ? arrowDown : arrowDepositBlack}
-                        text="Top Up"
-                        onClick={() => setTopUpDialogOpen(true)}
-                      />
-                    </motion.div>
-                  )}
                   {expanded && !isDemoAccount && (
                     <motion.div
                       key="transfer"
@@ -562,12 +536,6 @@ const AccountDetails = ({
         account={accountDetails}
       />
 
-      <TopUpDialog
-        open={topUpDialogOpen}
-        onOpenChange={setTopUpDialogOpen}
-        accountId={accountId}
-        currentBalance={parseFloat(accountDetails.balance)}
-      />
     </div>
   );
 };

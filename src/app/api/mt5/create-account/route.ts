@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
       country,
       city,
       phone,
-      comment
+      comment,
+      accountPlan
     } = body;
 
     // Validate required fields
@@ -87,7 +88,18 @@ export async function POST(request: NextRequest) {
         const isDemoGroup = groupLower.includes('demo');
         const accountType = isDemoGroup ? 'Demo' : 'Live';
         
+        // Determine package from accountPlan or group
+        let packageValue = accountPlan;
+        if (!packageValue) {
+          packageValue = groupLower.includes('pro') ? 'Pro' : 'Standard';
+        }
+        // Capitalize first letter to ensure "Standard" or "Pro"
+        if (packageValue) {
+          packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1).toLowerCase();
+        }
+        
         console.log('📝 Determined account type:', accountType, 'from group:', group);
+        console.log('📦 Package:', packageValue);
 
         // Call internal API to store in database with password and leverage
         const storeResponse = await fetch(`${API_URL}/mt5/store-account`, {
@@ -101,6 +113,9 @@ export async function POST(request: NextRequest) {
             accountType: accountType,
             password: masterPassword,
             leverage: leverage,
+            nameOnAccount: name,
+            package: packageValue,
+            group: group,
             mt5Data: data
           })
         });

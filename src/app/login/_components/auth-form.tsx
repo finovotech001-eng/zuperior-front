@@ -14,6 +14,7 @@ import RegisterStep1Form from "./RegisterStep1Form";
 import RegisterStep2OtpForm from "./RegisterStep2OtpForm";
 import LoginForm from "./LoginForm";
 import SubmitButton from "./SubmitButton";
+import ForgotPasswordNewPasswordForm from "./ForgotPasswordNewPasswordForm";
 
 const AuthForm = () => {
   const router = useRouter();
@@ -22,8 +23,10 @@ const AuthForm = () => {
   // State
   const [isCreateAccount, setIsCreateAccount] = useState(true);
   const [forgotMode, setForgotMode] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<"email" | "otp" | "newPassword">("email");
   const [step, setStep] = useState(1);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: string;
   }>({});
@@ -41,6 +44,9 @@ const AuthForm = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [forgotPasswordOtp, setForgotPasswordOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
   // Auto-detect country from IP on mount
@@ -208,8 +214,8 @@ const AuthForm = () => {
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
-  // Handle forgot password
-  const handleForgotPassword = async () => {
+  // Handle forgot password - Step 1: Send OTP
+  const sendForgotPasswordOtp = async () => {
     if (!loginEmail.trim()) {
       setValidationErrors((prev) => ({ ...prev, email: "Email is required" }));
       return;
@@ -217,14 +223,106 @@ const AuthForm = () => {
 
     try {
       setIsLoading(true);
-      // Call forgot password API
-      const response = await authService.forgotPassword(loginEmail);
-      toast.success("Password reset link sent to your email!");
+      const fullName = "User"; // Use generic name for forgot password
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.trim(), name: fullName, useBackend: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Failed to send OTP");
+      toast.success("OTP sent to your email");
+      setForgotPasswordStep("otp");
+      setForgotPasswordOtp("");
+      startCooldown(30);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle forgot password - Step 2: Verify OTP
+  const verifyForgotPasswordOtp = async () => {
+    if (!forgotPasswordOtp || forgotPasswordOtp.length !== 6) {
+      setValidationErrors((prev) => ({ ...prev, otp: "Enter the 6-digit code" }));
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.trim(), otp: forgotPasswordOtp, useBackend: true }),
+      });
+      const data = await res.json();
+      console.log("OTP verification response:", data);
+      if (!res.ok || !data?.success) {
+        const errorMsg = data?.message || "Invalid OTP";
+        console.error("OTP verification failed:", errorMsg);
+        throw new Error(errorMsg);
+      }
+      toast.success("OTP verified successfully");
+      setForgotPasswordStep("newPassword");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err?.message || "Verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle forgot password - Step 3: Reset password
+  const resetPassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: !newPassword ? "New password is required" : "",
+        confirmPassword: !confirmPassword ? "Please confirm your password" : "",
+      }));
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        newPassword: "Password must be at least 6 characters long",
+      }));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        confirmPassword: "Passwords do not match",
+      }));
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/password/reset-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginEmail.trim(),
+          newPassword: newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.message || "Failed to reset password");
+      toast.success("Password reset successfully! You can now login.");
+      // Reset form and go back to login
       setForgotMode(false);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Failed to send reset link. Please try again.";
-      toast.error(errorMessage);
-      console.error("Forgot password error:", error);
+      setForgotPasswordStep("email");
+      setForgotPasswordOtp("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setLoginPassword("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reset password");
     } finally {
       setIsLoading(false);
     }
@@ -235,7 +333,13 @@ const AuthForm = () => {
     e.preventDefault();
 
     if (forgotMode) {
-      await handleForgotPassword();
+      if (forgotPasswordStep === "email") {
+        await sendForgotPasswordOtp();
+      } else if (forgotPasswordStep === "otp") {
+        await verifyForgotPasswordOtp();
+      } else if (forgotPasswordStep === "newPassword") {
+        await resetPassword();
+      }
       return;
     }
 
@@ -313,6 +417,7 @@ const AuthForm = () => {
         setIsCreateAccount={(val) => {
           setIsCreateAccount(val);
           setForgotMode(false);
+          setForgotPasswordStep("email");
           setStep(1);
           clearValidationErrors();
         }}
@@ -322,7 +427,7 @@ const AuthForm = () => {
 
       <AnimatePresence mode="wait">
         <motion.form
-          key={`${isCreateAccount}-${step}`}
+          key={`${isCreateAccount}-${step}-${forgotMode}-${forgotPasswordStep}`}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
@@ -353,7 +458,7 @@ const AuthForm = () => {
             )
           ) : (
             <>
-              {step === 1 && (
+              {step === 1 && !forgotMode && (
                 <LoginForm
                   loginEmail={loginEmail}
                   setLoginEmail={setLoginEmail}
@@ -364,8 +469,86 @@ const AuthForm = () => {
                   passwordVisible={passwordVisible}
                   setPasswordVisible={setPasswordVisible}
                   forgotMode={forgotMode}
-                  setForgotMode={setForgotMode}
+                  setForgotMode={(val) => {
+                    setForgotMode(val);
+                    if (val) {
+                      setForgotPasswordStep("email");
+                      setForgotPasswordOtp("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }
+                  }}
                 />
+              )}
+              {forgotMode && forgotPasswordStep === "email" && (
+                <div>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    className={`w-full bg-[#1a1a1a] p-3 rounded text-white text-sm focus:outline-none ${
+                      validationErrors.email
+                        ? "border border-red-500/50 bg-red-500/5 shadow-lg shadow-red-500/20"
+                        : "border border-transparent focus:border-purple-500/50 focus:shadow-lg focus:shadow-purple-500/20"
+                    }`}
+                    value={loginEmail}
+                    onChange={(e) => {
+                      setLoginEmail(e.target.value);
+                      clearFieldError("email");
+                    }}
+                  />
+                  {validationErrors.email && (
+                    <p className="text-red-400 text-xs mt-1 animate-pulse">
+                      {validationErrors.email}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotMode(false);
+                      setForgotPasswordStep("email");
+                    }}
+                    className="text-sm text-blue-500 hover:underline cursor-pointer mt-2"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              )}
+              {forgotMode && forgotPasswordStep === "otp" && (
+                <RegisterStep2OtpForm
+                  otp={forgotPasswordOtp}
+                  setOtp={setForgotPasswordOtp}
+                  resendCooldown={resendCooldown}
+                  sendOtp={sendForgotPasswordOtp}
+                  validationErrors={validationErrors}
+                  clearError={(f) => clearFieldError(f)}
+                  onComplete={verifyForgotPasswordOtp}
+                />
+              )}
+              {forgotMode && forgotPasswordStep === "newPassword" && (
+                <>
+                  <ForgotPasswordNewPasswordForm
+                    newPassword={newPassword}
+                    setNewPassword={setNewPassword}
+                    confirmPassword={confirmPassword}
+                    setConfirmPassword={setConfirmPassword}
+                    passwordVisible={passwordVisible}
+                    setPasswordVisible={setPasswordVisible}
+                    confirmPasswordVisible={confirmPasswordVisible}
+                    setConfirmPasswordVisible={setConfirmPasswordVisible}
+                    validationErrors={validationErrors}
+                    clearFieldError={clearFieldError}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotPasswordStep("otp");
+                      setForgotPasswordOtp("");
+                    }}
+                    className="text-sm text-blue-500 hover:underline cursor-pointer"
+                  >
+                    Back to OTP
+                  </button>
+                </>
               )}
             </>
           )}
@@ -373,8 +556,9 @@ const AuthForm = () => {
             globalLoading={globalLoading}
             loading={isLoading}
             isCreateAccount={isCreateAccount}
-            step={step}
+            step={forgotMode ? (forgotPasswordStep === "email" ? 1 : forgotPasswordStep === "otp" ? 2 : 3) : step}
             isForgotPassword={forgotMode}
+            forgotPasswordStep={forgotMode ? forgotPasswordStep : undefined}
           />
         </motion.form>
       </AnimatePresence>

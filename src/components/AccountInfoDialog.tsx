@@ -26,7 +26,7 @@ export function AccountInfoDialog({
     return [
       ["Account", account.acc !== undefined ? `# ${account.acc}` : ""],
       ["Nickname", account.tp_account_scf.cf_1479 ?? ""],
-      ["Type", account.account_type_requested
+      ["Package", account.account_type_requested
   ? account.account_type_requested.charAt(0).toUpperCase() + account.account_type_requested.slice(1)
   : "Standard"],
       [

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import path from "path";
+import axios from "axios";
 
 // Helper to generate a 6-digit OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -80,10 +81,75 @@ const buildResponsiveEmailHtml = (otp: string, name?: string) => `
 </html>`;
 
 export async function POST(req: NextRequest) {
-  const { email, name } = await req.json();
+  const { email, name, useBackend } = await req.json();
 
   if (!email) {
     return NextResponse.json({ error: "Missing email" }, { status: 400 });
+  }
+
+  // If useBackend flag is set, use server API (for password reset)
+  if (useBackend) {
+    try {
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
+      
+      console.log("Sending OTP to server:", { email, name, API_URL: `${BACKEND_URL}/user/send-otp` });
+      
+      const response = await axios.post(
+        `${BACKEND_URL}/user/send-otp`,
+        {
+          email: email,
+          name: name || "User",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 30000, // 30 second timeout
+        }
+      );
+
+      console.log("Server OTP send response:", response.data);
+
+      if (response.data?.success) {
+        return NextResponse.json({ success: true, message: response.data.message });
+      } else {
+        return NextResponse.json(
+          { success: false, error: response.data?.message || "Failed to send OTP" },
+          { status: 400 }
+        );
+      }
+    } catch (error: any) {
+      console.error("Server OTP send error:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        code: error.code,
+      });
+      
+      let errorMessage = "Failed to send OTP";
+      let statusCode = 500;
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response?.data?.message || errorMessage;
+        statusCode = error.response?.status || statusCode;
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = "Unable to reach server. Please check your connection.";
+        statusCode = 503;
+      } else if (error.code === "ECONNREFUSED") {
+        errorMessage = "Cannot connect to server. Please ensure the backend is running.";
+        statusCode = 503;
+      }
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: errorMessage,
+        },
+        { status: statusCode }
+      );
+    }
   }
 
   const otp = generateOtp();

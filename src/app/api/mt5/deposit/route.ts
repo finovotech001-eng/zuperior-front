@@ -28,17 +28,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use backend server endpoint that uses depositMt5Balance service
-    const response = await fetch(`${API_URL}/mt5/deposit`, {
+    const response = await fetch(`http://18.130.5.209:5003/api/Users/${login}/AddClientBalance`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        login: login,
         balance: balance,
-        comment: comment || 'Top up via CRM'
+        comment: comment
       })
     });
 
@@ -55,7 +53,6 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    // Return in consistent format
     return NextResponse.json(data);
 
   } catch (error) {

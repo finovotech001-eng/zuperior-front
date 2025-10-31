@@ -251,8 +251,10 @@ const mt5Service = {
         return { Success: true, Data: [] };
       }
 
-      // Step 2: Extract account IDs and create accountType map
+      // Step 2: Extract account IDs and create maps for database fields
       const accountTypeMap = new Map<string, string>();
+      const nameOnAccountMap = new Map<string, string>();
+      const packageMap = new Map<string, string>();
       const validAccountIds: string[] = [];
 
       dbAccounts.forEach((acc: any) => {
@@ -260,6 +262,12 @@ const mt5Service = {
         if (accountId && accountId !== '0' && /^\d+$/.test(accountId)) {
           validAccountIds.push(accountId);
           accountTypeMap.set(accountId, acc.accountType || 'Live');
+          if (acc.nameOnAccount) {
+            nameOnAccountMap.set(accountId, acc.nameOnAccount);
+          }
+          if (acc.package) {
+            packageMap.set(accountId, acc.package);
+          }
         }
       });
 
@@ -324,6 +332,8 @@ const mt5Service = {
       const mergedAccounts = validAccountIds.map((accountId, index) => {
         const result = profileResults[index];
         const accountType = accountTypeMap.get(accountId) || 'Live';
+        const nameOnAccount = nameOnAccountMap.get(accountId);
+        const packageValue = packageMap.get(accountId);
         
         console.log(`\n🔍 Processing account ${index + 1}/${validAccountIds.length}: ${accountId}`);
         console.log(`   Result status: ${result?.status || 'undefined'}`);
@@ -341,9 +351,15 @@ const mt5Service = {
           const merged = {
             ...profileData,
             Login: loginValue, // ALWAYS use accountId from DB, not profile Login
-            accountType: accountType // Always use accountType from database
+            accountType: accountType, // Always use accountType from database
+            // CRITICAL: Database fields must override any API fields
+            nameOnAccount: nameOnAccount, // Use nameOnAccount from database (override API Name if exists)
+            package: packageValue, // Use package from database (override API Group-derived values)
+            // Preserve API fields for reference but don't use them for display
+            Name: profileData.Name, // Keep for reference but won't be used for nameOnAccount
+            Group: profileData.Group // Keep for reference but won't be used for package
           };
-          console.log(`   ✅ Created merged account with Login: ${merged.Login}, AccountType: ${merged.accountType}`);
+          console.log(`   ✅ Created merged account with Login: ${merged.Login}, AccountType: ${merged.accountType}, NameOnAccount: ${nameOnAccount || 'N/A'}, Package: ${packageValue || 'N/A'}`);
           return merged;
         }
         
@@ -351,9 +367,11 @@ const mt5Service = {
         console.log(`   ⚠️ Profile fetch failed or incomplete - using minimal data`);
         const minimal = {
           Login: loginValue, // Use accountId from DB
-          accountType: accountType
+          accountType: accountType,
+          nameOnAccount: nameOnAccount, // Include nameOnAccount from database
+          package: packageValue // Include package from database
         };
-        console.log(`   ✅ Created minimal account with Login: ${minimal.Login}, AccountType: ${minimal.accountType}`);
+        console.log(`   ✅ Created minimal account with Login: ${minimal.Login}, AccountType: ${minimal.accountType}, NameOnAccount: ${nameOnAccount || 'N/A'}, Package: ${packageValue || 'N/A'}`);
         return minimal;
       });
 

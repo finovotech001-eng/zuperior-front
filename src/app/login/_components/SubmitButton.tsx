@@ -6,16 +6,31 @@ interface SubmitButtonProps {
   isCreateAccount: boolean;
   step: number;
   isForgotPassword?: boolean;
+  forgotPasswordStep?: "email" | "otp" | "newPassword";
 }
 
 const SubmitButton: React.FC<SubmitButtonProps> = ({
   globalLoading,
   loading,
   isCreateAccount,
-  // step,
+  step,
   isForgotPassword = false,
+  forgotPasswordStep,
 }) => {
   const disabled = !!globalLoading || !!loading;
+  
+  const getButtonText = () => {
+    if (isForgotPassword && forgotPasswordStep) {
+      if (forgotPasswordStep === "email") return "Send OTP";
+      if (forgotPasswordStep === "otp") return "Verify OTP";
+      if (forgotPasswordStep === "newPassword") return "Reset Password";
+      return "Send Reset Link";
+    }
+    if (isForgotPassword) return "Send Reset Link";
+    if (isCreateAccount) return "Sign Up";
+    return "Login";
+  };
+
   return (
     <button
       type="submit"
@@ -68,12 +83,8 @@ const SubmitButton: React.FC<SubmitButtonProps> = ({
             />
           </path>
         </svg>
-      )  : isForgotPassword ? ( // 👈 new condition
-        "Send Reset Link"
-      ) : isCreateAccount ? (
-        "Sign Up"
       ) : (
-        "Login"
+        getButtonText()
       )}
     </button>
   );

@@ -467,10 +467,10 @@ export function NewAccountDialog({
       resetStates();
     }
   }}>
-      <DialogContent className="border-3 border-transparent py-6 md:py-10 px-4 sm:px-[35px] md:px-[50px] text-white/75 rounded-lg flex flex-col items-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-2xl [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,theme(colors.purple.400/48%))_border-box] animate-border max-h-[95vh] overflow-y-auto">
+      <DialogContent className="border-3 border-transparent py-10 px-[35px] md:px-[50px] text-white/75 rounded-lg flex flex-col items-center w-full max-w-[90%] sm:max-w-2xl [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,theme(colors.purple.400/48%))_border-box] animate-border">
         <DialogHeader className="w-full">
           <div className="flex items-center justify-center">
-            <div className="flex items-center h-[24] w-full max-w-[400px] px-2">
+            <div className="flex items-center h-[24] w-[400px]">
               <div
                 className={`flex h-6 w-6 px-3 mx-0 items-center justify-center rounded-full ${
                   step >= 1 ? "bg-[#9F8BCF]" : "bg-[#594B7A]"
