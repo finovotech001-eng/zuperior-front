@@ -66,12 +66,12 @@ export const StepChooseAccountType: React.FC<StepChooseAccountTypeProps> = ({
 
   return (
     <div className="w-full relative">
-      <DialogTitle className="text-[20px] md:text-[28px] font-bold text-center text-black dark:text-white/75 tracking-tighter leading-11">
+      <DialogTitle className="text-[20px] md:text-[28px] font-bold text-center text-black dark:text-white/75 tracking-tighter leading-11 px-4">
         Choose account type
       </DialogTitle>
-      <div className="space-y-6 mt-6">
+      <div className="space-y-4 md:space-y-6 mt-4 md:mt-6 px-2 md:px-0">
         <div className="relative w-full flex justify-center">
-          <div className="flex space-x-4 w-full md:w-[540px]">
+          <div className="flex flex-col md:flex-row gap-4 md:gap-4 w-full max-w-[540px] md:w-[540px]">
             <AccountTypeCard
               userRole="For Beginners"
               title="Standard"
@@ -87,7 +87,7 @@ export const StepChooseAccountType: React.FC<StepChooseAccountTypeProps> = ({
           </div>
         </div>
         <Button
-          className="bg-gradient-to-tr from-[#6242a5] to-[#9f8bcf] cursor-pointer mb-1 text-white w-full font-semibold text-xs leading-[14px] py-2 items-center flex justify-center"
+          className="bg-gradient-to-tr from-[#6242a5] to-[#9f8bcf] cursor-pointer mb-1 text-white w-full font-semibold text-xs md:text-sm leading-[14px] py-3 md:py-2 items-center flex justify-center mt-4 md:mt-0"
           onClick={nextStep}
           disabled={!accountPlan}
         >

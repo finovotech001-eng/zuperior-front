@@ -106,85 +106,139 @@ export const fetchMt5Groups = createAsyncThunk(
   }
 );
 
-// ✅ Get User MT5 Accounts
+// ✅ Get User MT5 Accounts (REBUILT - Simple transformation)
 export const fetchUserMt5Accounts = createAsyncThunk(
   "mt5/fetchUserAccounts",
   async (_, { rejectWithValue }) => {
     try {
+      console.log('='.repeat(60));
+      console.log('🔄 REDUX: Starting fetchUserMt5Accounts');
+      console.log('='.repeat(60));
+
       const response = await mt5Service.getUserMt5Accounts();
 
-      console.log('🔍 MT5 Service response:', JSON.stringify(response, null, 2));
-
-      // Handle response format - check if Success is false
-      if (response.Success === false) {
-        console.log("⚠️ Failed to fetch MT5 accounts or no accounts found");
+      // Handle response format
+      if (response.Success === false || !response.Data) {
+        console.log("⚠️ No accounts returned from service");
         return [];
       }
 
-      // Get the accounts data
       const accounts = response.Data || [];
-
-      console.log(`📊 Received ${accounts.length} accounts from service`);
-      console.log('📋 Raw accounts data:', JSON.stringify(accounts, null, 2));
+      console.log(`📊 REDUX: Received ${accounts.length} accounts from service`);
 
       if (accounts.length === 0) {
-        console.log("No MT5 accounts found for user");
+        console.log("📊 REDUX: No accounts to transform");
         return [];
       }
 
-      // Transform MT5 API data to match expected MT5Account format
-      const transformedAccounts = accounts.map((account: any) => {
-        // Handle accounts with incomplete data (newly created accounts)
-        if (!account || Object.keys(account).length <= 1) {
-          console.warn('⚠️ Account profile incomplete (likely newly created):', account);
-          // Return minimal valid account
+      // Transform ALL accounts - don't filter any out
+      console.log('\n📋 REDUX: Starting transformation of accounts...');
+      accounts.forEach((acc: any, idx: number) => {
+        console.log(`   Account ${idx + 1}: Login=${acc?.Login}, accountId=${acc?.accountId}, accountType=${acc?.accountType}, Name=${acc?.Name || 'N/A'}`);
+      });
+      
+      const transformedAccounts = accounts.map((account: any, index: number) => {
+        // Extract accountId - must have Login field
+        const loginId = account.Login ?? account.accountId ?? account.login;
+        
+        console.log(`\n🔄 REDUX: Transforming account ${index + 1}/${accounts.length}`);
+        console.log(`   Raw account:`, { Login: account.Login, accountId: account.accountId, accountType: account.accountType });
+        console.log(`   Extracted loginId:`, loginId);
+        
+        if (!loginId && loginId !== 0) {
+          console.error(`   ❌ Account at index ${index} has no Login/accountId!`);
+          console.error(`   ❌ Account object:`, JSON.stringify(account, null, 2));
+          return null; // Will filter these out
+        }
+
+        const accountId = String(loginId);
+        const accountType = account.accountType || 'Live';
+        
+        console.log(`   AccountId: ${accountId}, AccountType: ${accountType}`);
+        
+        // Check if account has complete profile data
+        const hasCompleteProfile = account.Name && account.Group && account.Leverage !== undefined;
+        console.log(`   Has complete profile: ${hasCompleteProfile} (Name: ${account.Name || 'missing'}, Group: ${account.Group || 'missing'}, Leverage: ${account.Leverage ?? 'missing'})`);
+        
+        if (hasCompleteProfile) {
+          // Full account with complete profile
+          const full: MT5Account = {
+            accountId: accountId,
+            name: account.Name,
+            group: account.Group,
+            leverage: account.Leverage || 0,
+            balance: account.Balance || 0,
+            equity: account.Equity || 0,
+            credit: account.Credit || 0,
+            margin: account.Margin || 0,
+            marginFree: account.MarginFree || 0,
+            marginLevel: account.MarginLevel || 0,
+            profit: account.Profit || 0,
+            isEnabled: account.IsEnabled !== false,
+            accountType: accountType,
+            createdAt: account.Registration || account.createdAt || new Date().toISOString(),
+            updatedAt: account.LastAccess || account.updatedAt || new Date().toISOString(),
+            isProfileReady: true,
+            lastProfileUpdateAt: Date.now(),
+          };
+          full.isProfileReady = isProfileComplete(full);
+          console.log(`   ✅ Created FULL account: ${accountId}`);
+          return full;
+        } else {
+          // Minimal account - profile fetch may have failed
           const minimal: MT5Account = {
-            accountId: String(account.Login),
-            name: 'Loading...', // Placeholder
-            group: 'Loading...',
-            leverage: 0,
-            balance: 0,
-            equity: 0,
-            credit: 0,
-            margin: 0,
-            marginFree: 0,
-            marginLevel: 0,
-            profit: 0,
-            isEnabled: true,
-            accountType: account.accountType || 'Live', // Preserve accountType from database
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            accountId: accountId,
+            name: account.Name || 'Loading...',
+            group: account.Group || 'Loading...',
+            leverage: account.Leverage || 0,
+            balance: account.Balance || 0,
+            equity: account.Equity || 0,
+            credit: account.Credit || 0,
+            margin: account.Margin || 0,
+            marginFree: account.MarginFree || 0,
+            marginLevel: account.MarginLevel || 0,
+            profit: account.Profit || 0,
+            isEnabled: account.IsEnabled !== false,
+            accountType: accountType,
+            createdAt: account.Registration || account.createdAt || new Date().toISOString(),
+            updatedAt: account.LastAccess || account.updatedAt || new Date().toISOString(),
             isProfileReady: false,
             lastProfileUpdateAt: Date.now(),
           };
+          console.log(`   ✅ Created MINIMAL account: ${accountId}`);
           return minimal;
         }
-        
-        const full: MT5Account = {
-          accountId: String(account.Login),
-          name: account.Name,
-          group: account.Group,
-          leverage: account.Leverage,
-          balance: account.Balance || 0,
-          equity: account.Equity || 0,
-          credit: account.Credit || 0,
-          margin: account.Margin || 0,
-          marginFree: account.MarginFree || 0,
-          marginLevel: account.MarginLevel || 0,
-          profit: account.Profit || 0,
-          isEnabled: account.IsEnabled !== false, // Default to true if not specified
-          accountType: account.accountType || 'Live', // Preserve accountType from database
-          createdAt: account.Registration || new Date().toISOString(),
-          updatedAt: account.LastAccess || new Date().toISOString(),
-          isProfileReady: true,
-          lastProfileUpdateAt: Date.now(),
-        };
-        full.isProfileReady = isProfileComplete(full);
-        return full;
-      });
+      }).filter((acc: MT5Account | null): acc is MT5Account => acc !== null); // Remove any null entries
 
-      console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
-      console.log('📋 Transformed accounts data:', JSON.stringify(transformedAccounts, null, 2));
+      console.log('\n' + '='.repeat(60));
+      console.log(`✅ REDUX: Transformation complete`);
+      console.log('='.repeat(60));
+      console.log(`📊 Input accounts: ${accounts.length}`);
+      console.log(`📊 Transformed accounts: ${transformedAccounts.length}`);
+      const transformedIds = transformedAccounts.map(acc => acc.accountId);
+      console.log(`🔢 Transformed account IDs:`, transformedIds);
+      
+      // Verify no accounts were lost
+      if (accounts.length !== transformedAccounts.length) {
+        console.error(`\n❌ REDUX ERROR: Lost ${accounts.length - transformedAccounts.length} accounts during transformation!`);
+        const receivedIds = accounts.map((acc: any) => String(acc?.Login || acc?.accountId || '')).filter(Boolean);
+        console.error(`   Received IDs:`, receivedIds);
+        console.error(`   Transformed IDs:`, transformedIds);
+        const missing = receivedIds.filter(id => !transformedIds.includes(id));
+        console.error(`❌ Missing IDs:`, missing);
+        
+        // Log accounts that were lost
+        accounts.forEach((acc: any, idx: number) => {
+          const id = String(acc?.Login || acc?.accountId || '');
+          if (!transformedIds.includes(id)) {
+            console.error(`   Lost account at index ${idx}:`, acc);
+          }
+        });
+      } else {
+        console.log(`✅ REDUX: All ${accounts.length} accounts successfully transformed!`);
+      }
+      console.log('='.repeat(60) + '\n');
+
       return transformedAccounts;
     } catch (error: any) {
       console.error("❌ Error in fetchUserMt5Accounts:", error);
@@ -404,6 +458,15 @@ export const refreshMt5AccountProfile = createAsyncThunk(
         updatedAt: profileData.LastAccess
       };
     } catch (error: any) {
+      // Handle timeout errors gracefully - don't log as error if it's just a timeout
+      const isTimeout = error?.message?.includes('timeout') || error?.code === 'ECONNABORTED';
+      
+      if (isTimeout) {
+        console.log(`[MT5] ℹ️ Profile refresh timeout for login=${login} (this is normal for newly created accounts)`);
+        return rejectWithValue("Profile refresh timeout - account may still be initializing");
+      }
+      
+      // Log other errors normally
       console.error(`[MT5] ❌ refreshMt5AccountProfile error for login=${login}:`, error?.response?.data || error?.message || error);
       if (error.response?.status === 401)
         return rejectWithValue("Authentication required. Please log in first.");
@@ -529,23 +592,96 @@ const mt5AccountSlice = createSlice({
         state.isFetchingAccounts = true;               // ✅ ADD
       })
       .addCase(fetchUserMt5Accounts.fulfilled, (state, action) => {
+        console.log('='.repeat(60));
+        console.log('🔄 REDUX REDUCER: fetchUserMt5Accounts.fulfilled');
+        console.log('='.repeat(60));
+        
         state.isLoading = false;
-        state.isFetchingAccounts = false;              // ✅ ADD
-        state.lastAccountsFetchAt = Date.now();        // ✅ ADD
-        state.accounts = action.payload;
+        state.isFetchingAccounts = false;
+        state.lastAccountsFetchAt = Date.now();
+        
+        const payload = action.payload || [];
+        console.log(`📥 REDUCER: Received ${payload.length} accounts from thunk`);
+        const payloadIds = payload.map(acc => acc.accountId);
+        console.log(`🔢 REDUCER: Account IDs in payload:`, payloadIds);
+        
+        // Simple deduplication: Only remove actual duplicates (same accountId)
+        // Keep ALL accounts, prefer more complete ones if duplicate
+        const accountMap = new Map<string, MT5Account>();
+        const skipped: string[] = [];
+        
+        payload.forEach((account: MT5Account) => {
+          const accountId = account.accountId;
+          
+          if (!accountId) {
+            console.warn(`⚠️ REDUCER: Skipping account without accountId:`, account);
+            skipped.push('no-accountId');
+            return;
+          }
+          
+          const existing = accountMap.get(accountId);
+          
+          if (!existing) {
+            // First occurrence of this accountId - always add it
+            accountMap.set(accountId, account);
+          } else {
+            // Duplicate accountId - keep the one with more complete data
+            const existingComplete = isProfileComplete(existing);
+            const newComplete = isProfileComplete(account);
+            
+            if (newComplete && !existingComplete) {
+              // New account is complete, existing is not - replace
+              console.log(`🔄 REDUCER: Replacing incomplete account ${accountId} with complete version`);
+              accountMap.set(accountId, account);
+            } else if (!newComplete && existingComplete) {
+              // Existing is complete, new is not - keep existing
+              console.log(`✓ REDUCER: Keeping complete account ${accountId}, skipping incomplete duplicate`);
+            } else {
+              // Both same completeness - use the new one (or keep existing, doesn't matter)
+              accountMap.set(accountId, account);
+            }
+          }
+        });
+        
+        state.accounts = Array.from(accountMap.values());
+        
+        console.log('='.repeat(60));
+        console.log('📊 REDUCER: Final account summary');
+        console.log('='.repeat(60));
+        console.log(`✅ Stored ${state.accounts.length} accounts in Redux state`);
+        console.log(`🔢 Account IDs in state:`, state.accounts.map(acc => acc.accountId));
+        
+        // Log each account in detail
+        console.log('\n📋 Detailed account list in Redux state:');
+        state.accounts.forEach((acc, idx) => {
+          console.log(`   ${idx + 1}. AccountId: ${acc.accountId}, Type: ${acc.accountType || 'Live'}, Name: ${acc.name || 'N/A'}, Balance: ${acc.balance || 0}`);
+        });
+        console.log('='.repeat(60));
+        
+        if (payload.length !== state.accounts.length) {
+          const duplicates = payload.length - state.accounts.length - skipped.length;
+          if (duplicates > 0) {
+            console.warn(`⚠️ REDUCER: Removed ${duplicates} duplicate accounts`);
+          }
+          if (skipped.length > 0) {
+            console.warn(`⚠️ REDUCER: Skipped ${skipped.length} invalid accounts`);
+          }
+        } else {
+          console.log(`✅ REDUCER: All ${payload.length} accounts stored (no duplicates or skipped)`);
+        }
+        
         // Calculate total balance from Live accounts only
         state.totalBalance = state.accounts
           .filter((acc) => (acc.accountType || 'Live') === 'Live')
-          .reduce(
-            (sum, acc) => sum + (acc.balance || 0),
-            0
-          );
-        console.log(`💰 Total Balance calculated from Live accounts only: $${state.totalBalance}`);
-        console.log('📊 Redux state updated with accounts:', action.payload);
-        console.log('📊 Number of accounts stored:', action.payload.length);
+          .reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        
+        console.log(`💰 REDUCER: Total balance (Live only): $${state.totalBalance}`);
+        
         if (typeof window !== 'undefined') {
           state.ownerClientId = localStorage.getItem('clientId');
         }
+        
+        console.log('='.repeat(60));
       })
       .addCase(fetchUserMt5Accounts.rejected, (state, action) => {
         state.isLoading = false;

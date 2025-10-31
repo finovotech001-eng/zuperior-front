@@ -147,8 +147,20 @@ const AccountDetails = ({
         .then(() => {
           failureCountRef.current = 0;
         })
-        .catch(() => {
-          failureCountRef.current += 1;
+        .catch((error: any) => {
+          // Don't count timeouts as failures - they're expected for accounts still initializing
+          const isTimeout = error?.message?.includes('timeout') || 
+                           error?.payload?.includes('timeout') ||
+                           error?.code === 'ECONNABORTED';
+          
+          if (!isTimeout) {
+            failureCountRef.current += 1;
+          }
+          
+          // Only log non-timeout errors
+          if (!isTimeout && failureCountRef.current <= 3) {
+            console.log(`[MT5] Profile refresh failed for login=${accountDetails?.acc}:`, error?.message || error?.payload || 'Unknown error');
+          }
         })
         .finally(() => {
           inFlightRef.current = false;

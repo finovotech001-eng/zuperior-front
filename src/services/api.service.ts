@@ -223,144 +223,245 @@ const mt5Service = {
     }, opts?.signal);
   },
 
-  /** Get all MT5 accounts for current user (new flow) */
+  /** Get all MT5 accounts for current user (REBUILT - Step by step flow) */
   getUserMt5Accounts: async (opts?: { signal?: AbortSignal }) => {
     try {
+      console.log('='.repeat(60));
+      console.log('🚀 STEP 1: Fetching accounts from MT5Account table');
+      console.log('='.repeat(60));
+      
+      // Step 1: Get all accounts from database for current user
       const db = await mt5Service.getUserMt5AccountsFromDb({ signal: opts?.signal });
-      console.log('🔍 Raw DB response:', JSON.stringify(db, null, 2));
       const ok = normalizeOk(db);
-      console.log('📊 Normalized response:', JSON.stringify(ok, null, 2));
-      if (!ok.success) return { Success: false, Data: [] };
-
-      // Clean incoming IDs (unique, numeric, non-zero) and create a map for accountType
-      const dbAccounts = ok.data?.accounts ?? [];
-      const rawIds: string[] = dbAccounts.map((a: any) => a.accountId).filter(Boolean);
       
-      // Create a map of accountId -> accountType from database
-      const accountTypeMap = new Map<string, string>();
-      dbAccounts.forEach((acc: any) => {
-        if (acc.accountId) {
-          accountTypeMap.set(acc.accountId, acc.accountType || 'Live');
-        }
-      });
-      
-      console.log('🔢 Raw account IDs from DB:', rawIds);
-      console.log('📝 Account type map:', Array.from(accountTypeMap.entries()));
-      
-      const accountIds = Array.from(new Set(
-        rawIds
-          .map((id: any) => String(id).trim())
-          .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
-      ));
-      
-      console.log(`📊 Found ${rawIds.length} accounts in DB, ${accountIds.length} valid after cleaning`);
-      console.log('🔢 Account IDs:', accountIds);
-      
-      if (!accountIds.length) return { Success: false, Data: [] };
-
-      // Fetch all profiles in parallel with no delay
-      console.log('⚡ Fetching profiles in parallel for', accountIds.length, 'accounts...');
-      console.log('🔢 Account IDs to fetch:', accountIds);
-      
-      const profilePromises = accountIds.map(async (id, idx) => {
-        try {
-          console.log(`📡 Fetching profile ${idx + 1}/${accountIds.length} for account ${id}...`);
-          
-          // Retry logic for newly created accounts
-          let lastError;
-          for (let attempt = 1; attempt <= 2; attempt++) {
-            try {
-              const profile = await mt5Service.getMt5AccountProfile(id, { signal: opts?.signal });
-              
-              if (profile && profile.success && profile.data && profile.data.Login) {
-                console.log(`✅ Profile fetch successful for account ${id} (attempt ${attempt}):`, 
-                  `Login: ${profile.data.Login}, Name: ${profile.data.Name || 'N/A'}`);
-                return profile;
-              } else {
-                console.log(`ℹ️ Profile data not ready for account ${id} (attempt ${attempt}), will retry...`);
-                lastError = new Error('Invalid profile data returned');
-              }
-            } catch (error) {
-              console.log(`ℹ️ Profile fetch failed for account ${id} (attempt ${attempt}), will retry...`);
-              lastError = error;
-              // Wait 500ms before retry
-              if (attempt < 2) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-              }
-            }
-          }
-          
-          throw lastError || new Error('Profile fetch failed after retries');
-        } catch (error) {
-          // This is expected for newly created accounts or accounts without profile data
-          // Returning null triggers the fallback mechanism (line 307-310)
-          console.log(`ℹ️ Profile not available for account ${id}, using fallback data`);
-          return null;
-        }
-      });
-      
-      const profiles = await Promise.all(profilePromises);
-      console.log('⚡ Profile fetching completed for all accounts');
-
-      // Log which profiles failed to fetch
-      profiles.forEach((profile, idx) => {
-        const id = accountIds[idx];
-        if (!profile || !profile.success) {
-          console.log(`ℹ️ Profile not available for account ${id}, fallback will be used`);
-        }
-      });
-
-      // Merge results: include all DB accounts; if profile failed, fallback to minimal object
-      const merged = accountIds.map((id, idx) => {
-        const p: any = profiles[idx];
-        
-        console.log(`🔍 Merging account ${id} (idx: ${idx}):`, {
-          hasProfile: !!p,
-          success: p?.success,
-          hasData: !!p?.data,
-          login: p?.data?.Login,
-          keys: p?.data ? Object.keys(p.data).length : 0
-        });
-        
-        // If profile failed (null from safe function) or doesn't have success/data
-        if (!p || !p.success || !p.data) {
-          console.log(`ℹ️ Using minimal profile data for account ${id}`);
-          return { 
-            Login: Number(id),
-            accountType: accountTypeMap.get(id) || 'Live'
-          };
-        }
-        
-        const profileData = p.data;
-        
-        // Check if profile data has Login: 0 or invalid data
-        if (profileData && (profileData.Login === 0 || !profileData.Login || Object.keys(profileData).length <= 1)) {
-          console.log(`ℹ️ Profile data incomplete for account ${id}, using minimal object`);
-          return { 
-            Login: Number(id),
-            accountType: accountTypeMap.get(id) || 'Live'
-          };
-        }
-        
-        // Add accountType from database to the merged profile data
-        return {
-          ...profileData,
-          accountType: accountTypeMap.get(id) || 'Live'
-        };
-      });
-
-      const successCount = merged.filter((m: any) => m && typeof m.Login !== 'undefined' && Object.keys(m).length > 1).length;
-      console.log(`✅ Successfully fetched ${successCount} profiles; included ${merged.length} accounts total with fallbacks`);
-
-      return { Success: true, Data: merged };
-    } catch (error: any) {
-      // Handle 401 (authentication) errors gracefully without logging as error
-      if (error?.response?.status === 401 || error?.message?.includes('401')) {
-        console.log('ℹ️ Authentication required or no MT5 accounts found');
+      if (!ok.success || !ok.data?.accounts) {
+        console.log('❌ No accounts found in database');
         return { Success: false, Data: [] };
       }
-      console.error('❌ Error fetching user MT5 accounts:', error?.message || error);
-      return { Success: false, Data: [], error: error?.message };
+
+      const dbAccounts = ok.data.accounts;
+      console.log(`✅ Found ${dbAccounts.length} accounts in database`);
+      console.log('📋 Database accounts:', dbAccounts.map((a: any) => ({
+        id: a.id,
+        accountId: a.accountId,
+        accountType: a.accountType
+      })));
+
+      if (dbAccounts.length === 0) {
+        return { Success: true, Data: [] };
+      }
+
+      // Step 2: Extract account IDs and create accountType map
+      const accountTypeMap = new Map<string, string>();
+      const validAccountIds: string[] = [];
+
+      dbAccounts.forEach((acc: any) => {
+        const accountId = String(acc.accountId || '').trim();
+        if (accountId && accountId !== '0' && /^\d+$/.test(accountId)) {
+          validAccountIds.push(accountId);
+          accountTypeMap.set(accountId, acc.accountType || 'Live');
+        }
+      });
+
+      console.log('='.repeat(60));
+      console.log('🚀 STEP 2: Validated account IDs');
+      console.log('='.repeat(60));
+      console.log(`✅ Valid account IDs: ${validAccountIds.length}`);
+      console.log('🔢 Account IDs:', validAccountIds);
+      console.log('📝 Account Type Map:', Array.from(accountTypeMap.entries()));
+
+      if (validAccountIds.length === 0) {
+        console.log('❌ No valid account IDs found');
+        return { Success: false, Data: [] };
+      }
+
+      // Step 3: Call ClientProfile API for ALL accounts in parallel
+      console.log('='.repeat(60));
+      console.log('🚀 STEP 3: Calling ClientProfile API for all accounts');
+      console.log('='.repeat(60));
+      
+      const profileResults = await Promise.allSettled(
+        validAccountIds.map(async (accountId, index) => {
+          try {
+            console.log(`📡 [${index + 1}/${validAccountIds.length}] Fetching profile for account ${accountId}...`);
+            const profile = await mt5Service.getMt5AccountProfile(accountId, { signal: opts?.signal });
+              
+              if (profile && profile.success && profile.data && profile.data.Login) {
+              console.log(`✅ [${index + 1}/${validAccountIds.length}] Profile fetched for ${accountId}:`, {
+                Login: profile.data.Login,
+                Name: profile.data.Name || 'N/A',
+                Balance: profile.data.Balance || 0
+              });
+              return { accountId, profile, success: true };
+              } else {
+              console.log(`⚠️ [${index + 1}/${validAccountIds.length}] Profile data incomplete for ${accountId}`);
+              return { accountId, profile: null, success: false };
+            }
+          } catch (error: any) {
+            console.log(`❌ [${index + 1}/${validAccountIds.length}] Profile fetch failed for ${accountId}:`, error?.message || 'Unknown error');
+            return { accountId, profile: null, success: false };
+          }
+        })
+      );
+
+      // Step 4: Merge database data with profile data for ALL accounts
+      console.log('='.repeat(60));
+      console.log('🚀 STEP 4: Merging database and profile data');
+      console.log('='.repeat(60));
+      
+      // Create a map of accountId -> profile result for easier lookup
+      const profileMap = new Map<string, any>();
+      profileResults.forEach((result, index) => {
+        const accountId = validAccountIds[index];
+        if (accountId) {
+          profileMap.set(accountId, result);
+        }
+      });
+      
+      console.log(`📊 Profile results map size: ${profileMap.size}`);
+      console.log(`📊 Valid account IDs count: ${validAccountIds.length}`);
+      
+      const mergedAccounts = validAccountIds.map((accountId, index) => {
+        const result = profileResults[index];
+        const accountType = accountTypeMap.get(accountId) || 'Live';
+        
+        console.log(`\n🔍 Processing account ${index + 1}/${validAccountIds.length}: ${accountId}`);
+        console.log(`   Result status: ${result?.status || 'undefined'}`);
+        
+        // CRITICAL: Always ensure Login is set to the accountId from database
+        // Even if profile fetch succeeds but Login is different, use the accountId from DB
+        const loginValue = Number(accountId);
+        
+        // If profile fetch was successful
+        if (result?.status === 'fulfilled' && result.value?.success && result.value?.profile?.data) {
+          const profileData = result.value.profile.data;
+          console.log(`   ✅ Profile data available - Name: ${profileData.Name || 'N/A'}, Profile Login: ${profileData.Login}`);
+          console.log(`   ⚠️ Using accountId from DB (${loginValue}) instead of profile Login to ensure consistency`);
+          
+          const merged = {
+            ...profileData,
+            Login: loginValue, // ALWAYS use accountId from DB, not profile Login
+            accountType: accountType // Always use accountType from database
+          };
+          console.log(`   ✅ Created merged account with Login: ${merged.Login}, AccountType: ${merged.accountType}`);
+          return merged;
+        }
+        
+        // If profile fetch failed, use minimal data from database
+        console.log(`   ⚠️ Profile fetch failed or incomplete - using minimal data`);
+        const minimal = {
+          Login: loginValue, // Use accountId from DB
+          accountType: accountType
+        };
+        console.log(`   ✅ Created minimal account with Login: ${minimal.Login}, AccountType: ${minimal.accountType}`);
+        return minimal;
+      });
+
+      console.log('='.repeat(60));
+      console.log('🚀 STEP 5: Final result verification');
+      console.log('='.repeat(60));
+      console.log(`✅ Total accounts in merged result: ${mergedAccounts.length}`);
+      console.log(`📋 Expected count: ${validAccountIds.length}`);
+      
+      // Extract Login from all merged accounts - normalize to strings for comparison
+      const accountIdsInResult = mergedAccounts
+        .map((a: any, idx: number) => {
+          const login = a?.Login;
+          const normalized = login !== undefined && login !== null ? String(login).trim() : null;
+          
+          // Debug logging for each account
+          if (!normalized) {
+            console.error(`❌ Account at index ${idx} has no Login!`, a);
+          } else {
+            console.log(`   Account ${idx + 1}: Login=${normalized}, AccountType=${a?.accountType || 'N/A'}`);
+          }
+          
+          return normalized;
+        })
+        .filter((id: string | null): id is string => id !== null && id !== 'undefined' && id !== 'null');
+      
+      console.log(`\n📊 Verification:`);
+      console.log(`🔢 Account IDs in result (${accountIdsInResult.length}):`, accountIdsInResult.sort());
+      console.log(`🔢 Expected account IDs (${validAccountIds.length}):`, validAccountIds.sort());
+      
+      // Verify all accounts are included - compare as normalized strings
+      const missing = validAccountIds.filter(id => {
+        const normalizedId = String(id).trim();
+        const found = accountIdsInResult.includes(normalizedId);
+        
+        if (!found) {
+          console.error(`❌ MISSING: Account ${id} not found in result!`);
+          console.error(`   Expected: "${normalizedId}"`);
+          console.error(`   Available:`, accountIdsInResult);
+          
+          // Try to find similar IDs (for debugging)
+          const similar = accountIdsInResult.filter(r => r.includes(id) || id.includes(r));
+          if (similar.length > 0) {
+            console.error(`   Similar IDs found:`, similar);
+          }
+        }
+        return !found;
+      });
+      
+      if (missing.length > 0) {
+        console.error(`❌ ERROR: Missing ${missing.length} accounts in result!`);
+        console.error(`❌ Missing account IDs:`, missing);
+        console.error(`❌ This should NEVER happen!`);
+      } else {
+        console.log('✅ All accounts included in result!');
+      }
+      
+      // Log each account in the final result
+      console.log('\n📋 Final merged accounts:');
+      mergedAccounts.forEach((acc: any, idx: number) => {
+        console.log(`   ${idx + 1}. Login: ${acc.Login}, AccountType: ${acc.accountType}, Name: ${acc.Name || 'N/A'}`);
+      });
+      
+      // FINAL VERIFICATION: Ensure we have exactly as many accounts as we started with
+      if (mergedAccounts.length !== validAccountIds.length) {
+        console.error(`\n🚨 CRITICAL ERROR: mergedAccounts.length (${mergedAccounts.length}) !== validAccountIds.length (${validAccountIds.length})`);
+        console.error(`   This should NEVER happen as we map over validAccountIds!`);
+        
+        // Force include all accounts even if something went wrong
+        validAccountIds.forEach((accountId, idx) => {
+          const found = mergedAccounts.find((acc: any) => String(acc.Login) === String(accountId));
+          if (!found) {
+            console.error(`   🚨 Account ${accountId} is MISSING from mergedAccounts! Adding it now...`);
+            const accountType = accountTypeMap.get(accountId) || 'Live';
+            mergedAccounts.push({
+              Login: Number(accountId),
+              accountType: accountType
+            });
+          }
+        });
+        
+        console.log(`   ✅ After recovery, mergedAccounts.length: ${mergedAccounts.length}`);
+      }
+
+      // Final count verification
+      const finalCount = mergedAccounts.length;
+      const expectedCount = validAccountIds.length;
+      console.log(`\n✅ FINAL: Returning ${finalCount} accounts (expected ${expectedCount})`);
+      
+      if (finalCount !== expectedCount) {
+        console.error(`❌ FINAL ERROR: Count mismatch! Expected ${expectedCount}, got ${finalCount}`);
+      } else {
+        console.log(`✅ FINAL: Count matches! All accounts included.`);
+      }
+
+      return { Success: true, Data: mergedAccounts };
+      
+    } catch (error: any) {
+      console.error('='.repeat(60));
+      console.error('❌ ERROR in getUserMt5Accounts:', error);
+      console.error('='.repeat(60));
+      
+      if (error?.response?.status === 401 || error?.message?.includes('401')) {
+        console.log('ℹ️ Authentication required');
+        return { Success: false, Data: [] };
+      }
+      
+      return { Success: false, Data: [], error: error?.message || 'Unknown error' };
     }
   },
 
