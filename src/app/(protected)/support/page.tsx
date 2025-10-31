@@ -127,13 +127,7 @@ export default function SupportHub() {
       >
         Support hub
       </TextAnimate>
-      <TextAnimate
-        as="h2"
-        duration={0.2}
-        className="text-2xl dark:text-white/75 mb-3"
-      >
-        Help center
-      </TextAnimate>
+      
 
       {/* Help Section */}
       <section className="rounded-lg border-2 border-gray-300 dark:border-[#1D1825] dark:bg-gradient-to-r from-[#FFFFFF] to-[#f4e7f6] p-5 sm:p-7 dark:from-[#110F17] dark:to-[#1E1429]">
