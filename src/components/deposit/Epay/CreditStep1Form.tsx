@@ -63,11 +63,9 @@ export function CreditStep1Form({
     setSelectedAccount(value);
   };
 
-  // Helper function to extract account type from group name
-  const getAccountTypeFromGroup = (group: string): string => {
-    if (group.includes('Pro')) return 'Pro';
-    if (group.includes('Standard')) return 'Standard';
-    return 'Standard'; // Default fallback
+  // Helper function to get account package/type (use package field from DB)
+  const getAccountPackage = (account: MT5Account): string => {
+    return account.package || 'Standard';
   };
 
   const validateAmount = () => {
@@ -187,7 +185,7 @@ export function CreditStep1Form({
                         MT5
                       </span>
                       <span className="ml-2">
-                        {selectedAccountObj.accountId} ({getAccountTypeFromGroup(selectedAccountObj.group)})
+                        {selectedAccountObj.accountId} ({getAccountPackage(selectedAccountObj)})
                       </span>
                       <span className="ml-2 text-xs text-muted-foreground">
                         ${selectedAccountObj.balance.toFixed(2)}
@@ -214,7 +212,7 @@ export function CreditStep1Form({
                       MT5
                     </span>
                     <span>
-                      {account.accountId} ({getAccountTypeFromGroup(account.group)})
+                      {account.accountId} ({getAccountPackage(account)})
                     </span>
                     <span className="text-xs text-muted-foreground">
                       ${account.balance.toFixed(2)}

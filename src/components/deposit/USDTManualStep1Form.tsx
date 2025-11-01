@@ -66,10 +66,9 @@ export function USDTManualStep1Form({
   }, [accounts.length]);
 
   // Helper function to extract account type from group name
-  const getAccountTypeFromGroup = (group: string): string => {
-    if (group.includes('Pro')) return 'Pro';
-    if (group.includes('Standard')) return 'Standard';
-    return 'Standard'; // Default fallback
+  // Helper function to get account package (use package field from DB)
+  const getAccountPackage = (account: MT5Account): string => {
+    return account.package || 'Standard';
   };
 
   const selectedAccountObj = accounts.find(
@@ -180,7 +179,7 @@ export function USDTManualStep1Form({
                     MT5
                   </span>
                   <span className="ml-2 dark:text-white/75 text-black">
-                    {selectedAccountObj.accountId} ({getAccountTypeFromGroup(selectedAccountObj.group || '')})
+                    {selectedAccountObj.accountId} ({getAccountPackage(selectedAccountObj)})
                   </span>
                   <span className="ml-2 text-xs text-muted-foreground">
                     ${parseFloat((selectedAccountObj.balance || 0).toString()).toFixed(2)}
@@ -196,7 +195,7 @@ export function USDTManualStep1Form({
               .filter((account) => {
                 // Only show Live accounts that are enabled
                 const accountType = account.accountType || 'Live';
-                return accountType === 'Live' && account.isEnabled;
+                return accountType === 'Live';
               })
               .map((account, index) => (
                 <SelectItem
@@ -207,7 +206,7 @@ export function USDTManualStep1Form({
                     MT5
                   </span>
                   <span>
-                    {account.accountId} ({getAccountTypeFromGroup(account.group || '')})
+                    {account.accountId} ({getAccountPackage(account)})
                   </span>
                   <span className="text-xs text-muted-foreground">
                     ${parseFloat((account.balance || 0).toString()).toFixed(2)}

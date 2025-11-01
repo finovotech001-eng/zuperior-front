@@ -25,7 +25,7 @@ import { InternalTransfer } from "@/services/internalTransfer";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
-import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "@/store/slices/mt5AccountSlice";
 // import { CrossIcon } from "lucide-react";
 import arrowSideways from "@/assets/icons/arrow-sideways.png";
 import Image from "next/image";
@@ -74,11 +74,11 @@ const TransferFundsDialog = ({
     setPaymentMethod(method);
   }, [method]);
 
-  // Fetch MT5 accounts when dialog opens
+  // Fetch MT5 accounts from DB when dialog opens
   useEffect(() => {
     if (open) {
       console.log('🔄 Fetching MT5 accounts for transfer dialog...');
-      dispatch(fetchUserMt5Accounts());
+      dispatch(fetchUserAccountsFromDb() as any);
     }
   }, [open, dispatch]);
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
-import { fetchUserMt5Accounts, resetForNewClient, updateAccountBalance } from "@/store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb, resetForNewClient, updateAccountBalance } from "@/store/slices/mt5AccountSlice";
 import { authService, mt5Service } from "@/services/api.service";
 
 export function useFetchUserData() {
@@ -34,19 +34,19 @@ export function useFetchUserData() {
     }
 
     try {
-      console.log("🔄 Fetching MT5 user accounts...");
-      await dispatch(fetchUserMt5Accounts())
+      console.log("🔄 Fetching MT5 user accounts from DB...");
+      await dispatch(fetchUserAccountsFromDb() as any)
         .unwrap()
         .catch((e: any) => {
-          // Thunk was skipped by its `condition` (we added in the slice) – ignore
+          // Thunk was skipped – ignore condition errors
           if (e?.name === "ConditionError" || (e && e.message?.includes("condition"))) {
-            console.log("⏭️ fetchUserMt5Accounts skipped by condition");
+            console.log("⏭️ fetchUserAccountsFromDb skipped by condition");
             return;
           }
           throw e; // real error
         });
 
-      console.log("✅ MT5 accounts fetched successfully");
+      console.log("✅ MT5 accounts fetched successfully from DB");
 
       // Always refresh balances from MT5 getClientProfile on page load
       try {

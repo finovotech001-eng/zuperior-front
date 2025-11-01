@@ -369,7 +369,7 @@ import { Step3Payment } from "@/components/deposit/Step3Payment";
 import { Step4Status } from "@/components/deposit/Step4Status";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
-import { fetchUserMt5Accounts } from "../../store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "../../store/slices/mt5AccountSlice";
 import {
   CheckoutData,
   NewAccountDialogProps,
@@ -388,21 +388,21 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     account_name: parseInt(mt5Account.accountId),
     platformname: "MT5",
     acc: parseInt(mt5Account.accountId),
-    account_type: "Live",
-    leverage: mt5Account.leverage,
-    balance: mt5Account.balance.toString(),
-    credit: mt5Account.credit.toString(),
-    equity: mt5Account.equity.toString(),
-    margin: mt5Account.margin.toString(),
-    margin_free: mt5Account.marginFree.toString(),
-    margin_level: mt5Account.marginLevel.toString(),
-    closed_pnl: mt5Account.profit.toString(),
+    account_type: mt5Account.accountType || "Live",
+    leverage: mt5Account.leverage || 100,
+    balance: (mt5Account.balance || 0).toString(),
+    credit: (mt5Account.credit || 0).toString(),
+    equity: (mt5Account.equity || 0).toString(),
+    margin: (mt5Account.margin || 0).toString(),
+    margin_free: (mt5Account.marginFree || 0).toString(),
+    margin_level: (mt5Account.marginLevel || 0).toString(),
+    closed_pnl: (mt5Account.profit || 0).toString(),
     open_pnl: "0",
-    account_type_requested: "Standard", // Default value for MT5 accounts
+    account_type_requested: mt5Account.package || "Standard",
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(mt5Account.accountId),
-      cf_1479: mt5Account.name
+      cf_1479: mt5Account.nameOnAccount || ""
     }
   };
 };
@@ -431,8 +431,13 @@ export function DepositDialog({
 
   const dispatch = useDispatch<AppDispatch>();
   const mt5Accounts = useSelector((state: RootState) => state.mt5.accounts);
+  // Use all accounts from database - no need to filter by isEnabled anymore
   const filteredAccounts = mt5Accounts.filter(
-    (acc) => acc.isEnabled
+    (acc) => {
+      // Filter valid account IDs only
+      const id = String(acc.accountId || '').trim();
+      return id && id !== '0' && /^\d+$/.test(id);
+    }
   );
 
   // Dynamic payment images based on selected crypto
@@ -451,11 +456,11 @@ export function DepositDialog({
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch MT5 accounts when dialog opens
+  // Fetch MT5 accounts from DB when dialog opens
   useEffect(() => {
     if (open && mt5Accounts.length === 0) {
-      console.log('🔄 DepositDialog: Fetching MT5 accounts...');
-      dispatch(fetchUserMt5Accounts());
+      console.log('🔄 DepositDialog: Fetching MT5 accounts from DB...');
+      dispatch(fetchUserAccountsFromDb() as any);
     }
   }, [open, dispatch, mt5Accounts.length]);
 

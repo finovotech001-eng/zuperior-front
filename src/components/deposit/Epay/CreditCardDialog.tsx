@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../../store";
-import { fetchUserMt5Accounts } from "../../../store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "../../../store/slices/mt5AccountSlice";
 import { NewAccountDialogProps } from "../types";
 import { CreditStep1Form } from "./CreditStep1Form";
 import { CreditStep2Form } from "./CreditStep2Form";
@@ -37,8 +37,13 @@ export function CreditCardDialog({
 
   const dispatch = useDispatch<AppDispatch>();
   const mt5Accounts = useSelector((state: RootState) => state.mt5.accounts);
+  // Use all accounts from database - no need to filter by isEnabled anymore
   const filteredAccounts = mt5Accounts.filter(
-    (account) => account.isEnabled
+    (account) => {
+      // Filter valid account IDs only
+      const id = String(account.accountId || '').trim();
+      return id && id !== '0' && /^\d+$/.test(id);
+    }
   );
 
   const resetAllStates = useCallback(() => {
@@ -70,11 +75,11 @@ export function CreditCardDialog({
     }
   }, [open, resetAllStates]);
 
-  // Fetch MT5 accounts when dialog opens
+  // Fetch MT5 accounts from DB when dialog opens
   useEffect(() => {
     if (open && mt5Accounts.length === 0) {
-      console.log('🔄 CreditCardDialog: Fetching MT5 accounts...');
-      dispatch(fetchUserMt5Accounts());
+      console.log('🔄 CreditCardDialog: Fetching MT5 accounts from DB...');
+      dispatch(fetchUserAccountsFromDb() as any);
     }
   }, [open, dispatch, mt5Accounts.length]);
 
@@ -96,15 +101,8 @@ export function CreditCardDialog({
         (account) => account.accountId === selectedAccount
       );
 
-      // Get account type from group name
-      const getAccountTypeFromGroup = (group?: string): string => {
-        if (!group) return "Standard";
-        if (group.includes('Pro')) return 'Pro';
-        if (group.includes('Standard')) return 'Standard';
-        return 'Standard';
-      };
-
-      const accountType = getAccountTypeFromGroup(account?.group);
+      // Get account package from DB field
+      const accountPackage = account?.package || 'Standard';
 
       const buildRedirectUrl = (path: string) => {
         const url = new URL(`${window.location.origin}${path}`);
@@ -120,8 +118,7 @@ export function CreditCardDialog({
         amount,
         currency,
         account_number: selectedAccount,
-        account_type: accountType,
-        account_group: account?.group,
+        account_type: accountPackage,
       });
 
       const response = await fetch("/api/epay", {
@@ -132,7 +129,7 @@ export function CreditCardDialog({
           success_url: successUrl.toString(),
           failure_url: failureUrl.toString(),
           account_number: selectedAccount,
-          account_type: accountType,
+          account_type: accountPackage,
         }),
       });
 

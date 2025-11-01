@@ -27,7 +27,7 @@ import { TicketFormData } from "./types";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { MT5Account } from "@/store/slices/mt5AccountSlice";
-import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "@/store/slices/mt5AccountSlice";
 import { useAppDispatch } from "@/store/hooks";
 
 interface OpenTicketFlowProps {
@@ -100,11 +100,11 @@ export default function OpenTicketFlow({
   // Get MT5 accounts from Redux store - same as dashboard uses
   const mt5Accounts: MT5Account[] = useSelector((state: RootState) => state.mt5.accounts);
 
-  // Fetch MT5 accounts on mount if empty
+  // Fetch MT5 accounts from DB on mount if empty
   useEffect(() => {
     if (mt5Accounts.length === 0) {
-      console.log("🔄 Fetching MT5 accounts for support form...");
-      dispatch(fetchUserMt5Accounts());
+      console.log("🔄 Fetching MT5 accounts from DB for support form...");
+      dispatch(fetchUserAccountsFromDb() as any);
     }
   }, [dispatch, mt5Accounts.length]);
   
@@ -114,7 +114,7 @@ export default function OpenTicketFlow({
     account_name: parseInt(account.accountId),
     platformname: "MT5",
     acc: parseInt(account.accountId),
-    account_type: "Live",
+    account_type: account.accountType || "Live",
     leverage: account.leverage || 100,
     balance: (account.balance || 0).toString(),
     credit: (account.credit || 0).toString(),
@@ -124,11 +124,11 @@ export default function OpenTicketFlow({
     margin_level: (account.marginLevel || 0).toString(),
     closed_pnl: (account.profit || 0).toString(),
     open_pnl: "0",
-    account_type_requested: null,
+    account_type_requested: account.package || null,
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(account.accountId),
-      cf_1479: account.name || ""
+      cf_1479: account.nameOnAccount || ""
     }
   }));
 

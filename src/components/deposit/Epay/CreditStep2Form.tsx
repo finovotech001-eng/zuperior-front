@@ -23,18 +23,11 @@ export function CreditStep2Form({
   // Find the actual account from the accounts array
   const account = accounts.find(acc => acc.accountId === selectedAccount);
   
-  // Helper to extract account type from group name
-  const getAccountTypeFromGroup = (group?: string): string => {
-    if (!group) return "Standard";
-    if (group.includes('Pro')) return 'Pro';
-    if (group.includes('Standard')) return 'Standard';
-    return 'Standard';
-  };
-
+  // Get account package from DB field
   const accountDetails = selectedAccount
     ? {
         accountNumber: selectedAccount,
-        accountType: account ? getAccountTypeFromGroup(account.group) : "Standard",
+        accountType: account?.package || "Standard",
       }
     : null;
 

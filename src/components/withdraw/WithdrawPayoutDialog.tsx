@@ -46,7 +46,7 @@ export function WithdrawPayoutDialog({
     account_name: parseInt(a.accountId),
     platformname: 'MT5',
     acc: parseInt(a.accountId),
-    account_type: 'Live',
+    account_type: a.accountType || 'Live',
     leverage: a.leverage || 100,
     balance: String(a.balance ?? 0),
     credit: String(a.credit ?? 0),
@@ -56,9 +56,9 @@ export function WithdrawPayoutDialog({
     margin_level: String(a.marginLevel ?? 0),
     closed_pnl: String(a.profit ?? 0),
     open_pnl: '0',
-    account_type_requested: (a.group || '').toLowerCase().includes('pro') ? 'Pro' : (a.group || '').toLowerCase().includes('standard') ? 'Standard' : null,
+    account_type_requested: a.package || 'Standard',
     provides_balance_history: true,
-    tp_account_scf: { tradingplatformaccountsid: parseInt(a.accountId), cf_1479: a.name || '' },
+    tp_account_scf: { tradingplatformaccountsid: parseInt(a.accountId), cf_1479: a.nameOnAccount || '' },
   });
 
   const liveAccounts: TpAccountSnapshot[] = mt5Accounts?.length

@@ -12,7 +12,7 @@ import { X } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { store } from "../../store";
-import { fetchUserMt5Accounts } from "../../store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "../../store/slices/mt5AccountSlice";
 import { NewAccountDialogProps } from "./types";
 import { USDTManualStep1Form } from "./USDTManualStep1Form";
 import { USDTManualStep2Instructions } from "./USDTManualStep2Instructions";
@@ -36,8 +36,13 @@ export function ManualDepositDialog({
 
   const dispatch = useDispatch<AppDispatch>();
   const mt5Accounts = useSelector((state: RootState) => state.mt5.accounts);
+  // Use all accounts from database - no need to filter by isEnabled anymore
   const filteredAccounts = mt5Accounts.filter(
-    (account) => account.isEnabled
+    (account) => {
+      // Filter valid account IDs only
+      const id = String(account.accountId || '').trim();
+      return id && id !== '0' && /^\d+$/.test(id);
+    }
   );
 
   const resetAllStates = useCallback(() => {
@@ -58,11 +63,11 @@ export function ManualDepositDialog({
     }
   }, [open, resetAllStates]);
 
-  // Fetch MT5 accounts when dialog opens
+  // Fetch MT5 accounts from DB when dialog opens
   useEffect(() => {
     if (open && mt5Accounts.length === 0) {
-      console.log('🔄 ManualDepositDialog: Fetching MT5 accounts...');
-      dispatch(fetchUserMt5Accounts());
+      console.log('🔄 ManualDepositDialog: Fetching MT5 accounts from DB...');
+      dispatch(fetchUserAccountsFromDb() as any);
     }
   }, [open, dispatch, mt5Accounts.length]);
 

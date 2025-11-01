@@ -11,7 +11,7 @@ import {
   Bonus,
   MT5Transaction,
 } from "@/store/slices/transactionsSlice";
-import { fetchUserMt5Accounts } from "@/store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb } from "@/store/slices/mt5AccountSlice";
 import { format } from "date-fns";
 import { TransactionsHeader } from "@/components/transactions/TransactionsHeader";
 import { TransactionsToolbar } from "@/components/transactions/TransactionToolbar";
@@ -38,19 +38,18 @@ export default function TransactionsPage() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(fetchUserMt5Accounts());
+    dispatch(fetchUserAccountsFromDb() as any);
   }, [dispatch]);
 
   // Map accounts to dropdown items - only Live accounts
-  const accounts =
-    useSelector((state: RootState) =>
-      state.mt5.accounts
-        .filter((account) => (account.accountType || 'Live') === 'Live')
-        .map((account) => ({
-          id: String(account.accountId ?? account.login ?? account.id),
-          type: account.group || "Live",
-        }))
-    ) || [];
+  const accounts = useSelector((state: RootState) =>
+    state.mt5.accounts
+      .filter((account) => account.accountType === 'Live')
+      .map((account) => ({
+        id: String(account.accountId),
+        type: account.package || "Live",
+      }))
+  ) || [];
 
   const [activeTab, setActiveTab] = useState<"all" | "deposits" | "withdrawals">("all");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);

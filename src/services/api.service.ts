@@ -218,14 +218,16 @@ const mt5Service = {
 
   /** Get full account profile from ClientProfile API 
    * Route: /api/mt5/user-profile/:accountId
-   * This is the route used for fetching client details (every 200ms for balance/profit)
+   * This is the route used for fetching client details (every 400ms for balance/profit)
    */
   getAccountProfile: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
     try {
       // Call MT5 user profile endpoint through backend
       // The backend controller handles authentication with Bearer token if needed
+      // Increased timeout to 60 seconds to handle slow MT5 API responses
       const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
-        signal: opts?.signal
+        signal: opts?.signal,
+        timeout: 60000 // 60 seconds timeout
       });
       
       return normalizeOk(response.data);
@@ -235,7 +237,7 @@ const mt5Service = {
     }
   },
 
-  /** Get only Balance and Profit for efficient polling */
+  /** Get only Balance and Profit for efficient polling (every 400ms) */
   getAccountBalanceAndProfit: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
     try {
       const profile = await mt5Service.getAccountProfile(accountId, password, opts);
@@ -252,6 +254,11 @@ const mt5Service = {
       
       return { success: false, data: { Balance: 0, Profit: 0 } };
     } catch (error: any) {
+      // Handle timeout errors gracefully - don't spam console
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        // Silently return zero values on timeout to continue polling
+        return { success: false, data: { Balance: 0, Profit: 0 } };
+      }
       console.error(`Error fetching balance and profit for ${accountId}:`, error);
       return { success: false, data: { Balance: 0, Profit: 0 } };
     }

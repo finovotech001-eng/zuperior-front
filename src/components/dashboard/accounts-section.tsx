@@ -92,7 +92,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     }
   }, [accounts, dispatch]);
 
-  // Poll Balance and Profit every 200ms
+  // Poll Balance and Profit every 400ms (reduced from 200ms to reduce server load)
   useEffect(() => {
     // Clear existing interval
     if (balancePollIntervalRef.current) {
@@ -105,7 +105,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
       return;
     }
 
-    // Poll immediately, then every 200ms
+    // Poll immediately, then every 400ms
     const poll = () => {
       accountsWithPasswords.forEach((account) => {
         dispatch(fetchAccountBalanceAndProfit({ 
@@ -116,7 +116,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     };
 
     poll(); // Initial poll
-    balancePollIntervalRef.current = setInterval(poll, 200);
+    balancePollIntervalRef.current = setInterval(poll, 400);
 
     // Cleanup on unmount
     return () => {
