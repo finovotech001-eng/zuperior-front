@@ -40,7 +40,9 @@ export function useSessionCheck() {
     const token = localStorage.getItem('userToken') || localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('accessToken');
     if (!token) return; // Not logged in, skip
     
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+    // Get backend URL - remove /api suffix for socket connection, keep it for fetch
+    const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+    const serverBaseUrl = backendApiUrl.replace('/api', ''); // Remove /api for socket.io
 
     // Centralized logout helper
     const handleLogout = (reason: 'deleted' | 'expired' = 'expired') => {
@@ -68,38 +70,54 @@ export function useSessionCheck() {
     };
 
     // Setup websocket listener if available
+    // Attempt socket connection only if backend URL is properly configured (not localhost default)
     const socketRef = { current: null as any };
-    (async () => {
-      try {
-        const io = await getSocket();
-        if (io && typeof io === 'function') {
-          socketRef.current = io(serverUrl, {
-            transports: ['websocket'],
-            withCredentials: true,
-          });
-          
-          socketRef.current.on('connect', () => {
-            socketRef.current.emit('auth', { token });
-          });
-          
-          socketRef.current.on('auth:ok', () => {
-            console.log('Socket authenticated successfully');
-          });
-          
-          socketRef.current.on('account-deleted', () => {
-            handleLogout('deleted');
-          });
+    const isProductionUrl = backendApiUrl && !backendApiUrl.includes('localhost') && !backendApiUrl.includes('127.0.0.1');
+    
+    if (isProductionUrl) {
+      (async () => {
+        try {
+          const io = await getSocket();
+          if (io && typeof io === 'function') {
+            socketRef.current = io(serverBaseUrl, {
+              transports: ['websocket'],
+              withCredentials: true,
+              reconnection: false, // Disable auto-reconnection to reduce console errors
+              timeout: 5000, // Short timeout
+            });
+            
+            socketRef.current.on('connect', () => {
+              socketRef.current.emit('auth', { token });
+            });
+            
+            socketRef.current.on('auth:ok', () => {
+              console.log('Socket authenticated successfully');
+            });
+            
+            socketRef.current.on('account-deleted', () => {
+              handleLogout('deleted');
+            });
+            
+            // Silently handle connection errors - polling will handle session checks
+            socketRef.current.on('connect_error', () => {
+              // Silently ignore - polling fallback is active
+            });
+            
+            socketRef.current.on('disconnect', () => {
+              // Silently ignore - polling fallback is active
+            });
+          }
+        } catch (e) {
+          // Silently handle errors - polling will handle session checks
         }
-      } catch (e) {
-        console.warn('WebSocket setup failed:', e);
-      }
-    })();
+      })();
+    }
 
     // Fallback polling check
     let timer: any;
     const poll = async () => {
       try {
-        const res = await fetch(`${serverUrl}/api/session/check-valid`, {
+        const res = await fetch(`${backendApiUrl}/session/check-valid`, {
           credentials: 'include',
           headers: { 
             'Authorization': token ? `Bearer ${token}` : '',
