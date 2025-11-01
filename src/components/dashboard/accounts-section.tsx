@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { useSelector, useDispatch } from "react-redux";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent } from "../ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { Dialog, DialogTrigger } from "../ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { RootState } from "../../store";
@@ -121,23 +121,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     }
   }, [accounts.length, dispatch]); // Run when account count changes or component mounts
 
-  // ✅ OPTIMIZED: Poll all account balances every 15 seconds
-  useEffect(() => {
-    if (accounts.length === 0) return;
-
-    // Immediate first poll - don't wait for interval
-    console.log(`[AccountsSection] 🔄 Immediate balance fetch on mount`);
-    dispatch(fetchAllAccountsWithBalance() as any);
-
-    const pollInterval = setInterval(() => {
-      console.log(`[AccountsSection] 🔄 Polling all account balances every 15 seconds`);
-      dispatch(fetchAllAccountsWithBalance() as any);
-    }, 15000); // Poll every 15 seconds
-
-    return () => {
-      clearInterval(pollInterval);
-    };
-  }, [accounts.length, dispatch]);
+  // ✅ REMOVED: Automatic polling - balances now only fetch on mount/account change or manual refresh
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
@@ -238,22 +222,34 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
             Accounts
           </motion.h2>
         </AnimatePresence>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={onOpenNewAccount}
-              className="relative gap-1 cursor-pointer font-semibold text-white rounded-[15px] px-6 py-2.5 text-xs leading-6 h-11 
-          [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))]
-           hover:bg-transparent dark:[background:black]"
-            >
-              <Plus className="w-3 h-3" /> Open New Account
-              <div
-                style={maskStyle}
-                className="dark:border dark:border-white/50 pointer-events-none"
-              />
-            </Button>
-          </DialogTrigger>
-        </Dialog>
+        <div className="flex gap-2 items-center">
+          <Button
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered by user');
+              dispatch(fetchAllAccountsWithBalance() as any);
+            }}
+            className="relative gap-1 cursor-pointer font-semibold text-white/90 rounded-[15px] px-4 py-2.5 text-xs leading-6 h-11 bg-purple-600/80 hover:bg-purple-600"
+            title="Refresh account balances"
+          >
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button
+                onClick={onOpenNewAccount}
+                className="relative gap-1 cursor-pointer font-semibold text-white rounded-[15px] px-6 py-2.5 text-xs leading-6 h-11 
+            [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))]
+             hover:bg-transparent dark:[background:black]"
+              >
+                <Plus className="w-3 h-3" /> Open New Account
+                <div
+                  style={maskStyle}
+                  className="dark:border dark:border-white/50 pointer-events-none"
+                />
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </div>
       </div>
             <Tabs
         defaultValue="live"

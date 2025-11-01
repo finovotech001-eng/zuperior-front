@@ -11,7 +11,7 @@ interface LoginActivity {
   id: string;
   device: string | null;
   browser: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 interface LoginActivityResponse {
@@ -124,7 +124,7 @@ export default function LoginActivity() {
                 </div>
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {format(new Date(activity.created_at), "MMM dd, yyyy HH:mm")}
+                {format(new Date(activity.createdAt), "MMM dd, yyyy HH:mm")}
               </div>
             </div>
           </CardContent>
