@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent } from "../ui/tabs";
 import { Plus } from "lucide-react";
@@ -13,31 +13,25 @@ import type { RootState } from "../../store";
 import AccountDetails from "./account-details";
 import { TpAccountSnapshot } from "@/types/user-details";
 import { MT5Account } from "@/store/slices/mt5AccountSlice";
+import { 
+  fetchUserAccountsFromDb, 
+  fetchAccountProfile, 
+  fetchAccountBalanceAndProfit 
+} from "@/store/slices/mt5AccountSlice";
 
 interface AccountsSectionProps {
   onOpenNewAccount: () => void;
 }
 
-// Derive human friendly account plan from MT5 group string
-const deriveAccountPlan = (group?: string | null): string | null => {
-  if (!group) return null;
-  const g = group.toLowerCase();
-  if (g.includes('pro')) return 'Pro';
-  if (g.includes('standard')) return 'Standard';
-  return null;
-};
-
-// Helper function to map MT5Account to TpAccountSnapshot
+// Helper function to map MT5Account to TpAccountSnapshot (for AccountDetails component)
 const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => {
-  const requestedType = deriveAccountPlan(mt5Account.group);
   return {
     tradingplatformaccountsid: parseInt(mt5Account.accountId),
     account_name: parseInt(mt5Account.accountId),
     platformname: "MT5",
     acc: parseInt(mt5Account.accountId),
-    account_type: (mt5Account as any).accountType || "Live", // Use account type from database
-    // Show account plan (Pro/Standard) derived from the MT5 group
-    account_type_requested: requestedType,
+    account_type: mt5Account.accountType || "Live",
+    account_type_requested: mt5Account.package || null,
     leverage: mt5Account.leverage || 100,
     balance: (mt5Account.balance || 0).toString(),
     credit: (mt5Account.credit || 0).toString(),
@@ -50,7 +44,7 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(mt5Account.accountId),
-      cf_1479: mt5Account.name || ""
+      cf_1479: mt5Account.nameOnAccount || ""
     }
   };
 };
@@ -58,6 +52,7 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
 export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
   const [open, setOpen] = useState(false);
   const { theme } = useTheme();
+  const dispatch = useDispatch();
 
   const { accounts, ownerClientId, isFetchingAccounts } = useSelector((state: RootState) => state.mt5);
   const currentClientId = typeof window !== 'undefined' ? localStorage.getItem('clientId') : null;
@@ -70,6 +65,66 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
   const [activeTab, setActiveTab] = useState<"live" | "demo" | "archived">(
     "live"
   );
+
+  const balancePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const profilesFetchedRef = useRef<Set<string>>(new Set());
+
+  // Fetch accounts from DB once on mount
+  useEffect(() => {
+    dispatch(fetchUserAccountsFromDb() as any);
+  }, [dispatch]);
+
+  // Fetch ClientProfile once for each account after accounts are loaded
+  useEffect(() => {
+    if (accounts.length > 0) {
+      accounts.forEach((account) => {
+        // Skip if already fetched or no password
+        if (profilesFetchedRef.current.has(account.accountId) || !account.password) {
+          return;
+        }
+        
+        profilesFetchedRef.current.add(account.accountId);
+        dispatch(fetchAccountProfile({ 
+          accountId: account.accountId, 
+          password: account.password 
+        }) as any);
+      });
+    }
+  }, [accounts, dispatch]);
+
+  // Poll Balance and Profit every 200ms
+  useEffect(() => {
+    // Clear existing interval
+    if (balancePollIntervalRef.current) {
+      clearInterval(balancePollIntervalRef.current);
+    }
+
+    // Only start polling if we have accounts with passwords
+    const accountsWithPasswords = accounts.filter(acc => acc.password);
+    if (accountsWithPasswords.length === 0) {
+      return;
+    }
+
+    // Poll immediately, then every 200ms
+    const poll = () => {
+      accountsWithPasswords.forEach((account) => {
+        dispatch(fetchAccountBalanceAndProfit({ 
+          accountId: account.accountId, 
+          password: account.password! 
+        }) as any);
+      });
+    };
+
+    poll(); // Initial poll
+    balancePollIntervalRef.current = setInterval(poll, 200);
+
+    // Cleanup on unmount
+    return () => {
+      if (balancePollIntervalRef.current) {
+        clearInterval(balancePollIntervalRef.current);
+      }
+    };
+  }, [accounts, dispatch]);
 
   const maskStyle: React.CSSProperties = {
     WebkitMaskImage:
@@ -220,17 +275,17 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
             </div>
           ) : hasBasicAccountInfo ? (
             accounts
-              .filter((account) => ((account as any).accountType || "Live") === "Live")
+              .filter((account) => account.accountType === "Live")
               .map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (
                   <AccountDetails
-                    key={`${mappedAccount.tradingplatformaccountsid}-${index}`}
+                    key={`${account.accountId}-${index}`}
                     accountId={mappedAccount.acc}
                     platformName={mappedAccount.platformname}
-                    accountType={(account as any).accountType || "Live"}
+                    accountType={account.accountType}
                     accountDetails={mappedAccount}
-                    isReady={Boolean((account as any).isProfileReady)}
+                    isReady={true}
                   />
                 );
               })
@@ -244,18 +299,18 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
         {/* Demo Accounts */}
         <TabsContent value="demo">
           {(() => {
-            const demoAccounts = accounts.filter((account) => ((account as any).accountType || "Live") === "Demo");
+            const demoAccounts = accounts.filter((account) => account.accountType === "Demo");
             if (demoAccounts.length > 0) {
               return demoAccounts.map((account, index) => {
                 const mappedAccount = mapMT5AccountToTpAccount(account);
                 return (
                   <AccountDetails
-                    key={`${mappedAccount.tradingplatformaccountsid}-${index}`}
+                    key={`${account.accountId}-${index}`}
                     accountId={mappedAccount.acc}
                     platformName={mappedAccount.platformname}
-                    accountType={(account as any).accountType || "Demo"}
+                    accountType={account.accountType}
                     accountDetails={mappedAccount}
-                    isReady={Boolean((account as any).isProfileReady)}
+                    isReady={true}
                   />
                 );
               });

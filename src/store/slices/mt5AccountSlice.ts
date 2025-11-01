@@ -5,27 +5,52 @@ import { mt5Service } from "@/services/api.service";
 // --------------------
 // Type Definitions
 // --------------------
-export interface MT5Account {
+// Static account data from database
+export interface MT5AccountDB {
   accountId: string;
+  nameOnAccount?: string | null;
+  leverage?: number | null;
+  package?: string | null;
+  accountType: string;
+  password?: string | null;
   createdAt?: string;
-  updatedAt?: string;
-  password?: string; // MT5 master password (stored in DB)
-  accountType?: string; // Live or Demo (stored in DB)
-  // Additional fields from API response (not stored in DB)
-  name?: string;
-  group?: string;
+}
+
+// ClientProfile data from MT5 API
+export interface ClientProfileData {
+  Balance?: number;
+  Equity?: number;
+  Credit?: number;
+  Margin?: number;
+  MarginFree?: number;
+  MarginLevel?: number;
+  Profit?: number;
+  Server?: string;
+  Login?: number;
+  Name?: string;
+  Group?: string;
+  Leverage?: number;
+}
+
+// Combined account data for display
+export interface MT5Account extends MT5AccountDB {
+  // ClientProfile fields (fetched once on render)
   balance?: number;
   equity?: number;
   credit?: number;
   margin?: number;
   marginFree?: number;
   marginLevel?: number;
+  server?: string;
+  mtLogin?: number;
+  // Dynamic fields (updated every 200ms)
   profit?: number;
-  leverage?: number;
+  // Legacy fields for backward compatibility
+  name?: string;
+  group?: string;
   isEnabled?: boolean;
   platform?: string;
   status?: boolean;
-  // Client-side flags for UI/polling
   isProfileReady?: boolean;
   lastProfileUpdateAt?: number;
 }
@@ -60,6 +85,17 @@ export interface MT5State {
 // Small helper to throttle rapid duplicate dispatches
 const within = (ts: number | null | undefined, ms: number) =>
   typeof ts === "number" && Date.now() - ts < ms;
+
+// Normalize API responses
+const normalizeOk = (data: any) => {
+  // Normalize responses from different backends
+  if (data && typeof data === 'object') {
+    if ('Data' in data && !('data' in data)) return { success: true, data: data.Data };
+    if ('Success' in data) return { success: !!data.Success, data: data.Data ?? null, message: data.Message };
+    if ('success' in data) return { success: !!data.success, data: data.data ?? null, message: data.message };
+  }
+  return { success: true, data };
+};
 
 // Determine if an account payload is complete enough for the UI
 const isProfileComplete = (a: Partial<MT5Account>): boolean => {
@@ -106,114 +142,121 @@ export const fetchMt5Groups = createAsyncThunk(
   }
 );
 
-// ✅ Get User MT5 Accounts
+// ✅ Get User Accounts from Database (Static fields only)
+export const fetchUserAccountsFromDb = createAsyncThunk(
+  "mt5/fetchUserAccountsFromDb",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await mt5Service.getUserAccountsFromDb();
+      const normalized = normalizeOk(response);
+
+      if (!normalized.success || !normalized.data?.accounts) {
+        console.log("⚠️ No accounts found in database");
+        return [];
+      }
+
+      const accounts = normalized.data.accounts as MT5AccountDB[];
+      console.log(`✅ Fetched ${accounts.length} accounts from database`);
+      
+      return accounts.map(acc => ({
+        ...acc,
+        accountType: acc.accountType || 'Live'
+      }));
+    } catch (error: any) {
+      console.error("❌ Error in fetchUserAccountsFromDb:", error);
+      if (error.response?.status === 401) {
+        return [];
+      }
+      return rejectWithValue(
+        error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch accounts from database"
+      );
+    }
+  }
+);
+
+// ✅ Fetch Account Profile (ClientProfile fields - once on render)
+export const fetchAccountProfile = createAsyncThunk(
+  "mt5/fetchAccountProfile",
+  async ({ accountId, password }: { accountId: string; password: string }, { rejectWithValue }) => {
+    try {
+      const response = await mt5Service.getAccountProfile(accountId, password);
+      
+      if (!response.success || !response.data) {
+        return rejectWithValue("Failed to fetch account profile");
+      }
+
+      const profile = response.data as ClientProfileData;
+      return {
+        accountId,
+        profile: {
+          balance: profile.Balance || 0,
+          equity: profile.Equity || 0,
+          credit: profile.Credit || 0,
+          margin: profile.Margin || 0,
+          marginFree: profile.MarginFree || 0,
+          marginLevel: profile.MarginLevel || 0,
+          server: profile.Server || '',
+          mtLogin: profile.Login || parseInt(accountId, 10)
+        }
+      };
+    } catch (error: any) {
+      console.error(`❌ Error fetching profile for ${accountId}:`, error);
+      return rejectWithValue(
+        error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch account profile"
+      );
+    }
+  }
+);
+
+// ✅ Fetch Balance and Profit only (for 200ms polling)
+export const fetchAccountBalanceAndProfit = createAsyncThunk(
+  "mt5/fetchAccountBalanceAndProfit",
+  async ({ accountId, password }: { accountId: string; password: string }, { rejectWithValue }) => {
+    try {
+      const response = await mt5Service.getAccountBalanceAndProfit(accountId, password);
+      
+      if (!response.success) {
+        return { accountId, balance: 0, profit: 0 };
+      }
+
+      return {
+        accountId,
+        balance: response.data.Balance || 0,
+        profit: response.data.Profit || 0
+      };
+    } catch (error: any) {
+      console.error(`❌ Error fetching balance/profit for ${accountId}:`, error);
+      // Return zero values on error instead of rejecting
+      return { accountId, balance: 0, profit: 0 };
+    }
+  }
+);
+
+// Legacy method - kept for backward compatibility (deprecated, use fetchUserAccountsFromDb)
 export const fetchUserMt5Accounts = createAsyncThunk(
   "mt5/fetchUserAccounts",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await mt5Service.getUserMt5Accounts();
+      const response = await mt5Service.getUserAccountsFromDb();
+      const normalized = normalizeOk(response);
 
-      console.log('🔍 MT5 Service response:', JSON.stringify(response, null, 2));
-
-      // Handle response format - check if Success is false
-      if (response.Success === false) {
-        console.log("⚠️ Failed to fetch MT5 accounts or no accounts found");
+      if (!normalized.success || !normalized.data?.accounts) {
         return [];
       }
 
-      // Get the accounts data
-      const accounts = response.Data || [];
-
-      console.log(`📊 Received ${accounts.length} accounts from service`);
-      console.log('📋 Raw accounts data:', JSON.stringify(accounts, null, 2));
-
-      if (accounts.length === 0) {
-        console.log("No MT5 accounts found for user");
-        return [];
-      }
-
-      // Transform MT5 API data to match expected MT5Account format
-      const transformedAccounts = accounts.map((account: any) => {
-        // Handle accounts with incomplete data (newly created accounts)
-        if (!account || Object.keys(account).length <= 1) {
-          console.warn('⚠️ Account profile incomplete (likely newly created):', account);
-          // Return minimal valid account
-          const minimal: MT5Account = {
-            accountId: String(account.Login),
-            name: 'Loading...', // Placeholder
-            group: 'Loading...',
-            leverage: 0,
-            balance: 0,
-            equity: 0,
-            credit: 0,
-            margin: 0,
-            marginFree: 0,
-            marginLevel: 0,
-            profit: 0,
-            isEnabled: true,
-            accountType: account.accountType || 'Live', // Preserve accountType from database
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            isProfileReady: false,
-            lastProfileUpdateAt: Date.now(),
-          };
-          return minimal;
-        }
-        
-        const full: MT5Account = {
-          accountId: String(account.Login),
-          name: account.Name,
-          group: account.Group,
-          leverage: account.Leverage,
-          balance: account.Balance || 0,
-          equity: account.Equity || 0,
-          credit: account.Credit || 0,
-          margin: account.Margin || 0,
-          marginFree: account.MarginFree || 0,
-          marginLevel: account.MarginLevel || 0,
-          profit: account.Profit || 0,
-          isEnabled: account.IsEnabled !== false, // Default to true if not specified
-          accountType: account.accountType || 'Live', // Preserve accountType from database
-          createdAt: account.Registration || new Date().toISOString(),
-          updatedAt: account.LastAccess || new Date().toISOString(),
-          isProfileReady: true,
-          lastProfileUpdateAt: Date.now(),
-        };
-        full.isProfileReady = isProfileComplete(full);
-        return full;
-      });
-
-      console.log(`✅ Transformed ${transformedAccounts.length} MT5 accounts`);
-      console.log('📋 Transformed accounts data:', JSON.stringify(transformedAccounts, null, 2));
-      return transformedAccounts;
+      const accounts = normalized.data.accounts as MT5AccountDB[];
+      return accounts.map(acc => ({
+        ...acc,
+        accountType: acc.accountType || 'Live'
+      }));
     } catch (error: any) {
-      console.error("❌ Error in fetchUserMt5Accounts:", error);
-
       if (error.response?.status === 401) {
         return [];
       }
-
-      if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
-        return rejectWithValue("Network error - please check your connection");
-      }
-
       return rejectWithValue(
-        error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch MT5 accounts"
+        error.response?.data?.Message || error.response?.data?.message || error.message || "Failed to fetch accounts"
       );
     }
-  },
-  {
-    // ✅ ADD: skip if already fetching, but allow force refresh by checking if lastAccountsFetchAt is null
-    condition: (_, { getState }) => {
-      const state = getState() as { mt5: MT5State };
-      const s = state.mt5;
-      if (s.isFetchingAccounts) return false;
-      // Allow immediate fetch if lastAccountsFetchAt is null (force refresh after account creation)
-      if (s.lastAccountsFetchAt === null) return true;
-      // Otherwise, throttle to prevent excessive fetching (1.5s)
-      if (within(s.lastAccountsFetchAt, 1500)) return false;
-      return true;
-    },
   }
 );
 
@@ -522,38 +565,120 @@ const mt5AccountSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      // Fetch User MT5 Accounts
+      // Fetch User Accounts from DB (new simplified method)
+      .addCase(fetchUserAccountsFromDb.pending, (state) => {
+        state.isFetchingAccounts = true;
+        state.error = null;
+      })
+      .addCase(fetchUserAccountsFromDb.fulfilled, (state, action) => {
+        state.isFetchingAccounts = false;
+        state.lastAccountsFetchAt = Date.now();
+        // Merge with existing accounts, updating only DB fields
+        const dbAccounts = action.payload as MT5AccountDB[];
+        dbAccounts.forEach((dbAcc) => {
+          const existing = state.accounts.find(acc => acc.accountId === dbAcc.accountId);
+          if (existing) {
+            // Update only DB fields
+            existing.accountType = dbAcc.accountType;
+            existing.nameOnAccount = dbAcc.nameOnAccount;
+            existing.leverage = dbAcc.leverage;
+            existing.package = dbAcc.package;
+            existing.password = dbAcc.password;
+          } else {
+            // Add new account
+            state.accounts.push({ ...dbAcc } as MT5Account);
+          }
+        });
+        // Remove accounts that are no longer in DB
+        state.accounts = state.accounts.filter(acc => 
+          dbAccounts.some(dbAcc => dbAcc.accountId === acc.accountId)
+        );
+        if (typeof window !== 'undefined') {
+          state.ownerClientId = localStorage.getItem('clientId');
+        }
+      })
+      .addCase(fetchUserAccountsFromDb.rejected, (state, action) => {
+        state.isFetchingAccounts = false;
+        state.lastAccountsFetchAt = Date.now();
+        state.error = action.payload as string;
+      })
+
+      // Fetch Account Profile (ClientProfile fields - once)
+      .addCase(fetchAccountProfile.fulfilled, (state, action) => {
+        const { accountId, profile } = action.payload;
+        const account = state.accounts.find(acc => acc.accountId === accountId);
+        if (account) {
+          // Update ClientProfile fields
+          account.balance = profile.balance;
+          account.equity = profile.equity;
+          account.credit = profile.credit;
+          account.margin = profile.margin;
+          account.marginFree = profile.marginFree;
+          account.marginLevel = profile.marginLevel;
+          account.server = profile.server;
+          account.mtLogin = profile.mtLogin;
+          // Recalculate total balance
+          state.totalBalance = state.accounts
+            .filter((acc) => (acc.accountType || 'Live') === 'Live')
+            .reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        }
+      })
+
+      // Fetch Balance and Profit (200ms polling)
+      .addCase(fetchAccountBalanceAndProfit.fulfilled, (state, action) => {
+        const { accountId, balance, profit } = action.payload;
+        const account = state.accounts.find(acc => acc.accountId === accountId);
+        if (account) {
+          // Update only dynamic fields
+          account.balance = balance;
+          account.profit = profit;
+          // Recalculate total balance
+          state.totalBalance = state.accounts
+            .filter((acc) => (acc.accountType || 'Live') === 'Live')
+            .reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        }
+      })
+
+      // Fetch User MT5 Accounts (legacy - for backward compatibility)
       .addCase(fetchUserMt5Accounts.pending, (state) => {
         state.isLoading = true;
         state.error = null;
-        state.isFetchingAccounts = true;               // ✅ ADD
+        state.isFetchingAccounts = true;
       })
       .addCase(fetchUserMt5Accounts.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isFetchingAccounts = false;              // ✅ ADD
-        state.lastAccountsFetchAt = Date.now();        // ✅ ADD
-        state.accounts = action.payload;
+        state.isFetchingAccounts = false;
+        state.lastAccountsFetchAt = Date.now();
+        // Merge with existing accounts
+        const dbAccounts = action.payload as MT5AccountDB[];
+        dbAccounts.forEach((dbAcc) => {
+          const existing = state.accounts.find(acc => acc.accountId === dbAcc.accountId);
+          if (existing) {
+            existing.accountType = dbAcc.accountType;
+            existing.nameOnAccount = dbAcc.nameOnAccount;
+            existing.leverage = dbAcc.leverage;
+            existing.package = dbAcc.package;
+          } else {
+            state.accounts.push({ ...dbAcc } as MT5Account);
+          }
+        });
+        // Remove accounts that are no longer in DB
+        state.accounts = state.accounts.filter(acc => 
+          dbAccounts.some(dbAcc => dbAcc.accountId === acc.accountId)
+        );
         // Calculate total balance from Live accounts only
         state.totalBalance = state.accounts
           .filter((acc) => (acc.accountType || 'Live') === 'Live')
-          .reduce(
-            (sum, acc) => sum + (acc.balance || 0),
-            0
-          );
-        console.log(`💰 Total Balance calculated from Live accounts only: $${state.totalBalance}`);
-        console.log('📊 Redux state updated with accounts:', action.payload);
-        console.log('📊 Number of accounts stored:', action.payload.length);
+          .reduce((sum, acc) => sum + (acc.balance || 0), 0);
         if (typeof window !== 'undefined') {
           state.ownerClientId = localStorage.getItem('clientId');
         }
       })
       .addCase(fetchUserMt5Accounts.rejected, (state, action) => {
         state.isLoading = false;
-        state.isFetchingAccounts = false;              // ✅ ADD
-        state.lastAccountsFetchAt = Date.now();        // ✅ ADD
+        state.isFetchingAccounts = false;
+        state.lastAccountsFetchAt = Date.now();
         state.error = action.payload as string;
-        state.accounts = [];
-        state.totalBalance = 0;
       })
 
       // Create Account

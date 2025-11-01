@@ -193,294 +193,74 @@ const mt5Service = {
   },
 
   /** Get MT5 account IDs from database for current user */
-  getUserMt5AccountsFromDb: async (opts?: { signal?: AbortSignal }) => {
+  getUserAccountsFromDb: async (opts?: { signal?: AbortSignal }) => {
     return singleFlight('mt5-accounts-db', (signal) =>
       api.get('/api/mt5/user-accounts-db', { signal: opts?.signal ?? signal }).then(r => r.data),
       opts?.signal
     );
   },
+  
+  /** Legacy alias for backward compatibility */
+  getUserMt5AccountsFromDb: async (opts?: { signal?: AbortSignal }) => {
+    return mt5Service.getUserAccountsFromDb(opts);
+  },
 
   /** Get MT5 account profile for a specific login
-   * Prefer the existing proxy route `/api/proxy/users/:login`.
-   * Fallback to `/api/mt5/user-profile/:login` if proxy is unavailable.
+   * Route: /api/mt5/user-profile/:login (backend route)
    */
   getMt5AccountProfile: async (login: string | number, opts?: { signal?: AbortSignal }) => {
     const key = `mt5-profile:${login}`;
     return singleFlight(key, async (signal) => {
-      // Try proxy route first
-      try {
-        const r = await api.get(`/api/proxy/users/${login}`, { signal: opts?.signal ?? signal });
-        return normalizeOk(r.data);
-      } catch (e) {
-        // Fallback to backend-routed path
-        try {
-          const r2 = await api.get(`/api/mt5/user-profile/${login}`, { signal: opts?.signal ?? signal });
-          return normalizeOk(r2.data);
-        } catch (e2) {
-          throw e2;
-        }
-      }
+      const r = await api.get(`/api/mt5/user-profile/${login}`, { signal: opts?.signal ?? signal });
+      return normalizeOk(r.data);
     }, opts?.signal);
   },
 
-  /** Get all MT5 accounts for current user (REBUILT - Step by step flow) */
-  getUserMt5Accounts: async (opts?: { signal?: AbortSignal }) => {
+  /** Get full account profile from ClientProfile API 
+   * Route: /api/mt5/user-profile/:accountId
+   * This is the route used for fetching client details (every 200ms for balance/profit)
+   */
+  getAccountProfile: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
     try {
-      console.log('='.repeat(60));
-      console.log('🚀 STEP 1: Fetching accounts from MT5Account table');
-      console.log('='.repeat(60));
-      
-      // Step 1: Get all accounts from database for current user
-      const db = await mt5Service.getUserMt5AccountsFromDb({ signal: opts?.signal });
-      const ok = normalizeOk(db);
-      
-      if (!ok.success || !ok.data?.accounts) {
-        console.log('❌ No accounts found in database');
-        return { Success: false, Data: [] };
-      }
-
-      const dbAccounts = ok.data.accounts;
-      console.log(`✅ Found ${dbAccounts.length} accounts in database`);
-      console.log('📋 Database accounts:', dbAccounts.map((a: any) => ({
-        id: a.id,
-        accountId: a.accountId,
-        accountType: a.accountType
-      })));
-
-      if (dbAccounts.length === 0) {
-        return { Success: true, Data: [] };
-      }
-
-      // Step 2: Extract account IDs and create maps for database fields
-      const accountTypeMap = new Map<string, string>();
-      const nameOnAccountMap = new Map<string, string>();
-      const packageMap = new Map<string, string>();
-      const validAccountIds: string[] = [];
-
-      dbAccounts.forEach((acc: any) => {
-        const accountId = String(acc.accountId || '').trim();
-        if (accountId && accountId !== '0' && /^\d+$/.test(accountId)) {
-          validAccountIds.push(accountId);
-          accountTypeMap.set(accountId, acc.accountType || 'Live');
-          if (acc.nameOnAccount) {
-            nameOnAccountMap.set(accountId, acc.nameOnAccount);
-          }
-          if (acc.package) {
-            packageMap.set(accountId, acc.package);
-          }
-        }
-      });
-
-      console.log('='.repeat(60));
-      console.log('🚀 STEP 2: Validated account IDs');
-      console.log('='.repeat(60));
-      console.log(`✅ Valid account IDs: ${validAccountIds.length}`);
-      console.log('🔢 Account IDs:', validAccountIds);
-      console.log('📝 Account Type Map:', Array.from(accountTypeMap.entries()));
-
-      if (validAccountIds.length === 0) {
-        console.log('❌ No valid account IDs found');
-        return { Success: false, Data: [] };
-      }
-
-      // Step 3: Call ClientProfile API for ALL accounts in parallel
-      console.log('='.repeat(60));
-      console.log('🚀 STEP 3: Calling ClientProfile API for all accounts');
-      console.log('='.repeat(60));
-      
-      const profileResults = await Promise.allSettled(
-        validAccountIds.map(async (accountId, index) => {
-          try {
-            console.log(`📡 [${index + 1}/${validAccountIds.length}] Fetching profile for account ${accountId}...`);
-            const profile = await mt5Service.getMt5AccountProfile(accountId, { signal: opts?.signal });
-              
-              if (profile && profile.success && profile.data && profile.data.Login) {
-              console.log(`✅ [${index + 1}/${validAccountIds.length}] Profile fetched for ${accountId}:`, {
-                Login: profile.data.Login,
-                Name: profile.data.Name || 'N/A',
-                Balance: profile.data.Balance || 0
-              });
-              return { accountId, profile, success: true };
-              } else {
-              console.log(`⚠️ [${index + 1}/${validAccountIds.length}] Profile data incomplete for ${accountId}`);
-              return { accountId, profile: null, success: false };
-            }
-          } catch (error: any) {
-            console.log(`❌ [${index + 1}/${validAccountIds.length}] Profile fetch failed for ${accountId}:`, error?.message || 'Unknown error');
-            return { accountId, profile: null, success: false };
-          }
-        })
-      );
-
-      // Step 4: Merge database data with profile data for ALL accounts
-      console.log('='.repeat(60));
-      console.log('🚀 STEP 4: Merging database and profile data');
-      console.log('='.repeat(60));
-      
-      // Create a map of accountId -> profile result for easier lookup
-      const profileMap = new Map<string, any>();
-      profileResults.forEach((result, index) => {
-        const accountId = validAccountIds[index];
-        if (accountId) {
-          profileMap.set(accountId, result);
-        }
+      // Call MT5 user profile endpoint through backend
+      // The backend controller handles authentication with Bearer token if needed
+      const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
+        signal: opts?.signal
       });
       
-      console.log(`📊 Profile results map size: ${profileMap.size}`);
-      console.log(`📊 Valid account IDs count: ${validAccountIds.length}`);
-      
-      const mergedAccounts = validAccountIds.map((accountId, index) => {
-        const result = profileResults[index];
-        const accountType = accountTypeMap.get(accountId) || 'Live';
-        const nameOnAccount = nameOnAccountMap.get(accountId);
-        const packageValue = packageMap.get(accountId);
-        
-        console.log(`\n🔍 Processing account ${index + 1}/${validAccountIds.length}: ${accountId}`);
-        console.log(`   Result status: ${result?.status || 'undefined'}`);
-        
-        // CRITICAL: Always ensure Login is set to the accountId from database
-        // Even if profile fetch succeeds but Login is different, use the accountId from DB
-        const loginValue = Number(accountId);
-        
-        // If profile fetch was successful
-        if (result?.status === 'fulfilled' && result.value?.success && result.value?.profile?.data) {
-          const profileData = result.value.profile.data;
-          console.log(`   ✅ Profile data available - Name: ${profileData.Name || 'N/A'}, Profile Login: ${profileData.Login}`);
-          console.log(`   ⚠️ Using accountId from DB (${loginValue}) instead of profile Login to ensure consistency`);
-          
-          const merged = {
-            ...profileData,
-            Login: loginValue, // ALWAYS use accountId from DB, not profile Login
-            accountType: accountType, // Always use accountType from database
-            // CRITICAL: Database fields must override any API fields
-            nameOnAccount: nameOnAccount, // Use nameOnAccount from database (override API Name if exists)
-            package: packageValue, // Use package from database (override API Group-derived values)
-            // Preserve API fields for reference but don't use them for display
-            Name: profileData.Name, // Keep for reference but won't be used for nameOnAccount
-            Group: profileData.Group // Keep for reference but won't be used for package
-          };
-          console.log(`   ✅ Created merged account with Login: ${merged.Login}, AccountType: ${merged.accountType}, NameOnAccount: ${nameOnAccount || 'N/A'}, Package: ${packageValue || 'N/A'}`);
-          return merged;
-        }
-        
-        // If profile fetch failed, use minimal data from database
-        console.log(`   ⚠️ Profile fetch failed or incomplete - using minimal data`);
-        const minimal = {
-          Login: loginValue, // Use accountId from DB
-          accountType: accountType,
-          nameOnAccount: nameOnAccount, // Include nameOnAccount from database
-          package: packageValue // Include package from database
-        };
-        console.log(`   ✅ Created minimal account with Login: ${minimal.Login}, AccountType: ${minimal.accountType}, NameOnAccount: ${nameOnAccount || 'N/A'}, Package: ${packageValue || 'N/A'}`);
-        return minimal;
-      });
-
-      console.log('='.repeat(60));
-      console.log('🚀 STEP 5: Final result verification');
-      console.log('='.repeat(60));
-      console.log(`✅ Total accounts in merged result: ${mergedAccounts.length}`);
-      console.log(`📋 Expected count: ${validAccountIds.length}`);
-      
-      // Extract Login from all merged accounts - normalize to strings for comparison
-      const accountIdsInResult = mergedAccounts
-        .map((a: any, idx: number) => {
-          const login = a?.Login;
-          const normalized = login !== undefined && login !== null ? String(login).trim() : null;
-          
-          // Debug logging for each account
-          if (!normalized) {
-            console.error(`❌ Account at index ${idx} has no Login!`, a);
-          } else {
-            console.log(`   Account ${idx + 1}: Login=${normalized}, AccountType=${a?.accountType || 'N/A'}`);
-          }
-          
-          return normalized;
-        })
-        .filter((id: string | null): id is string => id !== null && id !== 'undefined' && id !== 'null');
-      
-      console.log(`\n📊 Verification:`);
-      console.log(`🔢 Account IDs in result (${accountIdsInResult.length}):`, accountIdsInResult.sort());
-      console.log(`🔢 Expected account IDs (${validAccountIds.length}):`, validAccountIds.sort());
-      
-      // Verify all accounts are included - compare as normalized strings
-      const missing = validAccountIds.filter(id => {
-        const normalizedId = String(id).trim();
-        const found = accountIdsInResult.includes(normalizedId);
-        
-        if (!found) {
-          console.error(`❌ MISSING: Account ${id} not found in result!`);
-          console.error(`   Expected: "${normalizedId}"`);
-          console.error(`   Available:`, accountIdsInResult);
-          
-          // Try to find similar IDs (for debugging)
-          const similar = accountIdsInResult.filter(r => r.includes(id) || id.includes(r));
-          if (similar.length > 0) {
-            console.error(`   Similar IDs found:`, similar);
-          }
-        }
-        return !found;
-      });
-      
-      if (missing.length > 0) {
-        console.error(`❌ ERROR: Missing ${missing.length} accounts in result!`);
-        console.error(`❌ Missing account IDs:`, missing);
-        console.error(`❌ This should NEVER happen!`);
-      } else {
-        console.log('✅ All accounts included in result!');
-      }
-      
-      // Log each account in the final result
-      console.log('\n📋 Final merged accounts:');
-      mergedAccounts.forEach((acc: any, idx: number) => {
-        console.log(`   ${idx + 1}. Login: ${acc.Login}, AccountType: ${acc.accountType}, Name: ${acc.Name || 'N/A'}`);
-      });
-      
-      // FINAL VERIFICATION: Ensure we have exactly as many accounts as we started with
-      if (mergedAccounts.length !== validAccountIds.length) {
-        console.error(`\n🚨 CRITICAL ERROR: mergedAccounts.length (${mergedAccounts.length}) !== validAccountIds.length (${validAccountIds.length})`);
-        console.error(`   This should NEVER happen as we map over validAccountIds!`);
-        
-        // Force include all accounts even if something went wrong
-        validAccountIds.forEach((accountId, idx) => {
-          const found = mergedAccounts.find((acc: any) => String(acc.Login) === String(accountId));
-          if (!found) {
-            console.error(`   🚨 Account ${accountId} is MISSING from mergedAccounts! Adding it now...`);
-            const accountType = accountTypeMap.get(accountId) || 'Live';
-            mergedAccounts.push({
-              Login: Number(accountId),
-              accountType: accountType
-            });
-          }
-        });
-        
-        console.log(`   ✅ After recovery, mergedAccounts.length: ${mergedAccounts.length}`);
-      }
-
-      // Final count verification
-      const finalCount = mergedAccounts.length;
-      const expectedCount = validAccountIds.length;
-      console.log(`\n✅ FINAL: Returning ${finalCount} accounts (expected ${expectedCount})`);
-      
-      if (finalCount !== expectedCount) {
-        console.error(`❌ FINAL ERROR: Count mismatch! Expected ${expectedCount}, got ${finalCount}`);
-      } else {
-        console.log(`✅ FINAL: Count matches! All accounts included.`);
-      }
-
-      return { Success: true, Data: mergedAccounts };
-      
+      return normalizeOk(response.data);
     } catch (error: any) {
-      console.error('='.repeat(60));
-      console.error('❌ ERROR in getUserMt5Accounts:', error);
-      console.error('='.repeat(60));
+      console.error(`Error fetching account profile for ${accountId}:`, error);
+      throw error;
+    }
+  },
+
+  /** Get only Balance and Profit for efficient polling */
+  getAccountBalanceAndProfit: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
+    try {
+      const profile = await mt5Service.getAccountProfile(accountId, password, opts);
       
-      if (error?.response?.status === 401 || error?.message?.includes('401')) {
-        console.log('ℹ️ Authentication required');
-        return { Success: false, Data: [] };
+      if (profile.success && profile.data) {
+        return {
+          success: true,
+          data: {
+            Balance: profile.data.Balance || profile.data.balance || 0,
+            Profit: profile.data.Profit || profile.data.profit || 0
+          }
+        };
       }
       
-      return { Success: false, Data: [], error: error?.message || 'Unknown error' };
+      return { success: false, data: { Balance: 0, Profit: 0 } };
+    } catch (error: any) {
+      console.error(`Error fetching balance and profit for ${accountId}:`, error);
+      return { success: false, data: { Balance: 0, Profit: 0 } };
     }
+  },
+
+  /** Legacy method - kept for backward compatibility */
+  getUserMt5Accounts: async (opts?: { signal?: AbortSignal }) => {
+    // This method is deprecated - use getUserAccountsFromDb instead
+    return mt5Service.getUserAccountsFromDb(opts);
   },
 
   /** Legacy MT5 profile (direct proxy) */
