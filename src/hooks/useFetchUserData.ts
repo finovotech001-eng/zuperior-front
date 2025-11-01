@@ -48,34 +48,34 @@ export function useFetchUserData() {
 
       console.log("✅ MT5 accounts fetched successfully from DB");
 
-      // Always refresh balances from MT5 getClientProfile on page load
-      try {
-        const ids = (accounts || []).map(a => a.accountId).filter(Boolean);
-        const ensureIdsRaw = ids.length ? ids : (
-          (await mt5Service.getUserMt5AccountsFromDb())?.data?.accounts?.map((a: any) => a.accountId) ?? []
-        );
-        // Filter invalid/duplicate ids and avoid '0'
-        const ensureIds = Array.from(new Set(
-          ensureIdsRaw
-            .map((id: any) => String(id).trim())
-            .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
-        ));
-        await Promise.all(
-          ensureIds.map(async (id: string) => {
-            const res: any = await mt5Service.getMt5AccountProfile(id);
-            if (res?.success && res.data) {
-              const d = res.data;
-              const bal = Number(d.Balance ?? d.balance ?? 0);
-              const eq = Number(d.Equity ?? d.equity ?? 0);
-              if (!Number.isNaN(bal)) {
-                dispatch(updateAccountBalance({ login: Number(id), balance: bal, equity: eq }));
-              }
-            }
-          })
-        );
-      } catch (balErr) {
-        console.warn("⚠️ Failed to refresh balances:", balErr);
-      }
+      // DISABLED: Refresh balances from MT5 getClientProfile - stopped per user request to prevent continuous API calls
+      // try {
+      //   const ids = (accounts || []).map(a => a.accountId).filter(Boolean);
+      //   const ensureIdsRaw = ids.length ? ids : (
+      //     (await mt5Service.getUserMt5AccountsFromDb())?.data?.accounts?.map((a: any) => a.accountId) ?? []
+      //   );
+      //   // Filter invalid/duplicate ids and avoid '0'
+      //   const ensureIds = Array.from(new Set(
+      //     ensureIdsRaw
+      //       .map((id: any) => String(id).trim())
+      //       .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
+      //   ));
+      //   await Promise.all(
+      //     ensureIds.map(async (id: string) => {
+      //       const res: any = await mt5Service.getMt5AccountProfile(id);
+      //       if (res?.success && res.data) {
+      //         const d = res.data;
+      //         const bal = Number(d.Balance ?? d.balance ?? 0);
+      //         const eq = Number(d.Equity ?? d.equity ?? 0);
+      //         if (!Number.isNaN(bal)) {
+      //           dispatch(updateAccountBalance({ login: Number(id), balance: bal, equity: eq }));
+      //         }
+      //       }
+      //     })
+      //   );
+      // } catch (balErr) {
+      //   console.warn("⚠️ Failed to refresh balances:", balErr);
+      // }
       hasFetchedRef.current = true;
     } catch (err: any) {
       // Don't throw error for authentication issues

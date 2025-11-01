@@ -74,57 +74,57 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     dispatch(fetchUserAccountsFromDb() as any);
   }, [dispatch]);
 
-  // Fetch ClientProfile once for each account after accounts are loaded
-  useEffect(() => {
-    if (accounts.length > 0) {
-      accounts.forEach((account) => {
-        // Skip if already fetched or no password
-        if (profilesFetchedRef.current.has(account.accountId) || !account.password) {
-          return;
-        }
-        
-        profilesFetchedRef.current.add(account.accountId);
-        dispatch(fetchAccountProfile({ 
-          accountId: account.accountId, 
-          password: account.password 
-        }) as any);
-      });
-    }
-  }, [accounts, dispatch]);
+  // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
+  // useEffect(() => {
+  //   if (accounts.length > 0) {
+  //     accounts.forEach((account) => {
+  //       // Skip if already fetched or no password
+  //       if (profilesFetchedRef.current.has(account.accountId) || !account.password) {
+  //         return;
+  //       }
+  //       
+  //       profilesFetchedRef.current.add(account.accountId);
+  //       dispatch(fetchAccountProfile({ 
+  //         accountId: account.accountId, 
+  //         password: account.password 
+  //       }) as any);
+  //     });
+  //   }
+  // }, [accounts, dispatch]);
 
-  // Poll Balance and Profit every 400ms (reduced from 200ms to reduce server load)
-  useEffect(() => {
-    // Clear existing interval
-    if (balancePollIntervalRef.current) {
-      clearInterval(balancePollIntervalRef.current);
-    }
+  // DISABLED: Poll Balance and Profit - polling stopped per user request
+  // useEffect(() => {
+  //   // Clear existing interval
+  //   if (balancePollIntervalRef.current) {
+  //     clearInterval(balancePollIntervalRef.current);
+  //   }
 
-    // Only start polling if we have accounts with passwords
-    const accountsWithPasswords = accounts.filter(acc => acc.password);
-    if (accountsWithPasswords.length === 0) {
-      return;
-    }
+  //   // Only start polling if we have accounts with passwords
+  //   const accountsWithPasswords = accounts.filter(acc => acc.password);
+  //   if (accountsWithPasswords.length === 0) {
+  //     return;
+  //   }
 
-    // Poll immediately, then every 400ms
-    const poll = () => {
-      accountsWithPasswords.forEach((account) => {
-        dispatch(fetchAccountBalanceAndProfit({ 
-          accountId: account.accountId, 
-          password: account.password! 
-        }) as any);
-      });
-    };
+  //   // Poll immediately, then every 400ms
+  //   const poll = () => {
+  //     accountsWithPasswords.forEach((account) => {
+  //       dispatch(fetchAccountBalanceAndProfit({ 
+  //         accountId: account.accountId, 
+  //         password: account.password! 
+  //       }) as any);
+  //     });
+  //   };
 
-    poll(); // Initial poll
-    balancePollIntervalRef.current = setInterval(poll, 400);
+  //   poll(); // Initial poll
+  //   balancePollIntervalRef.current = setInterval(poll, 400);
 
-    // Cleanup on unmount
-    return () => {
-      if (balancePollIntervalRef.current) {
-        clearInterval(balancePollIntervalRef.current);
-      }
-    };
-  }, [accounts, dispatch]);
+  //   // Cleanup on unmount
+  //   return () => {
+  //     if (balancePollIntervalRef.current) {
+  //       clearInterval(balancePollIntervalRef.current);
+  //     }
+  //   };
+  // }, [accounts, dispatch]);
 
   const maskStyle: React.CSSProperties = {
     WebkitMaskImage:

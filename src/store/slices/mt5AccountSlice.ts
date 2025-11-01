@@ -179,7 +179,7 @@ export const fetchAccountProfile = createAsyncThunk(
   "mt5/fetchAccountProfile",
   async ({ accountId, password }: { accountId: string; password: string }, { rejectWithValue }) => {
     try {
-      const response = await mt5Service.getAccountProfile(accountId, password);
+      const response = await mt5Service.getAccountBalanceAndProfit(accountId, password);
       
       if (!response.success || !response.data) {
         return rejectWithValue("Failed to fetch account profile");
@@ -299,50 +299,79 @@ export const createMt5Account = createAsyncThunk(
 
       // Try different response structures
       let accountData = null;
+      let mt5Login: number | string | null = null;
 
-      if (response.data?.Data) {
+      // Handle new backend response format: { success: true, data: { mt5Login, accountId } }
+      if (response.data?.data?.mt5Login) {
+        mt5Login = response.data.data.mt5Login;
+        console.log("📊 Using new backend response format with mt5Login:", mt5Login);
+        
+        // Create minimal account data from what we have
+        accountData = {
+          Login: typeof mt5Login === 'number' ? mt5Login : parseInt(String(mt5Login), 10),
+          Name: data.name,
+          Group: data.group,
+          Leverage: data.leverage || 100,
+          Balance: 0,
+          Equity: 0,
+        };
+      } 
+      // Handle .NET Core API response format
+      else if (response.data?.Data) {
         accountData = response.data.Data;
+        mt5Login = accountData.Login || accountData.login;
         console.log("📊 Using response.data.Data:", accountData);
-      } else if (response.data?.Login) {
+      } 
+      // Handle direct Login in response
+      else if (response.data?.Login) {
         accountData = response.data;
+        mt5Login = accountData.Login;
         console.log("📊 Using response.data directly:", accountData);
-      } else if (Array.isArray(response.data) && response.data.length > 0) {
+      } 
+      // Handle array response
+      else if (Array.isArray(response.data) && response.data.length > 0) {
         accountData = response.data[0];
+        mt5Login = accountData.Login || accountData.login;
         console.log("📊 Using first array element:", accountData);
-      } else {
+      } 
+      else {
         console.error("❌ Unexpected response structure:", response.data);
         return rejectWithValue("Unexpected response structure from MT5 API");
       }
 
-      if (!accountData || accountData.Login === 0 || accountData.Login === undefined) {
-        console.error("❌ Account creation failed - Login is 0 or undefined:", accountData);
+      // Extract login from accountData if not already set
+      if (!mt5Login && accountData) {
+        mt5Login = accountData.Login || accountData.login || accountData.Login || accountData.accountId;
+      }
+
+      if (!mt5Login || mt5Login === 0) {
+        console.error("❌ Account creation failed - Login is 0 or undefined:", { mt5Login, accountData });
         return rejectWithValue("MT5 account creation failed - account was not actually created");
       }
 
-      console.log("📊 Redux slice - Account data with Login:", accountData);
+      console.log("📊 Redux slice - Account data with Login:", mt5Login);
 
-      // Transform .NET Core user format to match expected MT5Account format
+      // Transform to match expected MT5Account format
       const transformedAccount: MT5Account = {
-        accountId: String(accountData.Login),
-        name: accountData.Name || data.name,
-        group: accountData.Group || data.group,
-        leverage: accountData.Leverage || data.leverage,
-        balance: accountData.Balance || 0,
-        equity: accountData.Equity || 0,
-        credit: accountData.Credit || 0,
-        margin: accountData.Margin || 0,
-        marginFree: accountData.MarginFree || 0,
-        marginLevel: accountData.MarginLevel || 0,
-        profit: accountData.Profit || 0,
-        isEnabled: accountData.IsEnabled !== undefined ? accountData.IsEnabled : true,
-        createdAt: accountData.Registration || new Date().toISOString(),
-        updatedAt: accountData.LastAccess || new Date().toISOString(),
+        accountId: String(mt5Login),
+        name: accountData?.Name || accountData?.name || data.name,
+        group: accountData?.Group || accountData?.group || data.group,
+        leverage: accountData?.Leverage || accountData?.leverage || data.leverage || 100,
+        balance: accountData?.Balance || accountData?.balance || 0,
+        equity: accountData?.Equity || accountData?.equity || 0,
+        credit: accountData?.Credit || accountData?.credit || 0,
+        margin: accountData?.Margin || accountData?.margin || 0,
+        marginFree: accountData?.MarginFree || accountData?.marginFree || 0,
+        marginLevel: accountData?.MarginLevel || accountData?.marginLevel || 0,
+        profit: accountData?.Profit || accountData?.profit || 0,
+        isEnabled: accountData?.IsEnabled !== undefined ? accountData.IsEnabled : true,
+        createdAt: accountData?.Registration || accountData?.createdAt || new Date().toISOString(),
         isProfileReady: isProfileComplete({
-          name: accountData.Name || data.name,
-          group: accountData.Group || data.group,
-          leverage: accountData.Leverage || data.leverage,
-          balance: accountData.Balance || 0,
-          equity: accountData.Equity || 0,
+          name: accountData?.Name || accountData?.name || data.name,
+          group: accountData?.Group || accountData?.group || data.group,
+          leverage: accountData?.Leverage || accountData?.leverage || data.leverage || 100,
+          balance: accountData?.Balance || accountData?.balance || 0,
+          equity: accountData?.Equity || accountData?.equity || 0,
         }),
         lastProfileUpdateAt: Date.now(),
       };
@@ -447,6 +476,16 @@ export const refreshMt5AccountProfile = createAsyncThunk(
         updatedAt: profileData.LastAccess
       };
     } catch (error: any) {
+      // Handle timeout errors gracefully - account may just need more time to propagate
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        console.warn(`[MT5] ⏱️ Timeout refreshing profile for login=${login} - account may still be propagating. Profile will be refreshed automatically.`);
+        // Return partial data so the account creation doesn't fail completely
+        return {
+          accountId: String(login),
+          // Return minimal data - the account exists even if profile isn't ready yet
+        };
+      }
+      
       console.error(`[MT5] ❌ refreshMt5AccountProfile error for login=${login}:`, error?.response?.data || error?.message || error);
       if (error.response?.status === 401)
         return rejectWithValue("Authentication required. Please log in first.");

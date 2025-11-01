@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const {
       name,
       group,
-      leverage = 100,
+      leverage = 20₹00,
       masterPassword,
       investorPassword,
       email,

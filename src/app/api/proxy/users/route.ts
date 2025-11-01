@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const targetUrl = 'http://18.130.5.209:5003/api/Users';
+    const targetUrl = 'http://18.175.242.21:5003/api/Users';
 
     console.log('Proxying users request to:', targetUrl);
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const targetUrl = 'http://18.130.5.209:5003/api/Users';
+    const targetUrl = 'http://18.175.242.21:5003/api/Users';
 
     let body;
     let rawBodyText = '';

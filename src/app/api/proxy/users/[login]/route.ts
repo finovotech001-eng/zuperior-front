@@ -7,7 +7,7 @@ export async function GET(
   try {
     const { login } = await params;
     // Use MT5 Manager endpoint that returns the client profile
-    const targetUrl = `http://18.130.5.209:5003/api/Users/${login}/getClientProfile`;
+    const targetUrl = `http://18.175.242.21:5003/api/Users/${login}/getClientProfile`;
 
     console.log('Proxying user profile request to:', targetUrl);
 

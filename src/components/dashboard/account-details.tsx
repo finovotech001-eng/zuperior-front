@@ -33,6 +33,7 @@ import { TpAccountSnapshot } from "@/types/user-details";
 import { AccountInfoDialog } from "../AccountInfoDialog";
 import { useDispatch } from "react-redux";
 import { refreshMt5AccountProfile } from "@/store/slices/mt5AccountSlice";
+import { TopUpDialog } from "./topUp-dialogBox";
 
 const AccountDetails = ({
   accountId,
@@ -60,6 +61,7 @@ const AccountDetails = ({
   const [tradeNowDialog, setTradeNowDialog] = useState(false);
   const [accountInfoDialogOpen, setAccountInfoDialogOpen] = useState(false);
   const [renameAccountDialog, setRenameAccountDialogOpen] = useState(false);
+  const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -131,55 +133,55 @@ const AccountDetails = ({
     return () => observer.disconnect();
   }, []);
 
-  // Poll account profile for live updates; quick until ready, then slower
-  useEffect(() => {
-    let timer: any;
-    const scheduleNext = (delay: number) => {
-      timer = setTimeout(tick, delay);
-    };
-    const tick = () => {
-      const visibleTab = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
-      if (!visibleTab || !inViewRef.current || inFlightRef.current) {
-        scheduleNext(isReady ? 5000 : 500);
-        return;
-      }
-      inFlightRef.current = true;
-      // @ts-ignore dispatch thunk
-      console.log(`[MT5] ⏩ Polling profile for login=${accountDetails?.acc} (isReady=${Boolean(isReady)})`);
-      (dispatch as any)(refreshMt5AccountProfile(Number(accountDetails?.acc)))
-        .then(() => {
-          failureCountRef.current = 0;
-        })
-        .catch((error: any) => {
-          // Don't count timeouts as failures - they're expected for accounts still initializing
-          const isTimeout = error?.message?.includes('timeout') || 
-                           error?.payload?.includes('timeout') ||
-                           error?.code === 'ECONNABORTED';
-          
-          if (!isTimeout) {
-            failureCountRef.current += 1;
-          }
-          
-          // Only log non-timeout errors
-          if (!isTimeout && failureCountRef.current <= 3) {
-            console.log(`[MT5] Profile refresh failed for login=${accountDetails?.acc}:`, error?.message || error?.payload || 'Unknown error');
-          }
-        })
-        .finally(() => {
-          inFlightRef.current = false;
-          // Aggressive polling until profile is ready
-          scheduleNext(isReady ? 5000 : 500);
-        });
-    };
-    // Run immediately if not ready so the loader triggers an instant fetch
-    if (!isReady) {
-      tick();
-    } else {
-      scheduleNext(5000);
-    }
-    return () => { if (timer) clearTimeout(timer); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, accountDetails?.acc]);
+  // DISABLED: Poll account profile for live updates - polling stopped per user request
+  // useEffect(() => {
+  //   let timer: any;
+  //   const scheduleNext = (delay: number) => {
+  //     timer = setTimeout(tick, delay);
+  //   };
+  //   const tick = () => {
+  //     const visibleTab = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+  //     if (!visibleTab || !inViewRef.current || inFlightRef.current) {
+  //       scheduleNext(isReady ? 5000 : 500);
+  //       return;
+  //     }
+  //     inFlightRef.current = true;
+  //     // @ts-ignore dispatch thunk
+  //     console.log(`[MT5] ⏩ Polling profile for login=${accountDetails?.acc} (isReady=${Boolean(isReady)})`);
+  //     (dispatch as any)(refreshMt5AccountProfile(Number(accountDetails?.acc)))
+  //       .then(() => {
+  //         failureCountRef.current = 0;
+  //       })
+  //       .catch((error: any) => {
+  //         // Don't count timeouts as failures - they're expected for accounts still initializing
+  //         const isTimeout = error?.message?.includes('timeout') || 
+  //                          error?.payload?.includes('timeout') ||
+  //                          error?.code === 'ECONNABORTED';
+  //         
+  //         if (!isTimeout) {
+  //           failureCountRef.current += 1;
+  //         }
+  //         
+  //         // Only log non-timeout errors
+  //         if (!isTimeout && failureCountRef.current <= 3) {
+  //           console.log(`[MT5] Profile refresh failed for login=${accountDetails?.acc}:`, error?.message || error?.payload || 'Unknown error');
+  //         }
+  //       })
+  //       .finally(() => {
+  //         inFlightRef.current = false;
+  //         // Aggressive polling until profile is ready
+  //         scheduleNext(isReady ? 5000 : 500);
+  //       });
+  //   };
+  //   // Run immediately if not ready so the loader triggers an instant fetch
+  //   if (!isReady) {
+  //     tick();
+  //   } else {
+  //     scheduleNext(5000);
+  //   }
+  //   return () => { if (timer) clearTimeout(timer); };
+  // // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [isReady, accountDetails?.acc]);
 
   return (
     <div ref={rootRef} className="rounded-[15px] p-[15px] pl-2 bg-[#fbfafd] dark:bg-gradient-to-r dark:from-[#110F17] dark:to-[#1E1429] mb-1.5 relative flex flex-col gap-5">
@@ -284,6 +286,22 @@ const AccountDetails = ({
                     imageSrc={theme === "dark" ? arrowTopLeft : withdrawBlack}
                     text="Withdrawal"
                     onClick={() => router.push("/withdrawal")}
+                  />
+                </motion.div>
+              )}
+              {expanded && isDemoAccount && (
+                <motion.div
+                  key="topUp"
+                  variants={buttonAnimation}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <Button
+                    ghost
+                    imageSrc={theme === "dark" ? arrowDown : arrowDepositBlack}
+                    text="Top Up"
+                    onClick={() => setTopUpDialogOpen(true)}
                   />
                 </motion.div>
               )}
@@ -476,6 +494,22 @@ const AccountDetails = ({
                       />
                     </motion.div>
                   )}
+                  {expanded && isDemoAccount && (
+                    <motion.div
+                      key="topUp"
+                      variants={buttonAnimation}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                    >
+                      <Button
+                        ghost
+                        imageSrc={theme === "dark" ? arrowDown : arrowDepositBlack}
+                        text="Top Up"
+                        onClick={() => setTopUpDialogOpen(true)}
+                      />
+                    </motion.div>
+                  )}
                   {expanded && !isDemoAccount && (
                     <motion.div
                       key="transfer"
@@ -535,6 +569,14 @@ const AccountDetails = ({
         onOpenChange={setAccountInfoDialogOpen}
         account={accountDetails}
       />
+
+      {isDemoAccount && (
+        <TopUpDialog
+          accountNumber={Number(accountDetails?.acc) || accountId}
+          open={topUpDialogOpen}
+          onOpenChange={setTopUpDialogOpen}
+        />
+      )}
 
     </div>
   );

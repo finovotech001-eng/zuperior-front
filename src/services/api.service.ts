@@ -74,14 +74,14 @@ const refreshToken = async (): Promise<string | null> => {
       throw new Error('No token available');
     }
 
-    // Try to validate session with backend
+    // Try to validate session with backend (optional check)
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
       const checkResponse = await axios.get(`${BACKEND_URL}/auth/session/check-valid`, {
         headers: {
           'Authorization': `Bearer ${currentToken}`,
         },
-        timeout: 10000,
+        timeout: 5000, // Reduced timeout to fail fast
       });
 
       // If session is valid, return current token
@@ -98,6 +98,22 @@ const refreshToken = async (): Promise<string | null> => {
           window.location.href = '/login';
         }
         throw new Error('Session expired');
+      }
+      
+      // If endpoint doesn't exist (404) or network error, continue with current token
+      // This allows the system to work even if the session check endpoint isn't available
+      if (sessionError.response?.status === 404) {
+        console.warn('Session check endpoint not found (404), continuing with current token');
+        processQueue(null, currentToken);
+        return currentToken;
+      }
+      
+      // For other errors (network, timeout, etc.), continue with current token
+      // This prevents unnecessary redirects on temporary network issues
+      if (!sessionError.response || sessionError.code === 'ECONNABORTED') {
+        console.warn('Session check failed (network/timeout), continuing with current token');
+        processQueue(null, currentToken);
+        return currentToken;
       }
     }
     
@@ -149,6 +165,29 @@ api.interceptors.response.use(
       }
     }
 
+    // Handle 503 Service Unavailable errors - retry with exponential backoff
+    if (error.response?.status === 503 && originalRequest) {
+      const currentCount = (originalRequest._retry503Count || 0);
+      const maxRetries = 2;
+      
+      if (currentCount < maxRetries) {
+        originalRequest._retry503Count = currentCount + 1;
+        // Exponential backoff: 500ms, 1000ms
+        const delay = originalRequest._retry503Count * 500;
+        
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            // Update token in request (might have changed)
+            const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            resolve(api(originalRequest));
+          }, delay);
+        });
+      }
+    }
+
     // Handle timeout errors - retry with exponential backoff
     if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && 
         originalRequest && 
@@ -161,18 +200,10 @@ api.interceptors.response.use(
       if (originalRequest._retryCount <= maxRetries) {
         // Exponential backoff: 1s, 2s
         const delay = originalRequest._retryCount * 1000;
-        
-        // Try refreshing token before retry
-        try {
-          await refreshToken();
-        } catch (refreshError) {
-          // If refresh fails, continue with retry anyway
-          console.warn('Token refresh failed, retrying with existing token');
-        }
 
         return new Promise((resolve) => {
           setTimeout(() => {
-            // Update token in request
+            // Update token in request (token might have changed)
             const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
             if (token) {
               originalRequest.headers.Authorization = `Bearer ${token}`;
@@ -263,10 +294,45 @@ const safe = <T,>(p: Promise<T>): Promise<T | null> => p.then(v => v).catch(() =
 const mt5Service = {
   /** Get available MT5 groups */
   getMt5Groups: async (opts?: { signal?: AbortSignal }) => {
-    return singleFlight('mt5-groups', (signal) =>
-      api.get('/api/proxy/groups', { signal: opts?.signal ?? signal }).then(r => r.data),
-      opts?.signal
-    );
+    return singleFlight('mt5-groups', async (signal) => {
+      const maxRetries = 2;
+      let lastError: any = null;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await api.get('/api/proxy/groups', {
+            signal: opts?.signal ?? signal,
+            timeout: 60000, // 60 seconds timeout for MT5 API calls
+          });
+          return response.data;
+        } catch (error: any) {
+          lastError = error;
+
+          // Handle timeout errors with retry
+          if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && attempt < maxRetries) {
+            const delay = (attempt + 1) * 2000; // 2s, 4s
+            console.warn(`⏱️ Timeout fetching MT5 groups, retrying (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          // Handle 503 errors with retry
+          if (error.response?.status === 503 && attempt < maxRetries) {
+            const delay = (attempt + 1) * 1000;
+            console.warn(`⏳ 503 error fetching MT5 groups, retrying (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          // If all retries exhausted or aborted, throw
+          if (opts?.signal?.aborted || (opts?.signal ?? signal)?.aborted || attempt >= maxRetries) {
+            throw error;
+          }
+        }
+      }
+
+      throw lastError;
+    }, opts?.signal);
   },
 
   /** Create new MT5 account (explicit user action: no singleFlight) */
@@ -282,19 +348,13 @@ const mt5Service = {
       city?: string;
       phone?: string;
       comment?: string;
+      accountPlan?: string;
     },
     opts?: { signal?: AbortSignal }
   ) => {
     console.log("🚀 API Service - Creating MT5 account with data:", accountData);
-    const directApi = axios.create({
-      baseURL: '',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      timeout: 30000,
-      signal: opts?.signal,
-    });
-
+    
     const payload = {
-      request: "create_mt5_account",
       name: accountData.name,
       group: accountData.group,
       leverage: accountData.leverage || 100,
@@ -304,11 +364,18 @@ const mt5Service = {
       country: accountData.country || "",
       city: accountData.city || "",
       phone: accountData.phone || "",
-      comment: accountData.comment || "Created from CRM"
+      comment: accountData.comment || "Created from CRM",
+      accountPlan: accountData.accountPlan // Include accountPlan if provided
     };
 
-    const response = await directApi.post('/api/proxy/users', payload);
-    return response; // you log/use full response in the slice
+    // Use the correct endpoint that goes through backend: /api/mt5/create-account
+    // This endpoint handles authentication, creates the MT5 account via backend, and stores it in DB
+    const response = await api.post('/api/mt5/create-account', payload, {
+      signal: opts?.signal,
+      timeout: 90000, // 90 seconds timeout - MT5 account creation can take time
+    });
+    
+    return response; // Returns full response from Next.js API route
   },
 
   /** Deposit */
@@ -371,7 +438,6 @@ const mt5Service = {
         const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
           signal: opts?.signal,
           timeout: 60000, // 60 seconds timeout
-          _retryCount: attempt, // Track retry count
         });
         
         return normalizeOk(response.data);
@@ -412,29 +478,74 @@ const mt5Service = {
 
   /** Get only Balance and Profit for efficient polling (every 400ms) */
   getAccountBalanceAndProfit: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
-    try {
-      const profile = await mt5Service.getAccountProfile(accountId, password, opts);
-      
-      if (profile.success && profile.data) {
-        return {
-          success: true,
-          data: {
-            Balance: profile.data.Balance || profile.data.balance || 0,
-            Profit: profile.data.Profit || profile.data.profit || 0
-          }
-        };
-      }
-      
-      return { success: false, data: { Balance: 0, Profit: 0 } };
-    } catch (error: any) {
-      // Handle timeout errors gracefully - don't spam console
-      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        // Silently return zero values on timeout to continue polling
+    const maxRetries = 2;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Backend route: GET /api/mt5/balance/:login (calls mt5Controller.getAccountBalanceOnly)
+        // Controller handles: account verification → getMt5AccessToken → getClientProfile → returns Balance and Profit only
+        const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
+          signal: opts?.signal,
+          timeout: 60000
+        });
+        
+        const normalized = normalizeOk(response.data);
+        
+        if (normalized.success && normalized.data) {
+          return {
+            success: true,
+            data: {
+              Balance: normalized.data.Balance || normalized.data.balance || 0,
+              Profit: normalized.data.Profit || normalized.data.profit || 0
+            }
+          };
+        }
+        
         return { success: false, data: { Balance: 0, Profit: 0 } };
+      } catch (error: any) {
+        lastError = error;
+        
+        // Handle 503 Service Unavailable errors with retry
+        if (error.response?.status === 503 && attempt < maxRetries) {
+          // Exponential backoff: 500ms, 1000ms
+          const delay = (attempt + 1) * 500;
+          console.warn(`⏳ 503 error for account ${accountId}, retrying (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry
+        }
+
+        // Handle timeout errors gracefully - don't spam console
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          // Silently return zero values on timeout to continue polling
+          return { success: false, data: { Balance: 0, Profit: 0 } };
+        }
+
+        // If it's a 401 or other auth error, try refreshing token once
+        if (error.response?.status === 401 && attempt === 0) {
+          try {
+            await refreshToken();
+            console.log(`🔄 Retrying balance/profit fetch for ${accountId} after token refresh`);
+            continue; // Retry once after refresh
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            // Continue to return zero values on auth failure
+          }
+        }
+
+        // If aborted or all retries exhausted, return zero values gracefully
+        if (opts?.signal?.aborted || attempt >= maxRetries) {
+          // Only log non-timeout errors after all retries failed
+          if (error.response?.status !== 503) {
+            console.error(`Error fetching balance and profit for ${accountId}:`, error.response?.status || error.message);
+          }
+          return { success: false, data: { Balance: 0, Profit: 0 } };
+        }
       }
-      console.error(`Error fetching balance and profit for ${accountId}:`, error);
-      return { success: false, data: { Balance: 0, Profit: 0 } };
     }
+
+    // If we get here, all retries failed - return zero values gracefully
+    return { success: false, data: { Balance: 0, Profit: 0 } };
   },
 
   /** Legacy method - kept for backward compatibility */
@@ -443,10 +554,61 @@ const mt5Service = {
     return mt5Service.getUserAccountsFromDb(opts);
   },
 
-  /** Legacy MT5 profile (direct proxy) */
+  /** Legacy MT5 profile (direct proxy) - used by refreshMt5AccountProfile */
   getMt5UserProfile: async (login: number, opts?: { signal?: AbortSignal }) => {
-    const response = await api.get(`/api/proxy/users/${login}`, { signal: opts?.signal });
-    return response.data;
+    const maxRetries = 3;
+    let lastError: any = null;
+
+    // Retry logic for newly created accounts that may take time to propagate
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await api.get(`/api/proxy/users/${login}`, {
+          signal: opts?.signal,
+          timeout: 60000, // 60 seconds timeout for MT5 API calls
+        });
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+
+        // Handle timeout errors with retry (new accounts may take time to propagate)
+        if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && attempt < maxRetries) {
+          // Exponential backoff: 2s, 4s, 6s (longer delays for newly created accounts)
+          const delay = (attempt + 1) * 2000;
+          console.warn(`⏱️ Timeout fetching profile for account ${login}, retrying (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry
+        }
+
+        // Handle 503 errors with retry
+        if (error.response?.status === 503 && attempt < maxRetries) {
+          const delay = (attempt + 1) * 1000;
+          console.warn(`⏳ 503 error fetching profile for account ${login}, retrying (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry
+        }
+
+        // If it's a 401 or other auth error, try refreshing token once
+        if (error.response?.status === 401 && attempt === 0) {
+          try {
+            await refreshToken();
+            console.log(`🔄 Retrying profile fetch for ${login} after token refresh`);
+            continue; // Retry once after refresh
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            throw error; // Throw original error if refresh fails
+          }
+        }
+
+        // If aborted or all retries exhausted, throw error
+        if (opts?.signal?.aborted || attempt >= maxRetries) {
+          throw error;
+        }
+      }
+    }
+
+    // If we get here, all retries failed
+    console.error(`Error fetching MT5 user profile for ${login} after ${maxRetries} retries:`, lastError);
+    throw lastError;
   },
 
   cancelAll,

@@ -7,6 +7,7 @@ import { ChevronDown, ArrowRight } from "lucide-react";
 import zuperFunded from "@/assets/sidebar/zuperFunded.svg";
 import zuperLearn from "@/assets/sidebar/zuperLearn.svg";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTheme } from "next-themes";
 
 interface SidebarHeaderProps {
   collapsed: boolean;
@@ -15,6 +16,8 @@ interface SidebarHeaderProps {
 export function SidebarHeader({ collapsed }: SidebarHeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { theme, resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark' || theme === 'dark';
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -50,15 +53,28 @@ export function SidebarHeader({ collapsed }: SidebarHeaderProps) {
         {/* This is the new parent container for the dropdown */}
         <div className="relative flex items-center gap-15">
           <Link href="/" className={`flex items-center ${collapsed ? "" : ""}`}>
-            <Image
-              alt="Zuperior Logo"
-              src="/logo.png"
-              width={collapsed ? 48 : 63}
-              height={collapsed ? 48 : 63}
-              className={`object-contain ${
+            <div
+              className={`object-contain relative ${
                 collapsed ? "w-12 h-12" : "h-16 w-16 pl-0"
               }`}
-            />
+            >
+              <Image
+                alt="Zuperior Logo"
+                src="/logo.png"
+                width={collapsed ? 48 : 63}
+                height={collapsed ? 48 : 63}
+                className="object-contain transition-all duration-300"
+                style={!isDark ? {
+                  // Light mode: Enhanced brightness, contrast, and saturation for better visibility on light backgrounds
+                  filter: 'brightness(1.15) contrast(1.3) saturate(1.4) drop-shadow(0 2px 8px rgba(124, 58, 237, 0.3))',
+                  opacity: 1,
+                } : {
+                  // Dark mode: Original logo appearance
+                  filter: 'none',
+                  opacity: 1,
+                }}
+              />
+            </div>
 
             {!collapsed && (
               <div className="flex flex-col">
@@ -104,7 +120,16 @@ export function SidebarHeader({ collapsed }: SidebarHeaderProps) {
                       alt="Website"
                       width={25}
                       height={25}
-                      className="w-6 h-6 mr-3"
+                      className="w-6 h-6 mr-3 object-contain transition-all duration-300"
+                      style={!isDark ? {
+                        // Light mode: Enhanced visibility
+                        filter: 'brightness(1.15) contrast(1.3) saturate(1.4) drop-shadow(0 2px 8px rgba(124, 58, 237, 0.3))',
+                        opacity: 1,
+                      } : {
+                        // Dark mode: Original appearance
+                        filter: 'none',
+                        opacity: 1,
+                      }}
                     />
                     <span className="dark:text-white/75 text-black text-sm flex items-center gap-1">
                       Zuperior Website
