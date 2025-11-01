@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,29 +15,64 @@ interface EmailVerificationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   email: string | null;
+  onVerified?: () => void;
 }
 
 export function EmailVerificationDialog({
   open,
   onOpenChange,
   email,
+  onVerified,
 }: EmailVerificationDialogProps) {
   const [step, setStep] = useState<"confirm" | "otp">("confirm");
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
 
+  // Reset step when dialog opens
+  useEffect(() => {
+    if (open) {
+      setStep("confirm");
+      setOtp("");
+      setError("");
+    }
+  }, [open]);
+
   // Step 1: send verification email
   const handleSendVerification = async () => {
+    if (!email) {
+      toast.error("Email is required");
+      return;
+    }
+
     setLoading(true);
+    setError("");
     try {
-      // API call for sending verification mail
-      // await api.sendVerificationEmail(email);
-      await new Promise((r) => setTimeout(r, 800)); // demo delay
-      toast.success("Verification email sent");
-      setStep("otp");
-    } catch {
+      const response = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          name: "User",
+          useBackend: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Verification code sent to your email");
+        setStep("otp");
+      } else {
+        toast.error(data.message || data.error || "Failed to send verification email");
+        setError(data.message || data.error || "Failed to send verification email");
+      }
+    } catch (err: any) {
+      console.error("Error sending OTP:", err);
       toast.error("Failed to send verification email");
+      setError("Failed to send verification email. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -45,19 +80,49 @@ export function EmailVerificationDialog({
 
   // Step 2: verify OTP
   const handleVerifyOtp = async () => {
+    if (!email) {
+      toast.error("Email is required");
+      return;
+    }
+
     if (otp.length !== 6) {
       setError("Please enter a valid 6-digit code");
       return;
     }
+
     setLoading(true);
+    setError("");
     try {
-      // API call for verifying OTP
-      // await api.verifyOtp({ email, otp });
-      await new Promise((r) => setTimeout(r, 800)); // demo delay
-      toast.success("Email verified successfully!");
-      onOpenChange(false);
-    } catch {
-      toast.error("Invalid OTP, please try again");
+      const response = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          otp,
+          useBackend: true,
+          purpose: "email_verification",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.verified) {
+        toast.success("Email verified successfully!");
+        onOpenChange(false);
+        // Call onVerified callback to refresh profile
+        if (onVerified) {
+          onVerified();
+        }
+      } else {
+        toast.error(data.message || "Invalid OTP, please try again");
+        setError(data.message || "Invalid OTP, please try again");
+      }
+    } catch (err: any) {
+      console.error("Error verifying OTP:", err);
+      toast.error("Failed to verify OTP");
+      setError("Failed to verify OTP. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResetMainPasswordDialog } from "./ResetPasswordDialog";
+import LoginActivity from "./LoginActivity";
 // function maskEmail(email: string) {
 //   if (!email) return "";
 //   const [user, domain] = email.split("@");
@@ -66,6 +67,19 @@ export default function SecurityTab({ email }: SecurityTabProps) {
         open={changePasswordOpen}
         onOpen={setChangePasswordOpen}
       />
+
+      {/* Login Activity Section */}
+      <section>
+        <h2 className="text-[34px] font-semibold mb-1 dark:text-white/75 text-black">Login Activity</h2>
+        <p className="text-sm dark:text-white/75 text-black mb-4">
+          View your recent login activity and the devices used to access your account.
+        </p>
+        <div className="border dark:border-white/10 border-black/10 rounded-xl overflow-hidden dark:bg-[#191a22]">
+          <div className="p-5">
+            <LoginActivity />
+          </div>
+        </div>
+      </section>
 
       {/* 2-Step Verification Section */}
       {/* <section>

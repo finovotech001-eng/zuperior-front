@@ -6,21 +6,22 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, otp, useBackend } = await req.json();
+    const { email, otp, useBackend, purpose } = await req.json();
     if (!email || !otp) {
       return NextResponse.json({ success: false, message: "Missing email or otp" }, { status: 400 });
     }
 
-    // If useBackend flag is set, use server API (for password reset)
+    // If useBackend flag is set, use server API (for password reset or email verification)
     if (useBackend) {
       try {
-        console.log("Verifying OTP with server:", { email, otp, API_URL: `${BACKEND_URL}/user/verify-otp` });
+        console.log("Verifying OTP with server:", { email, otp, purpose, API_URL: `${BACKEND_URL}/user/verify-otp` });
         
         const response = await axios.post(
           `${BACKEND_URL}/user/verify-otp`,
           {
             email: email,
             otp: otp,
+            purpose: purpose || undefined,
           },
           {
             headers: {

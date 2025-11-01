@@ -37,37 +37,37 @@ export default function SettingsPage() {
     "profile" | "verification" | "security" | "bank" | "subscriptions"
   >("profile");
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        setProfileLoading(true);
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("userToken")
-            : null;
+  const loadProfile = useCallback(async () => {
+    try {
+      setProfileLoading(true);
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userToken")
+          : null;
 
-        if (!token) {
-          setProfile(null);
-          setProfileLoading(false);
-          return;
-        }
-
-        const response = await fetchUserProfile();
-        if (response?.success) {
-          setProfile(response.data);
-        } else {
-          setProfile(null);
-        }
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
+      if (!token) {
         setProfile(null);
-      } finally {
         setProfileLoading(false);
+        return;
       }
-    };
 
-    loadProfile();
+      const response = await fetchUserProfile();
+      if (response?.success) {
+        setProfile(response.data);
+      } else {
+        setProfile(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      setProfile(null);
+    } finally {
+      setProfileLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -114,7 +114,7 @@ export default function SettingsPage() {
   const renderContent = useMemo(() => {
     switch (activeTab) {
       case "profile":
-        return <Profile profile={profile} loading={profileLoading} />;
+        return <Profile profile={profile} loading={profileLoading} onProfileRefresh={loadProfile} />;
       case "verification":
         return (
           <VerificationProfile

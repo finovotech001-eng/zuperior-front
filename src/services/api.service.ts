@@ -306,6 +306,26 @@ const depositService = {
   cancelAll,
 };
 
+// --- User Service Functions ---
+const userService = {
+  /** Get user login activity */
+  getUserLoginActivity: async (page?: number, limit?: number, opts?: { signal?: AbortSignal }) => {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    const queryString = params.toString();
+    const url = `/api/user/login-activity${queryString ? `?${queryString}` : ''}`;
+    
+    return singleFlight('user-login-activity', (signal) =>
+      api.get(url, { signal: opts?.signal ?? signal }).then(r => normalizeOk(r.data)),
+      opts?.signal
+    );
+  },
+
+  cancelAll,
+};
+
 // --- Admin Service Functions ---
 const adminService = {
   /** Get all users (for admin dropdown) */
@@ -327,4 +347,4 @@ const adminService = {
   cancelAll,
 };
 
-export { authService, api, mt5Service, depositService, adminService };
+export { authService, api, mt5Service, depositService, adminService, userService };

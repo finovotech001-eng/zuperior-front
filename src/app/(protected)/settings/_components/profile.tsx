@@ -16,12 +16,20 @@ import type { UserProfile } from "@/types/user-profile";
 interface ProfileComponentProps {
   profile: UserProfile | null;
   loading: boolean;
+  onProfileRefresh?: () => void;
 }
 
-function ProfileComponent({ profile, loading }: ProfileComponentProps) {
+function ProfileComponent({ profile, loading, onProfileRefresh }: ProfileComponentProps) {
   const { passwordMask } = useAppSelector((state) => state.auth);
   const { theme } = useTheme();
   const [verifyDialogOpen, setVerifyDialogOpen] = useState<boolean>(false);
+
+  const handleEmailVerified = () => {
+    // Refresh profile after email verification
+    if (onProfileRefresh) {
+      onProfileRefresh();
+    }
+  };
 
   const formatPhoneNumber = useCallback((phone: string) => {
     if (!phone) return "";
@@ -41,32 +49,37 @@ function ProfileComponent({ profile, loading }: ProfileComponentProps) {
     const phone = formatPhoneNumber(profile?.phone || "");
 
     const emailValue: ReactNode = profile?.email ? (
-      <div key="email" className="flex items-center gap-2">
+      <div key="email" className="flex items-center gap-2 flex-wrap">
         <span>{profile.email}</span>
-        <button
-          type="button"
-          className="flex items-center ml-1 opacity-80 cursor-pointer"
-          onClick={() => {
-            if (!profile.emailVerified) setVerifyDialogOpen(true);
-          }}
-        >
-          <Image
-            className="h-4 w-4"
-            src={tick}
-            alt="Verification status"
-            width={16}
-            height={16}
-          />
-          <span
-            className={`text-xs ml-1 font-medium ${
-              profile.emailVerified
-                ? "text-green-600 dark:text-green-400"
-                : "text-yellow-600 dark:text-yellow-400"
-            }`}
-          >
-            {profile.emailVerified ? "Verified" : "Not Verified"}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center opacity-80">
+            <Image
+              className="h-4 w-4"
+              src={tick}
+              alt="Verification status"
+              width={16}
+              height={16}
+            />
+            <span
+              className={`text-xs ml-1 font-medium ${
+                profile.emailVerified
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-yellow-600 dark:text-yellow-400"
+              }`}
+            >
+              {profile.emailVerified ? "Verified" : "Not Verified"}
+            </span>
+          </div>
+          {!profile.emailVerified && (
+            <button
+              type="button"
+              onClick={() => setVerifyDialogOpen(true)}
+              className="text-xs px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors"
+            >
+              Verify Now
+            </button>
+          )}
+        </div>
       </div>
     ) : null;
 
@@ -160,6 +173,7 @@ function ProfileComponent({ profile, loading }: ProfileComponentProps) {
         open={verifyDialogOpen}
         onOpenChange={setVerifyDialogOpen}
         email={profile?.email ?? ""}
+        onVerified={handleEmailVerified}
       />
     </div>
   );
