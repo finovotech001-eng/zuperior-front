@@ -3,19 +3,31 @@ import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
 
-// Lazy import to avoid SSR issues
+// Lazy import to avoid SSR issues and build-time errors
 let ioClient: any;
-function getSocket() {
+let ioPromise: Promise<any> | null = null;
+
+async function getSocket() {
   if (typeof window === 'undefined') return null;
-  if (!ioClient) {
-    try {
-      // @ts-ignore
-      ioClient = require('socket.io-client');
-    } catch (e) {
-      console.warn('socket.io-client not available:', e);
-      return null;
-    }
+  
+  if (!ioClient && !ioPromise) {
+    // Use dynamic import to avoid build-time errors
+    ioPromise = import('socket.io-client')
+      .then((module) => {
+        ioClient = module.default || module;
+        return ioClient;
+      })
+      .catch((e) => {
+        console.warn('socket.io-client not available:', e);
+        ioPromise = null;
+        return null;
+      });
   }
+  
+  if (ioPromise) {
+    return await ioPromise;
+  }
+  
   return ioClient;
 }
 
@@ -56,30 +68,32 @@ export function useSessionCheck() {
     };
 
     // Setup websocket listener if available
-    let socket: any = null;
-    try {
-      const io = getSocket();
-      if (io && typeof io === 'function') {
-        socket = io(serverUrl, {
-          transports: ['websocket'],
-          withCredentials: true,
-        });
-        
-        socket.on('connect', () => {
-          socket.emit('auth', { token });
-        });
-        
-        socket.on('auth:ok', () => {
-          console.log('Socket authenticated successfully');
-        });
-        
-        socket.on('account-deleted', () => {
-          handleLogout('deleted');
-        });
+    const socketRef = { current: null as any };
+    (async () => {
+      try {
+        const io = await getSocket();
+        if (io && typeof io === 'function') {
+          socketRef.current = io(serverUrl, {
+            transports: ['websocket'],
+            withCredentials: true,
+          });
+          
+          socketRef.current.on('connect', () => {
+            socketRef.current.emit('auth', { token });
+          });
+          
+          socketRef.current.on('auth:ok', () => {
+            console.log('Socket authenticated successfully');
+          });
+          
+          socketRef.current.on('account-deleted', () => {
+            handleLogout('deleted');
+          });
+        }
+      } catch (e) {
+        console.warn('WebSocket setup failed:', e);
       }
-    } catch (e) {
-      console.warn('WebSocket setup failed:', e);
-    }
+    })();
 
     // Fallback polling check
     let timer: any;
@@ -111,10 +125,12 @@ export function useSessionCheck() {
     // Cleanup
     return () => {
       if (timer) clearTimeout(timer);
-      if (socket) {
+      // Cleanup socket if it was created
+      if (socketRef.current) {
         try {
-          socket.off('account-deleted');
-          socket.disconnect();
+          socketRef.current.off('account-deleted');
+          socketRef.current.disconnect();
+          socketRef.current = null;
         } catch {}
       }
     };
