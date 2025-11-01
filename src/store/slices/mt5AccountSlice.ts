@@ -496,42 +496,99 @@ export const refreshMt5AccountProfile = createAsyncThunk(
   }
 );
 
-// ✅ Fetch Account Details from getClientProfile (includes Balance, Equity, P/L, etc.)
-export const fetchAccountDetailsFromMT5 = createAsyncThunk(
-  "mt5/fetchAccountDetails",
-  async (accountId: string, { rejectWithValue }) => {
+// ✅ OPTIMIZED: Fetch all account details in parallel (fast & accurate - like admin panel)
+export const fetchAllAccountsWithBalance = createAsyncThunk(
+  "mt5/fetchAllAccountsWithBalance",
+  async (_, { rejectWithValue }) => {
     try {
-      console.log(`[MT5] 🔄 fetchAccountDetailsFromMT5 → requesting details for account=${accountId}`);
+      console.log(`[MT5] 🚀 fetchAllAccountsWithBalance → fetching all accounts with balances in parallel`);
       
-      // Call backend endpoint which fetches from MT5 API with access token
-      const response = await mt5Service.getMt5AccountProfile(accountId);
+      // Call optimized backend endpoint that fetches all balances in parallel
+      const response = await mt5Service.getUserAccountsWithBalance();
       
       if (!response.success || !response.data) {
-        return rejectWithValue("Failed to fetch account details from MT5");
+        console.error(`[MT5] ❌ Invalid response structure:`, response);
+        return rejectWithValue("Failed to fetch account balances - invalid response");
+      }
+
+      const { accounts, totalBalance } = response.data;
+      console.log(`[MT5] ✅ fetchAllAccountsWithBalance → fetched ${accounts.length} accounts. Total balance: ${totalBalance}`);
+
+      // Transform accounts to match our state structure
+      const accountsData = accounts.map((acc: any) => ({
+        accountId: String(acc.accountId),
+        balance: Number(acc.balance ?? 0),
+        equity: Number(acc.equity ?? 0),
+        profit: Number(acc.profit ?? 0),
+        credit: Number(acc.credit ?? 0),
+        margin: Number(acc.margin ?? 0),
+        marginFree: Number(acc.marginFree ?? 0),
+        marginLevel: Number(acc.marginLevel ?? 0),
+        leverage: Number(acc.leverage ?? 0),
+      }));
+
+      return {
+        accounts: accountsData,
+        totalBalance: Number(totalBalance ?? 0),
+      };
+    } catch (error: any) {
+      console.error(`[MT5] ❌ fetchAllAccountsWithBalance error:`, error?.response?.data || error?.message || error);
+      return rejectWithValue(
+        error.response?.data?.message || error.response?.data?.Message || error.message || "Failed to fetch account balances"
+      );
+    }
+  }
+);
+
+// ✅ Fetch Account Details from getClientProfile (includes Balance, Equity, P/L, etc.) - LEGACY (kept for single account fetch)
+export const fetchAccountDetailsFromMT5 = createAsyncThunk(
+  "mt5/fetchAccountDetails",
+  async ({ accountId, forceRefresh = false }: { accountId: string; forceRefresh?: boolean }, { rejectWithValue }) => {
+    try {
+      console.log(`[MT5] 🔄 fetchAccountDetailsFromMT5 → requesting details for account=${accountId}${forceRefresh ? ' (force refresh)' : ''}`);
+      
+      // Call backend endpoint which fetches from MT5 API with access token
+      // Use forceRefresh to bypass cache and get fresh data
+      const response = await mt5Service.getMt5AccountProfile(accountId, { forceRefresh });
+      
+      console.log(`[MT5] 📥 Raw response for account=${accountId}:`, JSON.stringify(response, null, 2));
+      
+      if (!response.success || !response.data) {
+        console.error(`[MT5] ❌ Invalid response structure for account=${accountId}:`, response);
+        return rejectWithValue("Failed to fetch account details from MT5 - invalid response");
       }
 
       const profileData = response.data;
-      console.log(`[MT5] ✅ fetchAccountDetailsFromMT5 response for account=${accountId}:`, profileData);
+      console.log(`[MT5] ✅ fetchAccountDetailsFromMT5 profileData for account=${accountId}:`, JSON.stringify(profileData, null, 2));
 
       // Extract and return account details
-      // Calculate P/L = Equity - Balance (if not provided directly)
-      const balance = profileData.Balance || profileData.balance || 0;
-      const equity = profileData.Equity || profileData.equity || 0;
-      const profit = profileData.Profit || profileData.profit !== undefined ? profileData.profit : (equity - balance);
+      // The API returns: { Success: true, Data: { Balance: 22556, Equity: 22556, ... } }
+      // After normalization, response.data should be the Data object directly
+      const balance = Number(profileData.Balance ?? profileData.balance ?? 0);
+      const equity = Number(profileData.Equity ?? profileData.equity ?? 0);
+      const profit = profileData.Profit !== undefined ? Number(profileData.Profit ?? profileData.profit ?? 0) : (equity - balance);
+      
+      console.log(`[MT5] 📊 Extracted values for account=${accountId}:`, {
+        balance,
+        equity,
+        profit,
+        credit: profileData.Credit ?? profileData.credit ?? 0,
+        margin: profileData.Margin ?? profileData.margin ?? 0
+      });
       
       return {
         accountId: String(accountId),
         balance: balance,
         equity: equity,
         profit: profit,
-        credit: profileData.Credit || profileData.credit || 0,
-        margin: profileData.Margin || profileData.margin || 0,
-        marginFree: profileData.MarginFree || profileData.Margin_Free || profileData.marginFree || 0,
-        marginLevel: profileData.MarginLevel || profileData.Margin_Level || profileData.marginLevel || 0,
-        leverage: profileData.Leverage || profileData.leverage || 0,
+        credit: profileData.Credit ?? profileData.credit ?? 0,
+        margin: profileData.Margin ?? profileData.margin ?? 0,
+        marginFree: profileData.MarginFree ?? profileData.Margin_Free ?? profileData.marginFree ?? 0,
+        marginLevel: profileData.MarginLevel ?? profileData.Margin_Level ?? profileData.marginLevel ?? 0,
+        leverage: profileData.Leverage ?? profileData.leverage ?? 0,
         // Additional fields that might be useful
-        server: profileData.Server || profileData.server || '',
-        login: profileData.Login || profileData.login || parseInt(accountId, 10)
+        server: profileData.Server ?? profileData.server ?? '',
+        login: profileData.Login ?? profileData.login ?? parseInt(accountId, 10)
       };
     } catch (error: any) {
       console.error(`[MT5] ❌ fetchAccountDetailsFromMT5 error for account=${accountId}:`, error?.response?.data || error?.message || error);
@@ -546,10 +603,10 @@ export const fetchAccountDetailsFromMT5 = createAsyncThunk(
 // Initial State
 // --------------------
 const initialState: MT5State = {
-  accounts: [],
+  accounts: [], // Accounts array - NEVER persisted, always fetched fresh from API
   groups: [],
   selectedAccount: null,
-  totalBalance: 0,
+  totalBalance: 0, // Total balance - NEVER persisted, always calculated fresh
   isLoading: false,
   error: null,
 
@@ -659,19 +716,30 @@ const mt5AccountSlice = createSlice({
         state.isFetchingAccounts = false;
         state.lastAccountsFetchAt = Date.now();
         // Merge with existing accounts, updating only DB fields
+        // IMPORTANT: Preserve dynamic balance fields (balance, equity, etc.) if they exist
         const dbAccounts = action.payload as MT5AccountDB[];
         dbAccounts.forEach((dbAcc) => {
           const existing = state.accounts.find(acc => acc.accountId === dbAcc.accountId);
           if (existing) {
-            // Update only DB fields
+            // Update only DB fields, preserve dynamic balance fields
             existing.accountType = dbAcc.accountType;
             existing.nameOnAccount = dbAcc.nameOnAccount;
             existing.leverage = dbAcc.leverage;
             existing.package = dbAcc.package;
             existing.password = dbAcc.password;
+            // Note: balance, equity, profit are NOT updated here - they come from fetchAccountDetailsFromMT5
           } else {
-            // Add new account
-            state.accounts.push({ ...dbAcc } as MT5Account);
+            // Add new account with no balance data (will be fetched fresh)
+            state.accounts.push({ 
+              ...dbAcc,
+              balance: undefined,
+              equity: undefined,
+              profit: undefined,
+              credit: undefined,
+              margin: undefined,
+              marginFree: undefined,
+              marginLevel: undefined,
+            } as MT5Account);
           }
         });
         // Remove accounts that are no longer in DB
@@ -724,11 +792,73 @@ const mt5AccountSlice = createSlice({
         }
       })
 
-      // Fetch Account Details from MT5 (getClientProfile)
+      // ✅ OPTIMIZED: Fetch all accounts with balances in parallel (fast & accurate)
+      .addCase(fetchAllAccountsWithBalance.pending, (state) => {
+        // Don't set isLoading to true - allow concurrent fetches for 300ms polling
+        // Setting isLoading blocks UI updates
+        state.error = null;
+        console.log(`[MT5] 🔄 fetchAllAccountsWithBalance PENDING - fetching fresh balances`);
+        // Don't clear balances on pending - keep showing last known values until new ones arrive
+        // This prevents flickering and ensures smooth updates
+      })
+      .addCase(fetchAllAccountsWithBalance.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const { accounts: accountsWithBalance, totalBalance } = action.payload;
+        
+        console.log(`[MT5] 🔄 Updating ${accountsWithBalance.length} accounts with FRESH balances from API...`);
+        console.log(`[MT5] 📊 Balance data received:`, accountsWithBalance.map(acc => ({
+          accountId: acc.accountId,
+          balance: acc.balance,
+          equity: acc.equity
+        })));
+        
+        // Update balances for all accounts that match - FORCE UPDATE (no checks)
+        accountsWithBalance.forEach((details) => {
+          const account = state.accounts.find(acc => acc.accountId === details.accountId);
+          if (account) {
+            const oldBalance = account.balance;
+            // FORCE UPDATE all account details from MT5 API (always overwrite)
+            account.balance = Number(details.balance ?? 0);
+            account.equity = Number(details.equity ?? 0);
+            account.profit = Number(details.profit ?? 0);
+            account.credit = Number(details.credit ?? 0);
+            account.margin = Number(details.margin ?? 0);
+            account.marginFree = Number(details.marginFree ?? 0);
+            account.marginLevel = Number(details.marginLevel ?? 0);
+            if (details.leverage) account.leverage = Number(details.leverage ?? 0);
+            
+            if (oldBalance !== account.balance) {
+              console.log(`[MT5] 💰 Account ${details.accountId} balance UPDATED: ${oldBalance} → ${account.balance}`);
+            } else {
+              console.log(`[MT5] ✅ Account ${details.accountId} balance: ${account.balance}`);
+            }
+          } else {
+            console.warn(`[MT5] ⚠️ Account ${details.accountId} not found in state - cannot update balance`);
+          }
+        });
+        
+        // Set total balance from API response
+        const oldTotalBalance = state.totalBalance;
+        state.totalBalance = Number(totalBalance ?? 0);
+        
+        console.log(`[MT5] ✅ Updated balances for ${accountsWithBalance.length} accounts. Total: ${oldTotalBalance} → ${state.totalBalance}`);
+      })
+      .addCase(fetchAllAccountsWithBalance.rejected, (state, action) => {
+        state.isLoading = false;
+        console.warn('[MT5] Failed to fetch all accounts with balance:', action.payload);
+      })
+
+      // Fetch Account Details from MT5 (getClientProfile) - LEGACY (for single account)
       .addCase(fetchAccountDetailsFromMT5.fulfilled, (state, action) => {
         const details = action.payload;
         const account = state.accounts.find(acc => acc.accountId === details.accountId);
         if (account) {
+          console.log(`[MT5] 🔄 Updating account ${details.accountId} with details:`, {
+            balance: details.balance,
+            equity: details.equity,
+            profit: details.profit
+          });
+          
           // Update all account details from MT5 API
           account.balance = details.balance;
           account.equity = details.equity;
@@ -740,10 +870,14 @@ const mt5AccountSlice = createSlice({
           if (details.leverage) account.leverage = details.leverage;
           if (details.server) account.server = details.server;
           
+          console.log(`[MT5] ✅ Account ${details.accountId} updated. New balance: ${account.balance}, equity: ${account.equity}`);
+          
           // Recalculate total balance from Live accounts only
           state.totalBalance = state.accounts
             .filter((acc) => (acc.accountType || 'Live') === 'Live')
             .reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        } else {
+          console.warn(`[MT5] ⚠️ Account ${details.accountId} not found in state. Accounts:`, state.accounts.map(a => a.accountId));
         }
       })
       .addCase(fetchAccountDetailsFromMT5.rejected, (state, action) => {

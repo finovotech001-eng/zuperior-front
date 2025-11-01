@@ -31,11 +31,18 @@ export async function GET(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    let response = await fetch(`${API_URL}/Users/${login}/getClientProfile`, {
+    // Get cache-busting param from query string
+    const { searchParams } = new URL(request.url);
+    const cacheBuster = searchParams.get('_t') || Date.now().toString();
+    
+    let response = await fetch(`${API_URL}/Users/${login}/getClientProfile?_t=${cacheBuster}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
       signal: controller.signal,
       cache: 'no-store',
@@ -46,11 +53,14 @@ export async function GET(
     // If the primary route failed to connect (ECONNREFUSED/aborted), try the alternate backend path once
     if (!response) {
       try {
-        response = await fetch(`${API_URL}/mt5/user-profile/${login}`, {
+        response = await fetch(`${API_URL}/mt5/user-profile/${login}?_t=${cacheBuster}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
           },
           signal: controller.signal,
           cache: 'no-store',
@@ -74,7 +84,12 @@ export async function GET(
     }
 
     const data = await response.json();
+    
+    // Log the response to debug
+    console.log(`[Next.js API] 📥 Response from backend for account ${login}:`, JSON.stringify(data, null, 2));
 
+    // The backend returns: { success: true, data: { Balance: 22556, ... } }
+    // We need to ensure this structure is preserved
     return NextResponse.json(data);
 
   } catch (error) {

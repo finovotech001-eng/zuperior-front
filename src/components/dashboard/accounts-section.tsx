@@ -15,9 +15,7 @@ import { TpAccountSnapshot } from "@/types/user-details";
 import { MT5Account } from "@/store/slices/mt5AccountSlice";
 import { 
   fetchUserAccountsFromDb, 
-  fetchAccountProfile, 
-  fetchAccountBalanceAndProfit,
-  fetchAccountDetailsFromMT5
+  fetchAllAccountsWithBalance,
 } from "@/store/slices/mt5AccountSlice";
 
 interface AccountsSectionProps {
@@ -26,10 +24,19 @@ interface AccountsSectionProps {
 
 // Helper function to map MT5Account to TpAccountSnapshot (for AccountDetails component)
 const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => {
-  // Use fetched MT5 data if available, otherwise use defaults
-  const balance = mt5Account.balance ?? 0;
-  const equity = mt5Account.equity ?? 0;
-  const profit = mt5Account.profit ?? 0;
+  // IMPORTANT: Always use the latest balance from Redux state (from fetchAllAccountsWithBalance)
+  // Force number conversion to ensure we get the latest value, not cached
+  const balance = mt5Account.balance !== undefined && mt5Account.balance !== null 
+    ? Number(mt5Account.balance) 
+    : 0;
+  const equity = mt5Account.equity !== undefined && mt5Account.equity !== null 
+    ? Number(mt5Account.equity) 
+    : 0;
+  const profit = mt5Account.profit !== undefined && mt5Account.profit !== null 
+    ? Number(mt5Account.profit) 
+    : 0;
+  
+  console.log(`[AccountsSection] 📊 Mapping account ${mt5Account.accountId} - Balance: ${balance}, Equity: ${equity}, Profit: ${profit}`);
   
   return {
     tradingplatformaccountsid: parseInt(mt5Account.accountId),
@@ -39,9 +46,9 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     account_type: mt5Account.accountType || "Live",
     account_type_requested: mt5Account.package || null,
     leverage: mt5Account.leverage || 100,
-    balance: balance.toString(),
+    balance: balance.toString(), // Use latest balance from Redux state
     credit: (mt5Account.credit || 0).toString(),
-    equity: equity.toString(),
+    equity: equity.toString(), // Use latest equity from Redux state
     margin: (mt5Account.margin || 0).toString(),
     margin_free: (mt5Account.marginFree || 0).toString(),
     margin_level: (mt5Account.marginLevel || 0).toString(),
@@ -81,21 +88,56 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     dispatch(fetchUserAccountsFromDb() as any);
   }, [dispatch]);
 
-  // Fetch account details from MT5 API for all accounts
+  // ✅ OPTIMIZED: Fetch all account balances in parallel using optimized endpoint (fast & accurate)
+  // CRITICAL: Always fetch fresh on mount and when accounts change
   useEffect(() => {
     if (accounts.length > 0) {
-      accounts.forEach((account) => {
-        // Skip if already fetched
-        if (detailsFetchedRef.current.has(account.accountId)) {
-          return;
+      // Clear any cached balance data from localStorage on mount
+      if (typeof window !== 'undefined') {
+        try {
+          const persistRoot = localStorage.getItem('persist:root');
+          if (persistRoot) {
+            const parsed = JSON.parse(persistRoot);
+            if (parsed.mt5) {
+              const mt5Data = JSON.parse(parsed.mt5);
+              // Force clear accounts array from persisted data
+              if (mt5Data.accounts) {
+                mt5Data.accounts = [];
+                parsed.mt5 = JSON.stringify(mt5Data);
+                localStorage.setItem('persist:root', JSON.stringify(parsed));
+                console.log(`[AccountsSection] 🗑️ Cleared cached account balances from localStorage`);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[AccountsSection] ⚠️ Failed to clear cache:`, e);
         }
-        
-        detailsFetchedRef.current.add(account.accountId);
-        // Fetch account details from MT5 getClientProfile
-        dispatch(fetchAccountDetailsFromMT5(account.accountId) as any);
-      });
+      }
+      
+      // Use optimized endpoint that fetches all balances in parallel (like admin panel)
+      console.log(`[AccountsSection] 🚀 Fetching all account balances in parallel (optimized) - ${accounts.length} accounts`);
+      // Force immediate fetch - no delay
+      dispatch(fetchAllAccountsWithBalance() as any);
     }
-  }, [accounts, dispatch]);
+  }, [accounts.length, dispatch]); // Run when account count changes or component mounts
+
+  // ✅ OPTIMIZED: Poll all account balances every 15 seconds
+  useEffect(() => {
+    if (accounts.length === 0) return;
+
+    // Immediate first poll - don't wait for interval
+    console.log(`[AccountsSection] 🔄 Immediate balance fetch on mount`);
+    dispatch(fetchAllAccountsWithBalance() as any);
+
+    const pollInterval = setInterval(() => {
+      console.log(`[AccountsSection] 🔄 Polling all account balances every 15 seconds`);
+      dispatch(fetchAllAccountsWithBalance() as any);
+    }, 15000); // Poll every 15 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [accounts.length, dispatch]);
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
@@ -203,14 +245,6 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
               className="relative gap-1 cursor-pointer font-semibold text-white rounded-[15px] px-6 py-2.5 text-xs leading-6 h-11 
           [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))]
            hover:bg-transparent dark:[background:black]"
-           
-              // onMouseEnter={(e) =>
-              //   (e.currentTarget.style.background = "rgba(163,92,162,0.5)")
-              // }
-              // onMouseLeave={(e) =>
-              //   (e.currentTarget.style.background =
-              //     "radial-gradient(ellipse 27% 80% at 0% 0%,rgba(163,92,162,0.5),rgba(0,0,0,1))")
-              // }
             >
               <Plus className="w-3 h-3" /> Open New Account
               <div

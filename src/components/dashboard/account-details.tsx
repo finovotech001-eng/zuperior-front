@@ -66,15 +66,22 @@ const AccountDetails = ({
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
 
-  
-
   // Calculate values from account details with correct relationships:
   // Equity = Balance + P/L
   // Available for Withdrawal = Equity
   // P/L = Equity - Balance (if not directly provided)
   
+  // IMPORTANT: Parse balance from accountDetails - this comes from Redux state via mapMT5AccountToTpAccount
   const bal = parseFloat(accountDetails.balance || "0");
   const eq = parseFloat(accountDetails.equity || "0");
+  
+  // Log the balance being displayed for debugging
+  useEffect(() => {
+    console.log(`[AccountDetails] 💰 Account ${accountId} - Displaying balance: ${bal}, equity: ${eq}`, {
+      accountDetailsBalance: accountDetails.balance,
+      accountDetailsEquity: accountDetails.equity
+    });
+  }, [accountId, bal, eq, accountDetails.balance, accountDetails.equity]);
   
   // Calculate P/L: If equity is available, P/L = Equity - Balance
   // Otherwise, use closed_pnl if available

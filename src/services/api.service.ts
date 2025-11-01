@@ -413,13 +413,90 @@ const mt5Service = {
 
   /** Get MT5 account profile for a specific login
    * Route: /api/mt5/user-profile/:login (backend route)
+   * @param forceRefresh - If true, bypasses singleFlight cache and forces a fresh fetch
    */
-  getMt5AccountProfile: async (login: string | number, opts?: { signal?: AbortSignal }) => {
+  getMt5AccountProfile: async (login: string | number, opts?: { signal?: AbortSignal; forceRefresh?: boolean }) => {
     const key = `mt5-profile:${login}`;
+    
+    // If forceRefresh is true, clear the cache first and don't use singleFlight
+    if (opts?.forceRefresh && inFlight[key]) {
+      inFlight[key].controller.abort();
+      delete inFlight[key];
+    }
+    
+    // If forceRefresh, bypass singleFlight entirely for fresh data
+    if (opts?.forceRefresh) {
+      const r = await api.get(`/api/mt5/user-profile/${login}`, { 
+        signal: opts?.signal,
+        // Add cache busting query param
+        params: { _t: Date.now() }
+      });
+      return normalizeOk(r.data);
+    }
+    
+    // Otherwise use singleFlight to prevent duplicate requests
     return singleFlight(key, async (signal) => {
-      const r = await api.get(`/api/mt5/user-profile/${login}`, { signal: opts?.signal ?? signal });
+      const r = await api.get(`/api/mt5/user-profile/${login}`, { 
+        signal: opts?.signal ?? signal,
+        // Add cache busting to prevent browser/backend caching
+        params: { _t: Date.now() }
+      });
       return normalizeOk(r.data);
     }, opts?.signal);
+  },
+
+  /** ✅ OPTIMIZED: Get all user's accounts with fresh balances in parallel (fast & accurate) */
+  /** IMPORTANT: Always fetch fresh - NO caching, NO singleFlight, allow concurrent requests for 300ms polling */
+  getUserAccountsWithBalance: async (opts?: { signal?: AbortSignal }) => {
+    // CRITICAL: Don't use singleFlight - allow multiple concurrent requests for rapid polling (300ms)
+    // Each request gets a unique timestamp to prevent any caching
+    const cacheBuster = Date.now() + Math.random(); // Add random to ensure uniqueness
+    console.log(`[API] 🚀 Fetching fresh account balances (no cache, no singleFlight, cache-bust: ${cacheBuster})`);
+    
+    // Use AbortController with short timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second max timeout
+    
+    try {
+      const r = await api.get('/api/mt5/accounts-with-balance', { 
+        signal: opts?.signal ?? controller.signal,
+        // Aggressive cache busting - unique timestamp for each request
+        params: { 
+          _t: cacheBuster,
+          _nocache: cacheBuster,
+          _fresh: cacheBuster,
+          _rand: Math.random()
+        },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Request-Time': cacheBuster.toString()
+        },
+        timeout: 10000 // 10 second timeout per request
+      });
+      
+      clearTimeout(timeoutId);
+      
+      const result = normalizeOk(r.data);
+      console.log(`[API] 📥 Received balances (${Date.now()}):`, {
+        accountCount: result.data?.accounts?.length || 0,
+        balances: result.data?.accounts?.map((acc: any) => ({
+          accountId: acc.accountId,
+          balance: acc.balance
+        })) || []
+      });
+      
+      return result;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      // Don't throw on abort - just return empty data
+      if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+        console.warn(`[API] ⚠️ Balance fetch aborted or timed out`);
+        throw error;
+      }
+      throw error;
+    }
   },
 
   /** Get full account profile from ClientProfile API 

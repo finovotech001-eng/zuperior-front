@@ -16,14 +16,29 @@ import mt5Reducer from "./slices/mt5AccountSlice";
 import adminReducer from "./slices/adminSlice";
 import adminStatsReducer from "./slices/adminStatsSlice";
 
-// Step 1: Combine reducers
+// Step 1: Create nested persist config for mt5 slice
+// IMPORTANT: Exclude accounts and totalBalance - these contain dynamic balance data
+// that should ALWAYS be fetched fresh from API, never from localStorage cache
+const mt5PersistConfig = {
+  key: "mt5",
+  storage,
+  // Whitelist only static data that doesn't change often (groups, selectedAccount ID, flags)
+  // Accounts array and totalBalance are NOT in whitelist = NOT persisted = always fresh
+  whitelist: ["groups", "selectedAccount", "isLoading", "error", "isFetchingGroups", "lastGroupsFetchAt", "ownerClientId"],
+};
+
+// Step 2: Apply persist only to static parts of mt5 slice
+// Accounts array is excluded - will always start empty and be fetched fresh
+const persistedMt5Reducer = persistReducer(mt5PersistConfig, mt5Reducer);
+
+// Step 3: Combine reducers
 const appReducer = combineReducers({
   auth: authReducer,
   user: userReducer,
   accounts: accountsReducer,
   transactions: transactionsReducer,
   kyc: kycReducer,
-  mt5: mt5Reducer,
+  mt5: persistedMt5Reducer, // Use persisted version for mt5
   admin: adminReducer,
   adminStats: adminStatsReducer,
 });
@@ -58,11 +73,12 @@ const rootReducer: Reducer<ReturnType<typeof appReducer>, AnyAction> = (
   return appReducer(state, action);
 };
 
-// Step 3: Persist config
+// Step 4: Root persist config (exclude mt5 since it has its own nested config)
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "user", "accounts", "transactions", "kyc", "mt5", "admin", "adminStats"],
+  // Exclude mt5 from root persist since it has nested persist config that excludes accounts
+  whitelist: ["auth", "user", "accounts", "transactions", "kyc", "admin", "adminStats"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
