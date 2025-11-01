@@ -68,19 +68,34 @@ const AccountDetails = ({
 
   
 
-  // Keep strict loading until full profile is ready
-  // Show loading placeholders while data is being fetched
-  const balance = `$${parseFloat(accountDetails.balance).toFixed(2)}`;
-  const equity = `${parseFloat(accountDetails.equity).toFixed(2)}`; //${accountDetails.currency} To Do: think what to do about currency
-  const freeMargin = `${parseFloat(accountDetails.margin_free).toFixed(2)}`; // ${accountDetails.currency}
-  const credit = `${parseFloat(accountDetails.credit).toFixed(2)}`; // ${accountDetails.currency}
-  const leverage = `1:${accountDetails.leverage}`;
-  const availableForWithdrawal = `$${parseFloat(accountDetails.balance).toFixed(
-    2
-  )}`; // ${accountDetails.currency}
+  // Calculate values from account details with correct relationships:
+  // Equity = Balance + P/L
+  // Available for Withdrawal = Equity
+  // P/L = Equity - Balance (if not directly provided)
+  
+  const bal = parseFloat(accountDetails.balance || "0");
+  const eq = parseFloat(accountDetails.equity || "0");
+  
+  // Calculate P/L: If equity is available, P/L = Equity - Balance
+  // Otherwise, use closed_pnl if available
+  const pnl = accountDetails.closed_pnl !== undefined 
+    ? parseFloat(accountDetails.closed_pnl) 
+    : (eq - bal); // Equity - Balance
+  
+  // Ensure relationships: Equity = Balance + P/L
+  const equity = eq || (bal + pnl);
+  
+  // Available for Withdrawal = Equity (per user requirement)
+  const availableForWithdrawal = equity;
+  
+  const balance = `$${bal.toFixed(2)}`;
+  const equityFormatted = `${equity.toFixed(2)}`;
+  const freeMargin = `${parseFloat(accountDetails.margin_free || "0").toFixed(2)}`;
+  const credit = `${parseFloat(accountDetails.credit || "0").toFixed(2)}`;
+  const leverage = `1:${accountDetails.leverage || 1000}`;
+  const availableForWithdrawalFormatted = `$${availableForWithdrawal.toFixed(2)}`;
 
-  const pnl = parseFloat(accountDetails.closed_pnl);
-  const bal = parseFloat(accountDetails.balance);
+  // Calculate P/L percentage based on initial balance (balance - P/L)
   const initialBalance = bal - pnl;
   const pnlPercentage = initialBalance !== 0 ? (pnl / initialBalance) * 100 : 0;
   const isProfit = pnl >= 0;
@@ -416,7 +431,7 @@ const AccountDetails = ({
                   </div>
                   <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Equity</p>
-                    <div className="text-sm w-24 text-right" style={numericStyle}>{equity}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{equityFormatted}</div>
                   </div>
                 </div>
 
@@ -425,7 +440,7 @@ const AccountDetails = ({
                     <p className="text-xs opacity-75">
                       Available for Withdrawal
                     </p>
-                    <div className="text-sm w-24 text-right" style={numericStyle}>{availableForWithdrawal}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{availableForWithdrawalFormatted}</div>
                   </div>
                   <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Balance</p>

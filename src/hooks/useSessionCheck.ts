@@ -3,6 +3,9 @@ import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
 
+// Socket.io functionality is disabled - using polling only
+// Commented out to prevent build errors since socket.io-client import is not needed
+/*
 // Lazy import to avoid SSR issues and build-time errors
 let ioClient: any;
 let ioPromise: Promise<any> | null = null;
@@ -30,6 +33,7 @@ async function getSocket() {
   
   return ioClient;
 }
+*/
 
 export function useSessionCheck() {
   const dispatch = useAppDispatch();

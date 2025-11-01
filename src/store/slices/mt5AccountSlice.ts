@@ -496,6 +496,52 @@ export const refreshMt5AccountProfile = createAsyncThunk(
   }
 );
 
+// ✅ Fetch Account Details from getClientProfile (includes Balance, Equity, P/L, etc.)
+export const fetchAccountDetailsFromMT5 = createAsyncThunk(
+  "mt5/fetchAccountDetails",
+  async (accountId: string, { rejectWithValue }) => {
+    try {
+      console.log(`[MT5] 🔄 fetchAccountDetailsFromMT5 → requesting details for account=${accountId}`);
+      
+      // Call backend endpoint which fetches from MT5 API with access token
+      const response = await mt5Service.getMt5AccountProfile(accountId);
+      
+      if (!response.success || !response.data) {
+        return rejectWithValue("Failed to fetch account details from MT5");
+      }
+
+      const profileData = response.data;
+      console.log(`[MT5] ✅ fetchAccountDetailsFromMT5 response for account=${accountId}:`, profileData);
+
+      // Extract and return account details
+      // Calculate P/L = Equity - Balance (if not provided directly)
+      const balance = profileData.Balance || profileData.balance || 0;
+      const equity = profileData.Equity || profileData.equity || 0;
+      const profit = profileData.Profit || profileData.profit !== undefined ? profileData.profit : (equity - balance);
+      
+      return {
+        accountId: String(accountId),
+        balance: balance,
+        equity: equity,
+        profit: profit,
+        credit: profileData.Credit || profileData.credit || 0,
+        margin: profileData.Margin || profileData.margin || 0,
+        marginFree: profileData.MarginFree || profileData.Margin_Free || profileData.marginFree || 0,
+        marginLevel: profileData.MarginLevel || profileData.Margin_Level || profileData.marginLevel || 0,
+        leverage: profileData.Leverage || profileData.leverage || 0,
+        // Additional fields that might be useful
+        server: profileData.Server || profileData.server || '',
+        login: profileData.Login || profileData.login || parseInt(accountId, 10)
+      };
+    } catch (error: any) {
+      console.error(`[MT5] ❌ fetchAccountDetailsFromMT5 error for account=${accountId}:`, error?.response?.data || error?.message || error);
+      return rejectWithValue(
+        error.response?.data?.message || error.response?.data?.Message || error.message || "Failed to fetch account details"
+      );
+    }
+  }
+);
+
 // --------------------
 // Initial State
 // --------------------
@@ -676,6 +722,33 @@ const mt5AccountSlice = createSlice({
             .filter((acc) => (acc.accountType || 'Live') === 'Live')
             .reduce((sum, acc) => sum + (acc.balance || 0), 0);
         }
+      })
+
+      // Fetch Account Details from MT5 (getClientProfile)
+      .addCase(fetchAccountDetailsFromMT5.fulfilled, (state, action) => {
+        const details = action.payload;
+        const account = state.accounts.find(acc => acc.accountId === details.accountId);
+        if (account) {
+          // Update all account details from MT5 API
+          account.balance = details.balance;
+          account.equity = details.equity;
+          account.profit = details.profit;
+          account.credit = details.credit;
+          account.margin = details.margin;
+          account.marginFree = details.marginFree;
+          account.marginLevel = details.marginLevel;
+          if (details.leverage) account.leverage = details.leverage;
+          if (details.server) account.server = details.server;
+          
+          // Recalculate total balance from Live accounts only
+          state.totalBalance = state.accounts
+            .filter((acc) => (acc.accountType || 'Live') === 'Live')
+            .reduce((sum, acc) => sum + (acc.balance || 0), 0);
+        }
+      })
+      .addCase(fetchAccountDetailsFromMT5.rejected, (state, action) => {
+        // Silently handle errors - don't update state, just log
+        console.warn('[MT5] Failed to fetch account details:', action.payload);
       })
 
       // Fetch User MT5 Accounts (legacy - for backward compatibility)

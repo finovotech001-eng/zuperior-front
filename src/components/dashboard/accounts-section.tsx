@@ -16,7 +16,8 @@ import { MT5Account } from "@/store/slices/mt5AccountSlice";
 import { 
   fetchUserAccountsFromDb, 
   fetchAccountProfile, 
-  fetchAccountBalanceAndProfit 
+  fetchAccountBalanceAndProfit,
+  fetchAccountDetailsFromMT5
 } from "@/store/slices/mt5AccountSlice";
 
 interface AccountsSectionProps {
@@ -25,6 +26,11 @@ interface AccountsSectionProps {
 
 // Helper function to map MT5Account to TpAccountSnapshot (for AccountDetails component)
 const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => {
+  // Use fetched MT5 data if available, otherwise use defaults
+  const balance = mt5Account.balance ?? 0;
+  const equity = mt5Account.equity ?? 0;
+  const profit = mt5Account.profit ?? 0;
+  
   return {
     tradingplatformaccountsid: parseInt(mt5Account.accountId),
     account_name: parseInt(mt5Account.accountId),
@@ -33,13 +39,13 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     account_type: mt5Account.accountType || "Live",
     account_type_requested: mt5Account.package || null,
     leverage: mt5Account.leverage || 100,
-    balance: (mt5Account.balance || 0).toString(),
+    balance: balance.toString(),
     credit: (mt5Account.credit || 0).toString(),
-    equity: (mt5Account.equity || 0).toString(),
+    equity: equity.toString(),
     margin: (mt5Account.margin || 0).toString(),
     margin_free: (mt5Account.marginFree || 0).toString(),
     margin_level: (mt5Account.marginLevel || 0).toString(),
-    closed_pnl: (mt5Account.profit || 0).toString(),
+    closed_pnl: profit.toString(), // P/L from MT5 API
     open_pnl: "0",
     provides_balance_history: true,
     tp_account_scf: {
@@ -68,11 +74,28 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
 
   const balancePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const profilesFetchedRef = useRef<Set<string>>(new Set());
+  const detailsFetchedRef = useRef<Set<string>>(new Set());
 
   // Fetch accounts from DB once on mount
   useEffect(() => {
     dispatch(fetchUserAccountsFromDb() as any);
   }, [dispatch]);
+
+  // Fetch account details from MT5 API for all accounts
+  useEffect(() => {
+    if (accounts.length > 0) {
+      accounts.forEach((account) => {
+        // Skip if already fetched
+        if (detailsFetchedRef.current.has(account.accountId)) {
+          return;
+        }
+        
+        detailsFetchedRef.current.add(account.accountId);
+        // Fetch account details from MT5 getClientProfile
+        dispatch(fetchAccountDetailsFromMT5(account.accountId) as any);
+      });
+    }
+  }, [accounts, dispatch]);
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
