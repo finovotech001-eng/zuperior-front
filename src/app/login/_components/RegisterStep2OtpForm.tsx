@@ -9,6 +9,7 @@ interface RegisterStep2OtpFormProps {
   validationErrors: { [key: string]: string };
   clearError: (field: string) => void;
   onComplete: () => void; // New prop
+  email?: string; // Email address where OTP was sent
 }
 
 const RegisterStep2OtpForm: React.FC<RegisterStep2OtpFormProps> = ({
@@ -19,6 +20,7 @@ const RegisterStep2OtpForm: React.FC<RegisterStep2OtpFormProps> = ({
   validationErrors,
   clearError,
   onComplete,
+  email,
 }) => {
   const otpCompletedRef = useRef(false);
 
@@ -34,7 +36,12 @@ const RegisterStep2OtpForm: React.FC<RegisterStep2OtpFormProps> = ({
   return (
     <div className="flex flex-col items-center">
       <p className="text-sm text-gray-300 text-center mb-2">
-        Enter the 6-digit code sent to your email.
+        Enter the 6-digit code sent to{" "}
+        {email ? (
+          <span className="font-medium text-purple-400">{email}</span>
+        ) : (
+          "your email"
+        )}.
         <br />
         <span className="text-xs text-gray-400">
           This code is valid for 10 minutes.

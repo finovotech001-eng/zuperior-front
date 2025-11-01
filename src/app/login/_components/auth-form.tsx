@@ -454,6 +454,7 @@ const AuthForm = () => {
                 validationErrors={validationErrors}
                 clearError={(f) => clearFieldError(f)}
                 onComplete={verifyAndRegister}
+                email={registerBuffer.email}
               />
             )
           ) : (
@@ -522,6 +523,7 @@ const AuthForm = () => {
                   validationErrors={validationErrors}
                   clearError={(f) => clearFieldError(f)}
                   onComplete={verifyForgotPasswordOtp}
+                  email={loginEmail}
                 />
               )}
               {forgotMode && forgotPasswordStep === "newPassword" && (
