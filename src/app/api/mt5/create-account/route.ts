@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const {
       name,
       group,
-      leverage = 20₹00,
+      leverage = 2000,
       masterPassword,
       investorPassword,
       email,
@@ -100,8 +100,9 @@ export async function POST(request: NextRequest) {
         
         console.log('📝 Determined account type:', accountType, 'from group:', group);
         console.log('📦 Package:', packageValue);
+        console.log('👤 Name on Account:', name);
 
-        // Call internal API to store in database with password and leverage
+        // Call internal API to store in database with password, leverage, nameOnAccount, and package
         const storeResponse = await fetch(`${API_URL}/mt5/store-account`, {
           method: 'POST',
           headers: {
@@ -113,9 +114,9 @@ export async function POST(request: NextRequest) {
             accountType: accountType,
             password: masterPassword,
             leverage: leverage,
-            nameOnAccount: name,
-            package: packageValue,
-            group: group,
+            nameOnAccount: name, // Include nameOnAccount
+            package: packageValue, // Include package
+            group: group, // Include group for reference
             mt5Data: data
           })
         });

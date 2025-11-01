@@ -242,7 +242,8 @@ export function NewAccountDialog({
         country: "",
         city: "",
         phone: "",
-        comment: `Created from CRM - ${accountType} ${accountPlan} account`
+        comment: `Created from CRM - ${accountType} ${accountPlan} account`,
+        accountPlan: accountPlan // Include accountPlan so backend can determine package
       };
 
       console.log("🚀 Creating MT5 Account - Type:", accountType, "| Final payload:", JSON.stringify(payload, null, 2));
@@ -265,37 +266,35 @@ export function NewAccountDialog({
         console.log("✅ Account created successfully - Account ID:", result.accountId);
         toast.success(`Your MT5 account has been created successfully! Account ID: ${result.accountId}`);
 
-        // Add balance to demo account if topUpAmount is provided
+        // Add balance to demo account if topUpAmount is provided (non-blocking - don't wait for it)
         if (isDemo && topUpAmount && parseFloat(topUpAmount) > 0) {
-          try {
-            console.log("💰 Adding balance to demo account:", result.accountId, "Amount:", topUpAmount);
-            const balanceResponse = await fetch(`/api/mt5/deposit`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('userToken')}`
-              },
-              body: JSON.stringify({
-                login: result.accountId,
-                balance: parseFloat(topUpAmount),
-                comment: "Initial demo account balance"
-              })
-            });
-            
-            // Check if response is ok
+          // Fire and forget - don't block account creation success
+          fetch(`/api/mt5/deposit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+            },
+            body: JSON.stringify({
+              login: result.accountId,
+              balance: parseFloat(topUpAmount),
+              comment: "Initial demo account balance"
+            })
+          })
+          .then(async (balanceResponse) => {
             if (balanceResponse.ok) {
-              const balanceData = await balanceResponse.json();
-              console.log("✅ Balance added successfully:", balanceData);
+              console.log("✅ Balance added successfully");
               toast.success(`Balance of $${topUpAmount} added to demo account`);
             } else {
               const errorData = await balanceResponse.json().catch(() => ({}));
               console.error("❌ Failed to add balance:", errorData);
-              toast.error(`Account created but failed to add balance: ${errorData.message || 'Unknown error'}`);
+              toast.error(`Failed to add balance: ${errorData.message || 'Unknown error'}`);
             }
-          } catch (balanceError) {
+          })
+          .catch((balanceError) => {
             console.error("❌ Error adding balance to demo account:", balanceError);
-            toast.error("Account created but failed to add balance");
-          }
+            toast.error("Failed to add balance to demo account");
+          });
         }
 
         // Set the latest account data for the success step

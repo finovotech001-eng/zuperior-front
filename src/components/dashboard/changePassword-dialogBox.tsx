@@ -17,7 +17,6 @@ import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
 import EyeIcon from "@/components/EyeIcon";
 import { Check } from "lucide-react";
 import { VerifyOtpDialog } from "./verifyOtp-dialogBox";
-import { generateOtp } from "@/utils/generateOtp";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 
@@ -57,7 +56,6 @@ export function ChangePasswordDialog({
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
-  const [otpSent, setOtpSent] = useState(""); // Store the generated OTP
   const dispatch = useAppDispatch();
 
   const allChecksPassed = passwordChecks.every((c) => c.check(password));
@@ -69,40 +67,68 @@ export function ChangePasswordDialog({
     }
     setIsSubmitting(true);
 
-    // 1. Generate OTP
-    const otp = generateOtp(6);
-    // 2. Send OTP to email
-    const res = await fetch("/api/send-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp }),
-    });
-    if (!res.ok) {
+    // Send OTP to email - API generates the OTP
+    try {
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          email, 
+          name: user?.name || "User",
+          useBackend: true 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || data?.message || "Failed to send OTP to your email.");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      toast.success("OTP sent to your email.");
+      setIsSubmitting(false);
+      onOpen(false);
+      setShowOtpDialog(true); // Show OTP dialog
+    } catch (error) {
       toast.error("Failed to send OTP to your email.");
       setIsSubmitting(false);
-      return;
     }
-    setOtpSent(otp); // Store OTP locally for verification
-    setIsSubmitting(false);
-    onOpen(false);
-    setShowOtpDialog(true); // Show OTP dialog
   };
 
-  // Dummy handlers for OTP dialog (replace with your logic)
+  // Verify OTP with API, then change password
   const handleOtpVerify = async (enteredOtp: string) => {
-    if (enteredOtp !== otpSent) {
-      toast.error("Invalid OTP. Please try again.");
-      return;
-    }
     setIsSubmitting(true);
-    const freshToken = await dispatch(fetchAccessToken()).unwrap();
     try {
+      // Verify OTP with backend
+      const verifyRes = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          email, 
+          otp: enteredOtp,
+          useBackend: true 
+        }),
+      });
+      
+      const verifyData = await verifyRes.json();
+      
+      if (!verifyRes.ok || !verifyData?.success) {
+        toast.error(verifyData?.message || "Invalid OTP. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // OTP verified, now change password
+      const freshToken = await dispatch(fetchAccessToken()).unwrap();
       const response = await changeTpPassword({
         accountNumber: String(accountNumber),
         oldPassword: "",
         newPassword: password,
         accessToken: freshToken,
       });
+      
       if (response.status_code === "1") {
         toast.success("Password changed successfully!");
         setShowOtpDialog(false);
@@ -118,16 +144,25 @@ export function ChangePasswordDialog({
     }
   };
   const handleOtpResend = async () => {
-    const newOtp = generateOtp(6);
-    const res = await fetch("/api/send-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp: newOtp }),
-    });
-    if (res.ok) {
-      setOtpSent(newOtp);
-      toast.success("OTP resent to your email.");
-    } else {
+    try {
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          email, 
+          name: user?.name || "User",
+          useBackend: true 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data?.success) {
+        toast.success("OTP resent to your email.");
+      } else {
+        toast.error(data?.error || data?.message || "Failed to resend OTP.");
+      }
+    } catch (error) {
       toast.error("Failed to resend OTP.");
     }
   };
