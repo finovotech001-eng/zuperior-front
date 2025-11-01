@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { changeTpPassword } from "@/services/changeTpPassword";
-import { useAppDispatch } from "@/store/hooks";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
+import axios from "axios";
 import EyeIcon from "@/components/EyeIcon";
 import { Check } from "lucide-react";
 import { VerifyOtpDialog } from "./verifyOtp-dialogBox";
@@ -51,12 +49,48 @@ export function ChangePasswordDialog({
   accountNumber,
 }: ChangePasswordDialogProps) {
   const user = useSelector((state: RootState) => state.user.data);
-  const email = user?.email1 ?? ""; // Always use Redux store email, fallback to empty string
+  const [userEmail, setUserEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOtpDialog, setShowOtpDialog] = useState(false);
-  const dispatch = useAppDispatch();
+
+  // Fetch user email from backend if not in Redux
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      // First try Redux store
+      if (user?.email1) {
+        setUserEmail(user.email1);
+        return;
+      }
+
+      // If not in Redux, fetch from backend
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+        if (!token) return;
+
+        // Use Next.js API route which proxies to backend
+        const response = await axios.get('/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        // Backend returns { success: true, data: { email, ... } }
+        if (response.data?.success && response.data?.data?.email) {
+          setUserEmail(response.data.data.email);
+          console.log('✅ User email fetched from backend:', response.data.data.email);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user email:', error);
+        // Keep email empty if fetch fails
+      }
+    };
+
+    if (open) {
+      fetchUserEmail();
+    }
+  }, [open, user?.email1]);
 
   const allChecksPassed = passwordChecks.every((c) => c.check(password));
 
@@ -69,12 +103,20 @@ export function ChangePasswordDialog({
 
     // Send OTP to email - API generates the OTP
     try {
+      // Validate email before sending
+      if (!userEmail || !userEmail.trim()) {
+        toast.error("Email address is required. Please refresh the page and try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const res = await fetch("/api/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          email, 
+          email: userEmail.trim(), 
           name: user?.name || "User",
+          purpose: "password-change", // Specify purpose for password change
           useBackend: true 
         }),
       });
@@ -106,7 +148,7 @@ export function ChangePasswordDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          email, 
+          email: userEmail, 
           otp: enteredOtp,
           useBackend: true 
         }),
@@ -121,20 +163,37 @@ export function ChangePasswordDialog({
       }
       
       // OTP verified, now change password
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
-      const response = await changeTpPassword({
-        accountNumber: String(accountNumber),
-        oldPassword: "",
-        newPassword: password,
-        accessToken: freshToken,
-      });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
       
-      if (response.status_code === "1") {
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const response = await axios.put(
+        `/api/mt5/change-password/${accountNumber}`,
+        { 
+          newPassword: password,
+          passwordType: 'main' // main password type
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      const data = response.data;
+      
+      if (data.success) {
         toast.success("Password changed successfully!");
         setShowOtpDialog(false);
         setPassword("");
+        onOpen(false); // Close the main dialog after successful password change
       } else {
-        toast.error(response?.error || "Failed to change password");
+        toast.error(data?.message || "Failed to change password");
       }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
@@ -149,8 +208,9 @@ export function ChangePasswordDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          email, 
+          email: userEmail, 
           name: user?.name || "User",
+          purpose: "password-change",
           useBackend: true 
         }),
       });
@@ -178,7 +238,9 @@ export function ChangePasswordDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleDialogClose}>
-        <DialogContent className="border-2 border-transparent p-6 dark:text-white/75 rounded-[18px] w-full bg-white [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,theme(colors.purple.400/48%))_border-box] animate-border gap-8">
+        <DialogContent 
+          disableOutsideClick={true}
+          className="border-2 border-transparent p-6 dark:text-white/75 rounded-[18px] w-full bg-white [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,theme(colors.purple.400/48%))_border-box] animate-border gap-8">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-center">
               Change trading password
@@ -250,7 +312,7 @@ export function ChangePasswordDialog({
       <VerifyOtpDialog
         open={showOtpDialog}
         onOpen={setShowOtpDialog}
-        email={email}
+        email={userEmail}
         onVerify={handleOtpVerify}
         onResend={handleOtpResend}
       />

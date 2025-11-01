@@ -564,6 +564,8 @@ const AccountDetails = ({
       <RenameAccountDialog
         open={renameAccountDialog}
         onOpen={setRenameAccountDialogOpen}
+        accountNumber={accountId}
+        currentName={accountDetails?.tp_account_scf?.cf_1479 || ""}
       />
 
       <ChangeLeverageDialouge

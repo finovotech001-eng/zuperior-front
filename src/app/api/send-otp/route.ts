@@ -81,24 +81,25 @@ const buildResponsiveEmailHtml = (otp: string, name?: string) => `
 </html>`;
 
 export async function POST(req: NextRequest) {
-  const { email, name, useBackend } = await req.json();
+  const { email, name, purpose, useBackend } = await req.json();
 
-  if (!email) {
+  if (!email || !email.trim()) {
     return NextResponse.json({ error: "Missing email" }, { status: 400 });
   }
 
-  // If useBackend flag is set, use server API (for password reset)
+  // If useBackend flag is set, use server API (for password reset/change)
   if (useBackend) {
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
       
-      console.log("Sending OTP to server:", { email, name, API_URL: `${BACKEND_URL}/user/send-otp` });
+      console.log("Sending OTP to server:", { email, name, purpose, API_URL: `${BACKEND_URL}/user/send-otp` });
       
       const response = await axios.post(
         `${BACKEND_URL}/user/send-otp`,
         {
-          email: email,
+          email: email.trim(),
           name: name || "User",
+          purpose: purpose || "verification", // Pass purpose to backend
         },
         {
           headers: {

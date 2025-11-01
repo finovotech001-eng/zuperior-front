@@ -663,6 +663,30 @@ const mt5AccountSlice = createSlice({
           );
       }
     },
+    updateAccountName: (
+      state,
+      action: PayloadAction<{ accountId: string; name: string }>
+    ) => {
+      const account = state.accounts.find(
+        (acc) => acc.accountId === action.payload.accountId
+      );
+      if (account) {
+        account.nameOnAccount = action.payload.name;
+        console.log(`[MT5] ✅ Updated account ${action.payload.accountId} name to "${action.payload.name}" in Redux state`);
+      }
+    },
+    updateAccountLeverage: (
+      state,
+      action: PayloadAction<{ accountId: string; leverage: number }>
+    ) => {
+      const account = state.accounts.find(
+        (acc) => acc.accountId === action.payload.accountId
+      );
+      if (account) {
+        account.leverage = action.payload.leverage;
+        console.log(`[MT5] ✅ Updated account ${action.payload.accountId} leverage to ${action.payload.leverage} in Redux state`);
+      }
+    },
     addAccountOptimistically: (state, action: PayloadAction<MT5Account>) => {
       // Add new account immediately without waiting for fetch
       const exists = state.accounts.some(acc => acc.accountId === action.payload.accountId);
@@ -1036,6 +1060,6 @@ const mt5AccountSlice = createSlice({
 // --------------------
 // Exports
 // --------------------
-export const { setSelectedAccount, clearError, updateAccountBalance, resetForNewClient, addAccountOptimistically } =
+export const { setSelectedAccount, clearError, updateAccountBalance, updateAccountName, updateAccountLeverage, resetForNewClient, addAccountOptimistically } =
   mt5AccountSlice.actions;
 export default mt5AccountSlice.reducer;

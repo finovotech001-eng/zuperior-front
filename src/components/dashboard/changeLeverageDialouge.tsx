@@ -17,10 +17,21 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
-import { useAppDispatch } from "@/store/hooks";
 import axios from "axios";
 import { useFetchUserData } from "@/hooks/useFetchUserData";
+import { fetchUserAccountsFromDb, updateAccountLeverage } from "@/store/slices/mt5AccountSlice";
+import { useDispatch } from "react-redux";
+
+// Standard leverage options available in MT5
+const LEVERAGE_OPTIONS = [
+  { value: "100", label: "1:100" },
+  { value: "200", label: "1:200" },
+  { value: "300", label: "1:300" },
+  { value: "500", label: "1:500" },
+  { value: "1000", label: "1:1000" },
+  { value: "1500", label: "1:1500" },
+  { value: "2000", label: "1:2000" },
+];
 
 export default function ChangeLeverageDialog({
   open,
@@ -33,37 +44,17 @@ export default function ChangeLeverageDialog({
   accountNumber: string;
   currency: string;
 }) {
-  const dispatch = useAppDispatch();
-  const [leverages, setLeverages] = useState<string[]>([]);
+  const dispatch = useDispatch();
   const [selectedLeverage, setSelectedLeverage] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { fetchAllData } = useFetchUserData();
 
-  // Fetch available leverages when dialog opens
+  // Reset selected leverage when dialog opens
   useEffect(() => {
-    const fetchLeverages = async () => {
-      try {
-        const freshToken = await dispatch(fetchAccessToken()).unwrap();
-
-        const res = await axios.get("/api/leverage", {
-          params: {
-            access_token: freshToken || "",
-            account_number: accountNumber,
-            currency: currency,
-          },
-        });
-
-        const data = res.data;
-
-        setLeverages(data?.leverage_presets || []);
-      } catch (err) {
-        console.error("Fetch error:", err);
-        toast.error("Could not fetch leverages");
-      }
-    };
-
-    if (open) fetchLeverages();
-  }, [open, accountNumber, currency, dispatch]);
+    if (open) {
+      setSelectedLeverage("");
+    }
+  }, [open]);
 
   // Confirm handler
   const handleConfirm = async () => {
@@ -74,35 +65,43 @@ export default function ChangeLeverageDialog({
 
     setLoading(true);
     try {
-      const freshToken = await dispatch(fetchAccessToken()).unwrap();
+      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      
+      if (!token) {
+        throw new Error("Authentication required. Please log in again.");
+      }
 
-      const params = new URLSearchParams();
-      params.append("access_token", freshToken || "");
-      params.append("account_number", accountNumber);
-      params.append("currency", currency);
-      params.append("requested_leverage", selectedLeverage);
-
-      const res = await axios.put("/api/leverage", params.toString(), {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      });
+      const res = await axios.put(
+        `/api/mt5/update-account/${accountNumber}/leverage`,
+        { leverage: parseInt(selectedLeverage) },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       const data = res.data;
       console.log("Change leverage response:", data);
 
-      if (data.status_code !== "1") {
-        console.error("Change leverage failed:", data);
+      if (data.success) {
+        // Immediately update Redux state with new leverage (instant UI update)
+        dispatch(updateAccountLeverage({ 
+          accountId: accountNumber, 
+          leverage: parseInt(selectedLeverage) 
+        }));
+        
+        toast.success("Leverage changed successfully!");
+
+        // Then refresh from database to ensure consistency (async, won't block UI)
+        dispatch(fetchUserAccountsFromDb() as any);
+        await fetchAllData(); // Refresh all user data
+
+        onOpenChange(false);
+      } else {
         throw new Error(data.message || "Change leverage failed");
       }
-
-      toast.success("Leverage changed successfully!");
-
-      // await dispatch(getSingleAccountDetails({ account_number: accountNumber })); // Refresh specific account details
-      await fetchAllData(); // Refresh all user data including accounts
-      // To do: should ideally only refresh the specific account details instead of all data
-      onOpenChange(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Change leverage error:", err);
 
@@ -145,21 +144,15 @@ export default function ChangeLeverageDialog({
             </SelectTrigger>
 
             <SelectContent className="border-[#1e171e] bg-white dark:bg-[#060207]">
-              {Array.isArray(leverages) && leverages.length > 0 ? (
-                leverages.map((lev, idx) => (
-                  <SelectItem
-                    key={idx}
-                    value={lev}
-                    className="text-black dark:text-white/75"
-                  >
-                    {lev}
-                  </SelectItem>
-                ))
-              ) : (
-                <div className="p-2 text-sm text-black dark:text-white/75">
-                  Loading..
-                </div>
-              )}
+              {LEVERAGE_OPTIONS.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="text-black dark:text-white/75"
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
