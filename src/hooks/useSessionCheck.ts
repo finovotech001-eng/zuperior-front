@@ -70,8 +70,13 @@ export function useSessionCheck() {
     };
 
     // Setup websocket listener if available
-    // Attempt socket connection only if backend URL is properly configured (not localhost default)
+    // Note: Socket.io is optional - polling will handle session checks if socket fails
     const socketRef = { current: null as any };
+    
+    // Skip socket connection entirely if socket.io might not be available
+    // Socket is purely optional - polling provides the same functionality
+    // Uncomment below if socket.io support is confirmed on backend
+    /*
     const isProductionUrl = backendApiUrl && !backendApiUrl.includes('localhost') && !backendApiUrl.includes('127.0.0.1');
     
     if (isProductionUrl) {
@@ -79,39 +84,65 @@ export function useSessionCheck() {
         try {
           const io = await getSocket();
           if (io && typeof io === 'function') {
+            // Suppress all socket.io console errors
+            const originalError = console.error;
+            const originalWarn = console.warn;
+            
+            // Temporarily suppress console errors for socket.io
+            console.error = (...args: any[]) => {
+              if (args[0]?.toString().includes('socket.io') || args[0]?.toString().includes('WebSocket')) {
+                return; // Suppress socket.io errors
+              }
+              originalError.apply(console, args);
+            };
+            console.warn = (...args: any[]) => {
+              if (args[0]?.toString().includes('socket.io') || args[0]?.toString().includes('WebSocket')) {
+                return; // Suppress socket.io warnings
+              }
+              originalWarn.apply(console, args);
+            };
+            
             socketRef.current = io(serverBaseUrl, {
               transports: ['websocket'],
               withCredentials: true,
-              reconnection: false, // Disable auto-reconnection to reduce console errors
-              timeout: 5000, // Short timeout
+              reconnection: false,
+              timeout: 3000,
+              autoConnect: false, // Manual connection
             });
             
+            // Restore console after socket setup
+            setTimeout(() => {
+              console.error = originalError;
+              console.warn = originalWarn;
+            }, 100);
+            
+            // Set up all event handlers before connecting
             socketRef.current.on('connect', () => {
               socketRef.current.emit('auth', { token });
             });
             
             socketRef.current.on('auth:ok', () => {
-              console.log('Socket authenticated successfully');
+              // Silent success
             });
             
             socketRef.current.on('account-deleted', () => {
               handleLogout('deleted');
             });
             
-            // Silently handle connection errors - polling will handle session checks
-            socketRef.current.on('connect_error', () => {
-              // Silently ignore - polling fallback is active
-            });
+            // Suppress all error events
+            socketRef.current.on('connect_error', () => {});
+            socketRef.current.on('disconnect', () => {});
+            socketRef.current.on('error', () => {});
             
-            socketRef.current.on('disconnect', () => {
-              // Silently ignore - polling fallback is active
-            });
+            // Attempt connection silently
+            socketRef.current.connect();
           }
         } catch (e) {
-          // Silently handle errors - polling will handle session checks
+          // Silently ignore - polling is the primary method
         }
       })();
     }
+    */
 
     // Fallback polling check
     let timer: any;
