@@ -38,6 +38,84 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// Track if token refresh is in progress to avoid multiple simultaneous refresh calls
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (error?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Function to validate/refresh session
+const refreshToken = async (): Promise<string | null> => {
+  if (isRefreshing) {
+    // Wait for ongoing refresh
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+
+  try {
+    const currentToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    
+    if (!currentToken) {
+      throw new Error('No token available');
+    }
+
+    // Try to validate session with backend
+    try {
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+      const checkResponse = await axios.get(`${BACKEND_URL}/auth/session/check-valid`, {
+        headers: {
+          'Authorization': `Bearer ${currentToken}`,
+        },
+        timeout: 10000,
+      });
+
+      // If session is valid, return current token
+      if (checkResponse.status === 200) {
+        processQueue(null, currentToken);
+        return currentToken;
+      }
+    } catch (sessionError: any) {
+      // If session check fails (401/403), token is invalid - redirect to login
+      if (sessionError.response?.status === 401 || sessionError.response?.status === 403) {
+        console.warn('Session invalid, redirecting to login');
+        authService.clearAuthData();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        throw new Error('Session expired');
+      }
+    }
+    
+    // If we get here, session might still be valid, return current token
+    processQueue(null, currentToken);
+    return currentToken;
+  } catch (error) {
+    processQueue(error, null);
+    authService.clearAuthData();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    throw error;
+  } finally {
+    isRefreshing = false;
+  }
+};
+
 // Attach token
 api.interceptors.request.use(
   (config) => {
@@ -46,6 +124,67 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+// Response interceptor for token refresh and retry
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If error is 401 and we haven't tried to refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await refreshToken();
+        // Retry original request with new token
+        const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+        if (token) {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+        }
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle timeout errors - retry with exponential backoff
+    if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && 
+        originalRequest && 
+        !originalRequest._retry && 
+        !originalRequest._retryCount) {
+      
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+      const maxRetries = 2;
+      
+      if (originalRequest._retryCount <= maxRetries) {
+        // Exponential backoff: 1s, 2s
+        const delay = originalRequest._retryCount * 1000;
+        
+        // Try refreshing token before retry
+        try {
+          await refreshToken();
+        } catch (refreshError) {
+          // If refresh fails, continue with retry anyway
+          console.warn('Token refresh failed, retrying with existing token');
+        }
+
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            // Update token in request
+            const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            resolve(api(originalRequest));
+          }, delay);
+        });
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 // --- Authentication Service Functions ---
@@ -221,20 +360,54 @@ const mt5Service = {
    * This is the route used for fetching client details (every 400ms for balance/profit)
    */
   getAccountProfile: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
-    try {
-      // Call MT5 user profile endpoint through backend
-      // The backend controller handles authentication with Bearer token if needed
-      // Increased timeout to 60 seconds to handle slow MT5 API responses
-      const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
-        signal: opts?.signal,
-        timeout: 60000 // 60 seconds timeout
-      });
-      
-      return normalizeOk(response.data);
-    } catch (error: any) {
-      console.error(`Error fetching account profile for ${accountId}:`, error);
-      throw error;
+    const maxRetries = 2;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Call MT5 user profile endpoint through backend
+        // The backend controller handles authentication with Bearer token if needed
+        // Increased timeout to 60 seconds to handle slow MT5 API responses
+        const response = await api.get(`/api/mt5/user-profile/${accountId}`, {
+          signal: opts?.signal,
+          timeout: 60000, // 60 seconds timeout
+          _retryCount: attempt, // Track retry count
+        });
+        
+        return normalizeOk(response.data);
+      } catch (error: any) {
+        lastError = error;
+        
+        // If it's a timeout and we haven't exceeded max retries
+        if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) && attempt < maxRetries) {
+          console.log(`⏱️ Timeout error for account ${accountId}, retrying (attempt ${attempt + 1}/${maxRetries})`);
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 1000));
+          continue; // Retry
+        }
+
+        // If it's a 401 or other auth error, try refreshing token once
+        if (error.response?.status === 401 && attempt === 0) {
+          try {
+            await refreshToken();
+            console.log(`🔄 Retrying account profile fetch for ${accountId} after token refresh`);
+            continue; // Retry once after refresh
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+            throw refreshError;
+          }
+        }
+
+        // If aborted or other non-retryable error, throw immediately
+        if (opts?.signal?.aborted || attempt >= maxRetries) {
+          throw error;
+        }
+      }
     }
+
+    // If we get here, all retries failed
+    console.error(`Error fetching account profile for ${accountId} after ${maxRetries} retries:`, lastError);
+    throw lastError;
   },
 
   /** Get only Balance and Profit for efficient polling (every 400ms) */

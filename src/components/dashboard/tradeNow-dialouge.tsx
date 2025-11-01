@@ -26,14 +26,36 @@ const TradeNowDialouge = ({
     setStep(1);
   }, []);
 
-  // Handle Web Terminal click with auto-login
-  const handleWebTerminalClick = useCallback(() => {
+  // Handle Web Terminal click with auto-login and set default account
+  const handleWebTerminalClick = useCallback(async () => {
     const token = localStorage.getItem('userToken');
     const clientId = localStorage.getItem('clientId');
     
     if (!token || !clientId) {
       console.error('No authentication credentials found');
       return;
+    }
+
+    // Set this account as default before opening terminal
+    try {
+      const response = await fetch('/api/mt5/set-default-account', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accountId: mtLogin }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Default MT5 account set successfully');
+      } else {
+        console.warn('⚠️ Failed to set default account:', data.message);
+      }
+    } catch (error) {
+      console.error('❌ Error setting default account:', error);
+      // Don't block opening terminal if this fails
     }
 
     // Get terminal URL from environment variable
@@ -44,7 +66,7 @@ const TradeNowDialouge = ({
     // Close the dialog after opening terminal
     setTradeNowDialog(false);
     resetAllStates();
-  }, [setTradeNowDialog, resetAllStates]);
+  }, [setTradeNowDialog, resetAllStates, mtLogin]);
 
   return (
     <Dialog
