@@ -133,12 +133,25 @@ export function CreditCardDialog({
         }),
       });
 
-      const data = await response.json();
-      console.log('💳 API response:', data);
+      let data;
+      try {
+        data = await response.json();
+        console.log('💳 API response:', data);
+      } catch (jsonError) {
+        const text = await response.text();
+        console.error('❌ Failed to parse API response as JSON:', text);
+        throw new Error("Invalid response from server");
+      }
 
       if (response.status !== 200) {
-        console.error('❌ API returned error:', data);
-        throw new Error(data.error || data.details || data.message || "Payment initiation failed");
+        console.error('❌ API returned error status:', response.status);
+        console.error('❌ API response body:', data);
+        console.error('❌ API error field:', data?.error);
+        console.error('❌ API details field:', data?.details);
+        console.error('❌ API message field:', data?.message);
+        console.error('❌ Full error object:', JSON.stringify(data, null, 2));
+        // Prefer details over error for more specific messages
+        throw new Error(data?.details || data?.error || data?.message || "Payment initiation failed");
       }
 
       if (!data.redirectUrl) {
@@ -155,10 +168,14 @@ export function CreditCardDialog({
       
       // Provide user-friendly error messages
       if (errorMessage.includes('whitelist')) {
-        errorMessage = "IP whitelist error: Please contact support to add your server IP to Cregis whitelist";
+        // Extract IP from error for better UX
+        const ipMatch = errorMessage.match(/IP:\s*([\da-f.:]+)/i);
+        const detectedIp = ipMatch ? ipMatch[1] : 'your server';
+        
+        errorMessage = `IP whitelist configuration required (IP: ${detectedIp})`;
         toast.error("Configuration Required", {
-          description: "Your server IP needs to be whitelisted in Cregis. Please contact support or check Cregis documentation.",
-          duration: 8000,
+          description: `Your server IP needs to be whitelisted in Cregis. Please add your IP to the Cregis dashboard or contact support. See CREGIS_WHITELIST_SETUP.md for details.`,
+          duration: 10000,
         });
       } else {
         toast.error("Payment Error", {

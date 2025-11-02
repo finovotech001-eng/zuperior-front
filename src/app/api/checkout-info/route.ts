@@ -3,9 +3,9 @@ import crypto from "crypto";
 import axios, { AxiosError } from "axios";
 
 const config = {
-  PAYMENT_ENGINE_KEY: process.env.CREGIS_PAYMENT_SECRET || "",
-  BASE_URL: process.env.CREGIS_BASE_URL || "",
-  MERCHANT_ID: process.env.CREGIS_MERCHANT_ID || "",
+  PAYMENT_ENGINE_KEY: process.env.CREGIS_PAYMENT_API_KEY || process.env.CREGIS_PAYMENT_SECRET || "",
+  BASE_URL: process.env.CREGIS_GATEWAY_URL || process.env.CREGIS_BASE_URL || "",
+  MERCHANT_ID: process.env.CREGIS_PAYMENT_PROJECT_ID || process.env.CREGIS_MERCHANT_ID || "",
 };
 
 function generateSignature(params: Record<string, unknown>, secretKey: string): string {

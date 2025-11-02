@@ -70,9 +70,10 @@ const config = {
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(req: NextRequest) {
+  console.log('🚀 [EPAY] Starting card payment request processing');
   try {
     const body = await req.json();
-    console.log('💳 Received card payment request:', body);
+    console.log('💳 [EPAY] Received card payment request:', body);
 
     const {
       orderAmount,
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
     if (account_number) callbackUrl.searchParams.set('account', account_number);
     if (account_type) callbackUrl.searchParams.set('type', account_type);
 
-    console.log('💳 Creating Cregis payment order for card deposit:', {
+    console.log('💳 [EPAY] Creating Cregis payment order for card deposit:', {
       orderAmount,
       account_number,
       account_type,
@@ -141,84 +142,126 @@ export async function POST(req: NextRequest) {
     // Note: Cregis may require payer_id for card payments, using account number as unique ID
     const payerId = account_number || `${Date.now()}`;
     
-    console.log('📝 Using payer_id:', payerId);
-    
-    const result = await createPaymentOrder({
+    console.log('📝 [EPAY] Using payer_id:', payerId);
+    console.log('📝 [EPAY] Calling createPaymentOrder with:', {
       orderAmount: formattedAmount,
-      orderCurrency: "USD", // Card payments in USD
+      orderCurrency: "USD",
       callbackUrl: callbackUrl.toString(),
       successUrl,
       cancelUrl,
-      payerId: payerId,
+      payerId,
       validTime: Number(config.VALID_TIME) || 600,
     });
+    
+    try {
+      const result = await createPaymentOrder({
+        orderAmount: formattedAmount,
+        orderCurrency: "USD", // Card payments in USD
+        callbackUrl: callbackUrl.toString(),
+        successUrl,
+        cancelUrl,
+        payerId: payerId,
+        validTime: Number(config.VALID_TIME) || 600,
+      });
 
-    if (!result.success) {
-      console.error("❌ Cregis payment order failed:", result.error);
-      console.error("❌ Full result:", JSON.stringify(result, null, 2));
+      console.log('📥 [EPAY] createPaymentOrder result:', {
+        success: result.success,
+        hasError: !!result.error,
+        hasData: !!result.data
+      });
+
+      if (!result.success) {
+        console.error("❌ [EPAY] Cregis payment order failed:", result.error);
+        console.error("❌ [EPAY] Full result:", JSON.stringify(result, null, 2));
+        return NextResponse.json(
+          {
+            error: "Payment initiation failed",
+            details: result.error,
+            code: "CREGIS_ERROR",
+          },
+          { status: 400 }
+        );
+      }
+
+      console.log("✅ [EPAY] Cregis payment order created successfully for card deposit");
+      console.log("📋 [EPAY] Payment data:", JSON.stringify(result.data, null, 2));
+
+      // Call backend to create deposit record
+      try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get('token')?.value;
+
+        if (token) {
+          console.log('📞 [EPAY] Calling backend to create deposit record...');
+          
+          const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-card`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              mt5AccountId: account_number,
+              amount: formattedAmount,
+              cregisOrderId: result.data?.orderId,
+              paymentUrl: result.data?.paymentUrl,
+              currency: 'USD',
+            }),
+          });
+
+          if (backendResponse.ok) {
+            const backendData = await backendResponse.json();
+            console.log('✅ [EPAY] Deposit record created in backend:', backendData);
+          } else {
+            console.warn('⚠️ [EPAY] Failed to create deposit record in backend:', await backendResponse.text());
+          }
+        } else {
+          console.warn('⚠️ [EPAY] No auth token found in cookies, skipping backend call');
+        }
+      } catch (backendError) {
+        console.error('❌ [EPAY] Error calling backend:', backendError);
+        // Continue even if backend call fails - we still want to return the payment URL
+      }
+
+      // Return data in format expected by frontend
+      return NextResponse.json({
+        orderId: result.data?.orderId,
+        transactionId: result.data?.cregisId,
+        redirectUrl: result.data?.paymentUrl,
+      }, { status: 200 });
+    
+    } catch (createOrderError) {
+      console.error('❌ [EPAY] Error creating payment order:', createOrderError);
+      console.error('❌ [EPAY] createOrderError type:', typeof createOrderError);
+      console.error('❌ [EPAY] createOrderError details:', JSON.stringify(createOrderError, null, 2));
+      console.error('❌ [EPAY] createOrderError message:', createOrderError instanceof Error ? createOrderError.message : String(createOrderError));
+      
+      // Return error response directly instead of throwing
+      const errorMsg = createOrderError instanceof Error ? createOrderError.message : String(createOrderError);
       return NextResponse.json(
         {
           error: "Payment initiation failed",
-          details: result.error,
-          code: "CREGIS_ERROR",
+          details: errorMsg,
+          code: "CREGIS_ERROR"
         },
         { status: 400 }
       );
     }
 
-    console.log("✅ Cregis payment order created successfully for card deposit");
-    console.log("📋 Payment data:", JSON.stringify(result.data, null, 2));
-
-    // Call backend to create deposit record
-    try {
-      const cookieStore = await cookies();
-      const token = cookieStore.get('token')?.value;
-
-      if (token) {
-        console.log('📞 Calling backend to create deposit record...');
-        
-        const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-card`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            mt5AccountId: account_number,
-            amount: formattedAmount,
-            cregisOrderId: result.data?.orderId,
-            paymentUrl: result.data?.paymentUrl,
-            currency: 'USD',
-          }),
-        });
-
-        if (backendResponse.ok) {
-          const backendData = await backendResponse.json();
-          console.log('✅ Deposit record created in backend:', backendData);
-        } else {
-          console.warn('⚠️ Failed to create deposit record in backend:', await backendResponse.text());
-        }
-      } else {
-        console.warn('⚠️ No auth token found in cookies, skipping backend call');
-      }
-    } catch (backendError) {
-      console.error('❌ Error calling backend:', backendError);
-      // Continue even if backend call fails - we still want to return the payment URL
-    }
-
-    // Return data in format expected by frontend
-    return NextResponse.json({
-      orderId: result.data?.orderId,
-      transactionId: result.data?.cregisId,
-      redirectUrl: result.data?.paymentUrl,
-    }, { status: 200 });
-
   } catch (error: any) {
-    console.error("❌ Credit card deposit error:", error);
-    console.error("❌ Error stack:", error.stack);
+    console.error("❌ [EPAY] Credit card deposit error:", error);
+    console.error("❌ [EPAY] Error stack:", error.stack);
+    console.error("❌ [EPAY] Error type:", typeof error);
+    console.error("❌ [EPAY] Error details:", JSON.stringify(error, null, 2));
     
     // Provide helpful error message
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    console.error("❌ [EPAY] Returning error response:", {
+      error: "Payment initiation failed",
+      details: errorMessage,
+      code: "INTERNAL_ERROR"
+    });
     
     return NextResponse.json(
       {

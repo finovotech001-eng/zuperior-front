@@ -12,6 +12,16 @@ const PAYMENT_CONFIG = {
   GATEWAY_URL: process.env.CREGIS_GATEWAY_URL || "https://t-rwwagnvw.cregis.io",
 };
 
+// Log configuration on first load (in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 [Cregis] Payment Config:', {
+    hasEnvProjectId: !!process.env.CREGIS_PAYMENT_PROJECT_ID,
+    hasEnvApiKey: !!process.env.CREGIS_PAYMENT_API_KEY,
+    hasEnvGateway: !!process.env.CREGIS_GATEWAY_URL,
+    gatewayUrl: PAYMENT_CONFIG.GATEWAY_URL
+  });
+}
+
 // Cregis WaaS Configuration (Withdrawals)
 const WAAS_CONFIG = {
   PROJECT_ID: process.env.CREGIS_WAAS_PROJECT_ID || "1435226266132480",
@@ -169,7 +179,10 @@ export async function createPaymentOrder({
       
       // Provide helpful error messages for common issues
       if (errorMessage.includes('whitelist')) {
-        throw new Error(`IP whitelist error: Your server IP needs to be added to Cregis whitelist. IP: ${errorMessage.match(/[\d.]+$/)?.[0] || 'unknown'}. Please contact Cregis support to add this IP.`);
+        // Extract IP from error message (supports both IPv4 and IPv6)
+        const ipMatch = errorMessage.match(/[\da-f.:]+$/i);
+        const detectedIp = ipMatch ? ipMatch[0] : 'your server IP';
+        throw new Error(`IP whitelist error: Your server IP needs to be added to Cregis whitelist. IP: ${detectedIp}. Please contact Cregis support to add this IP to the whitelist.`);
       }
       
       throw new Error(`Cregis API error: ${errorMessage}`);

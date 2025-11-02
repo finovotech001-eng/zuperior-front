@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { useSelector, useDispatch } from "react-redux";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent } from "../ui/tabs";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Dialog, DialogTrigger } from "../ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { RootState } from "../../store";
@@ -223,16 +223,6 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
           </motion.h2>
         </AnimatePresence>
         <div className="flex gap-2 items-center">
-          <Button
-            onClick={() => {
-              console.log('🔄 Manual refresh triggered by user');
-              dispatch(fetchAllAccountsWithBalance() as any);
-            }}
-            className="relative gap-1 cursor-pointer font-semibold text-white/90 rounded-[15px] px-4 py-2.5 text-xs leading-6 h-11 bg-purple-600/80 hover:bg-purple-600"
-            title="Refresh account balances"
-          >
-            <RefreshCw className="w-3 h-3" /> Refresh
-          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button

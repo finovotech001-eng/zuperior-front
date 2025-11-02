@@ -188,7 +188,7 @@ export function CreditStep1Form({
                         {selectedAccountObj.accountId} ({getAccountPackage(selectedAccountObj)})
                       </span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        ${selectedAccountObj.balance.toFixed(2)}
+                        ${(selectedAccountObj.balance || 0).toFixed(2)}
                       </span>
                     </span>
                   ) : (
@@ -215,7 +215,7 @@ export function CreditStep1Form({
                       {account.accountId} ({getAccountPackage(account)})
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      ${account.balance.toFixed(2)}
+                      ${(account.balance || 0).toFixed(2)}
                     </span>
                   </SelectItem>
                 ))}

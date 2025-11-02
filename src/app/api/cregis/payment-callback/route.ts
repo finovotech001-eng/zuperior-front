@@ -67,59 +67,92 @@ export async function POST(req: NextRequest) {
       console.warn("⚠️ No signature provided in callback - skipping verification");
     }
 
-    // TODO: Save to database
-    // You should:
-    // 1. Find the deposit record by third_party_id or cregis_id
-    // 2. Update the deposit status based on 'status' field
-    // 3. If status is 'paid' or 'complete', update MT5 balance
-    // 4. Send notification to user
-    
-    const paymentData = {
-      pid,
-      cregisId: cregis_id,
-      thirdPartyId: third_party_id,
-      status,
-      orderAmount: order_amount,
-      orderCurrency: order_currency,
-      receivedAmount: received_amount,
-      paidCurrency: paid_currency,
-      txid,
-      txHash: tx_hash,
-      fromAddress: from_address,
-      toAddress: to_address,
-      blockHeight: block_height,
-      blockTime: block_time,
-      eventName: event_name,
-      eventType: event_type,
-      timestamp,
-    };
-
-    console.log("📊 Payment callback data:", paymentData);
-
-    // Status values: 'pending', 'paid', 'complete', 'expired', 'cancelled', 'failed'
+    // Map Cregis status to internal deposit status
     const depositStatus = mapCregisStatusToDepositStatus(status);
     console.log("📋 Mapped deposit status:", status, "->", depositStatus);
 
-    // Log important payment events
-    if (status === 'paid' || status === 'complete') {
-      console.log('✅ Payment confirmed! Transaction:', {
-        cregisId: cregis_id,
-        thirdPartyId: third_party_id,
-        amount: received_amount || order_amount,
-        currency: paid_currency || order_currency,
-        txHash: tx_hash || txid
-      });
+    // Find and update deposit record in database
+    try {
+      // First, try to find deposit by cregis_id or third_party_id
+      const searchId = cregis_id || third_party_id;
       
-      if (to_address) {
-        console.log('📍 Crypto deposit address:', to_address);
+      if (!searchId) {
+        console.warn("⚠️ No cregis_id or third_party_id provided in callback");
+        return NextResponse.json({ 
+          success: false, 
+          message: "Missing cregis_id or third_party_id" 
+        }, { status: 400 });
       }
-    }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Callback processed successfully",
-      data: paymentData,
-    });
+      // Call backend to update deposit status
+      const updateResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-callback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cregis_id: cregis_id,
+          third_party_id: third_party_id,
+          status: depositStatus,
+          order_amount: order_amount,
+          order_currency: order_currency,
+          received_amount: received_amount,
+          paid_currency: paid_currency,
+          txid: txid,
+          tx_hash: tx_hash,
+          from_address: from_address,
+          to_address: to_address,
+          block_height: block_height,
+          block_time: block_time,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error("❌ Failed to update deposit in backend:", errorText);
+        
+        // Still return success to Cregis to prevent retries for transient errors
+        return NextResponse.json({ 
+          success: true, 
+          message: "Callback received but database update failed",
+          error: errorText
+        });
+      }
+
+      const updateData = await updateResponse.json();
+      console.log("✅ Deposit updated in database:", updateData);
+
+      // Log important payment events
+      if (status === 'paid' || status === 'complete') {
+        console.log('✅ Payment confirmed! Transaction:', {
+          cregisId: cregis_id,
+          thirdPartyId: third_party_id,
+          amount: received_amount || order_amount,
+          currency: paid_currency || order_currency,
+          txHash: tx_hash || txid
+        });
+        
+        if (to_address) {
+          console.log('📍 Crypto deposit address:', to_address);
+        }
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: "Callback processed successfully",
+        data: updateData,
+      });
+
+    } catch (dbError) {
+      console.error("❌ Database update error:", dbError);
+      
+      // Return success to Cregis to prevent retries
+      return NextResponse.json({ 
+        success: true, 
+        message: "Callback received but processing error occurred",
+        error: dbError instanceof Error ? dbError.message : "Unknown error"
+      });
+    }
   } catch (error: unknown) {
     console.error("❌ Error processing payment callback:", error);
     return NextResponse.json(
