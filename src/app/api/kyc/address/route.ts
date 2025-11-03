@@ -36,13 +36,25 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ Backend API Error:', errorData);
+      let errorData: any = {};
+      try {
+        const text = await response.text();
+        errorData = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.error('Failed to parse error response:', e);
+      }
+      
+      console.error('❌ Backend API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
       
       return NextResponse.json(
         {
-          error: errorData.message || 'Failed to submit address for verification',
-          success: false
+          error: errorData.message || errorData.error || 'Failed to submit address for verification',
+          success: false,
+          details: errorData.details || errorData.error
         },
         { status: response.status }
       );
