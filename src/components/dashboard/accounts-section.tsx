@@ -88,40 +88,75 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     dispatch(fetchUserAccountsFromDb() as any);
   }, [dispatch]);
 
-  // ✅ OPTIMIZED: Fetch all account balances in parallel using optimized endpoint (fast & accurate)
-  // CRITICAL: Always fetch fresh on mount and when accounts change
+  // ✅ AUTO-REFRESH: Fetch all account balances every 10 seconds to keep balances up-to-date
+  // Uses optimized endpoint that fetches all balances in parallel (fast & accurate)
   useEffect(() => {
-    if (accounts.length > 0) {
-      // Clear any cached balance data from localStorage on mount
-      if (typeof window !== 'undefined') {
-        try {
-          const persistRoot = localStorage.getItem('persist:root');
-          if (persistRoot) {
-            const parsed = JSON.parse(persistRoot);
-            if (parsed.mt5) {
-              const mt5Data = JSON.parse(parsed.mt5);
-              // Force clear accounts array from persisted data
-              if (mt5Data.accounts) {
-                mt5Data.accounts = [];
-                parsed.mt5 = JSON.stringify(mt5Data);
-                localStorage.setItem('persist:root', JSON.stringify(parsed));
-                console.log(`[AccountsSection] 🗑️ Cleared cached account balances from localStorage`);
-              }
+    // Clear any existing interval
+    if (balancePollIntervalRef.current) {
+      clearInterval(balancePollIntervalRef.current);
+      balancePollIntervalRef.current = null;
+    }
+
+    // Only start polling if we have accounts
+    if (accounts.length === 0) {
+      return;
+    }
+
+    // Clear any cached balance data from localStorage on first mount
+    if (typeof window !== 'undefined') {
+      try {
+        const persistRoot = localStorage.getItem('persist:root');
+        if (persistRoot) {
+          const parsed = JSON.parse(persistRoot);
+          if (parsed.mt5) {
+            const mt5Data = JSON.parse(parsed.mt5);
+            // Force clear accounts array from persisted data
+            if (mt5Data.accounts) {
+              mt5Data.accounts = [];
+              parsed.mt5 = JSON.stringify(mt5Data);
+              localStorage.setItem('persist:root', JSON.stringify(parsed));
+              console.log(`[AccountsSection] 🗑️ Cleared cached account balances from localStorage`);
             }
           }
-        } catch (e) {
-          console.warn(`[AccountsSection] ⚠️ Failed to clear cache:`, e);
         }
+      } catch (e) {
+        console.warn(`[AccountsSection] ⚠️ Failed to clear cache:`, e);
       }
-      
-      // Use optimized endpoint that fetches all balances in parallel (like admin panel)
-      console.log(`[AccountsSection] 🚀 Fetching all account balances in parallel (optimized) - ${accounts.length} accounts`);
-      // Force immediate fetch - no delay
-      dispatch(fetchAllAccountsWithBalance() as any);
     }
-  }, [accounts.length, dispatch]); // Run when account count changes or component mounts
+    
+    // Function to fetch balances - handles errors gracefully to prevent polling from stopping
+    const fetchBalances = () => {
+      console.log(`[AccountsSection] 🔄 Refreshing account balances (${accounts.length} accounts) - ${new Date().toLocaleTimeString()}`);
+      
+      // Dispatch the action - fire and forget style to ensure polling never stops
+      // The Redux reducer handles success/failure internally, and polling continues regardless
+      try {
+        dispatch(fetchAllAccountsWithBalance() as any);
+      } catch (error: any) {
+        // This should rarely happen, but if it does, log it and continue polling
+        console.warn(`[AccountsSection] ⚠️ Error dispatching balance fetch (will retry in 10s):`, error?.message || error);
+      }
+    };
 
-  // ✅ REMOVED: Automatic polling - balances now only fetch on mount/account change or manual refresh
+    // Fetch immediately on mount/account change
+    fetchBalances();
+
+    // Set up polling every 10 seconds
+    balancePollIntervalRef.current = setInterval(() => {
+      fetchBalances();
+    }, 10000); // 10 seconds
+
+    console.log(`[AccountsSection] ✅ Started automatic balance refresh every 10 seconds for ${accounts.length} accounts`);
+
+    // Cleanup on unmount or when accounts change
+    return () => {
+      if (balancePollIntervalRef.current) {
+        clearInterval(balancePollIntervalRef.current);
+        balancePollIntervalRef.current = null;
+        console.log(`[AccountsSection] 🛑 Stopped automatic balance refresh`);
+      }
+    };
+  }, [accounts.length, dispatch]); // Re-run when account count changes
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
