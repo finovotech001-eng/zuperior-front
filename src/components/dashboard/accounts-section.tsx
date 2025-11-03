@@ -90,17 +90,35 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
 
   // ✅ AUTO-REFRESH: Fetch all account balances every 10 seconds to keep balances up-to-date
   // Uses optimized endpoint that fetches all balances in parallel (fast & accurate)
-  useEffect(() => {
-    // Clear any existing interval
-    if (balancePollIntervalRef.current) {
-      clearInterval(balancePollIntervalRef.current);
-      balancePollIntervalRef.current = null;
-    }
+  const accountsRef = useRef(accounts);
+  const dispatchRef = useRef(dispatch);
+  const hasInitializedRef = useRef(false);
 
-    // Only start polling if we have accounts
-    if (accounts.length === 0) {
+  // Update refs when values change (but don't restart polling)
+  useEffect(() => {
+    accountsRef.current = accounts;
+    dispatchRef.current = dispatch;
+  }, [accounts, dispatch]);
+
+  useEffect(() => {
+    // Skip if already initialized and interval is running - don't restart polling
+    if (hasInitializedRef.current && balancePollIntervalRef.current) {
       return;
     }
+
+    // Only start polling when accounts first become available
+    if (accounts.length === 0) {
+      // Clear interval if no accounts and interval exists
+      if (balancePollIntervalRef.current) {
+        clearInterval(balancePollIntervalRef.current);
+        balancePollIntervalRef.current = null;
+        hasInitializedRef.current = false;
+      }
+      return;
+    }
+
+    // Mark as initialized to prevent restarting on subsequent account updates
+    hasInitializedRef.current = true;
 
     // Clear any cached balance data from localStorage on first mount
     if (typeof window !== 'undefined') {
@@ -124,39 +142,48 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
       }
     }
     
-    // Function to fetch balances - handles errors gracefully to prevent polling from stopping
+    // Function to fetch balances - uses ref to get latest accounts without restarting effect
     const fetchBalances = () => {
-      console.log(`[AccountsSection] 🔄 Refreshing account balances (${accounts.length} accounts) - ${new Date().toLocaleTimeString()}`);
+      const currentAccounts = accountsRef.current;
+      if (currentAccounts.length === 0) {
+        console.log(`[AccountsSection] ⏭️ Skipping balance refresh - no accounts`);
+        return;
+      }
+      
+      console.log(`[AccountsSection] 🔄 Refreshing account balances (${currentAccounts.length} accounts) - ${new Date().toLocaleTimeString()}`);
       
       // Dispatch the action - fire and forget style to ensure polling never stops
       // The Redux reducer handles success/failure internally, and polling continues regardless
       try {
-        dispatch(fetchAllAccountsWithBalance() as any);
+        dispatchRef.current(fetchAllAccountsWithBalance() as any);
       } catch (error: any) {
         // This should rarely happen, but if it does, log it and continue polling
         console.warn(`[AccountsSection] ⚠️ Error dispatching balance fetch (will retry in 10s):`, error?.message || error);
       }
     };
 
-    // Fetch immediately on mount/account change
+    // Fetch immediately on mount
     fetchBalances();
 
-    // Set up polling every 10 seconds
+    // Set up polling every 10 seconds - this will continue until component unmounts
     balancePollIntervalRef.current = setInterval(() => {
       fetchBalances();
     }, 10000); // 10 seconds
 
     console.log(`[AccountsSection] ✅ Started automatic balance refresh every 10 seconds for ${accounts.length} accounts`);
+  }, [accounts.length]); // Check when accounts become available, but guard prevents restarting
 
-    // Cleanup on unmount or when accounts change
+  // Cleanup on unmount only
+  useEffect(() => {
     return () => {
       if (balancePollIntervalRef.current) {
         clearInterval(balancePollIntervalRef.current);
         balancePollIntervalRef.current = null;
-        console.log(`[AccountsSection] 🛑 Stopped automatic balance refresh`);
+        hasInitializedRef.current = false;
+        console.log(`[AccountsSection] 🛑 Stopped automatic balance refresh - component unmounting`);
       }
     };
-  }, [accounts.length, dispatch]); // Re-run when account count changes
+  }, []); // Only run cleanup on unmount
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
