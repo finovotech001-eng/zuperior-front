@@ -77,7 +77,7 @@ function generateSignature(
  * @param successUrl - Redirect URL after successful payment
  * @param cancelUrl - Redirect URL after cancelled payment
  * @param payerId - Optional payer ID
- * @param validTime - Optional valid time in seconds (default 600 = 10 minutes)
+ * @param validTime - Optional valid time in MINUTES (default 30, range: 10-60 minutes)
  */
 export async function createPaymentOrder({
   orderAmount,
@@ -86,7 +86,7 @@ export async function createPaymentOrder({
   successUrl,
   cancelUrl,
   payerId,
-  validTime = 600,
+  validTime = 30,
 }: {
   orderAmount: string;
   orderCurrency: string;
@@ -112,6 +112,12 @@ export async function createPaymentOrder({
     }
     if (!cancelUrl || cancelUrl.trim() === '') {
       throw new Error('cancelUrl must not be empty');
+    }
+    
+    // Validate validTime is within Cregis acceptable range (10-60 minutes)
+    if (validTime < 10 || validTime > 60) {
+      console.warn(`⚠️ validTime ${validTime} is outside Cregis range (10-60 minutes). Clamping to valid range.`);
+      validTime = Math.max(10, Math.min(60, validTime));
     }
 
     const orderId = crypto.randomUUID();
@@ -168,14 +174,24 @@ export async function createPaymentOrder({
 
     const data = await response.json();
     console.log("📥 Cregis API response:", JSON.stringify(data, null, 2));
+    console.log("📥 Cregis response code:", data.code);
+    console.log("📥 Cregis response msg:", data.msg);
 
     if (data.code !== "00000") {
       const errorMessage = data.msg || "Unknown error";
       console.error("❌ Cregis API error details:", {
         code: data.code,
         msg: errorMessage,
-        data: data.data
+        data: data.data,
+        fullResponse: data
       });
+      
+      console.error("💡 Troubleshooting hints:");
+      if (errorMessage.includes('checkout counter')) {
+        console.error("   → This usually means currency format is incorrect or currency not enabled for Payment Engine");
+        console.error("   → Try checking available currencies with /api/cregis/check-currencies");
+        console.error("   → Contact Cregis support to enable this currency for Payment Engine API");
+      }
       
       // Provide helpful error messages for common issues
       if (errorMessage.includes('whitelist')) {
@@ -189,16 +205,44 @@ export async function createPaymentOrder({
     }
 
     console.log("✅ Payment order created successfully:", data);
+    
+    // Extract payment data from Cregis response
+    const paymentData = {
+      cregisId: data.data?.cregis_id,
+      paymentUrl: data.data?.payment_url,
+      qrCode: data.data?.qr_code,
+      expireTime: data.data?.expire_time,
+      orderId,
+    };
+    
+    console.log("📋 Extracted payment data:", {
+      hasCregisId: !!paymentData.cregisId,
+      hasPaymentUrl: !!paymentData.paymentUrl,
+      hasQrCode: !!paymentData.qrCode,
+      hasExpireTime: !!paymentData.expireTime,
+      orderId: paymentData.orderId,
+      paymentUrl: paymentData.paymentUrl || 'MISSING',
+    });
+    
+    // Verify payment_url is present
+    if (!paymentData.paymentUrl) {
+      console.error("❌ Missing payment_url in Cregis response!");
+      console.error("📋 Full data.data object:", JSON.stringify(data.data, null, 2));
+      console.error("💡 Possible causes:");
+      console.error("   1. Currency not supported/enabled for this project");
+      console.error("   2. Card payments not enabled in Cregis dashboard");
+      console.error("   3. Test environment limitations");
+      console.error("   4. Project configuration incomplete");
+      console.error("📝 Action required:");
+      console.error("   - Check Cregis dashboard for enabled payment methods");
+      console.error("   - Verify currency code is correct for your region");
+      console.error("   - Contact Cregis support to enable card payments");
+      throw new Error(`Cregis API did not return a payment URL. Currency '${orderCurrency}' may not be enabled for your project, or card payments need to be activated. Check console logs and Cregis dashboard.`);
+    }
 
     return {
       success: true,
-      data: {
-        cregisId: data.data?.cregis_id,
-        paymentUrl: data.data?.payment_url,
-        qrCode: data.data?.qr_code,
-        expireTime: data.data?.expire_time,
-        orderId,
-      },
+      data: paymentData,
     };
   } catch (error: unknown) {
     console.error("❌ Error creating payment order:", error);

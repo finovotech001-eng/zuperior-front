@@ -55,9 +55,22 @@
 // }
 
 
-// app/api/epay/route.ts - Updated to use Cregis Payment Gateway
+/**
+ * app/api/epay/route.ts - USDT TRC20 Payment Gateway (Cregis)
+ * 
+ * NOTE: Despite the "epay" name, this endpoint now handles USDT TRC20 cryptocurrency deposits only.
+ * Card/debit card payments have been removed. Only USDT payments via Cregis are supported.
+ * 
+ * Payment Flow:
+ * 1. User initiates USDT deposit
+ * 2. Creates payment order with Cregis
+ * 3. User is redirected to Cregis to complete USDT payment
+ * 4. Cregis processes payment and sends callback
+ * 5. User is redirected back to success/cancel page
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import { createPaymentOrder } from "@/lib/cregis-payment.service";
+import { createPaymentOrder, getOrderCurrencyList } from "@/lib/cregis-payment.service";
 import { cookies } from "next/headers";
 
 const config = {
@@ -65,12 +78,14 @@ const config = {
   CANCEL_URL: process.env.CREGIS_CANCEL_URL || "",
   VALID_TIME: process.env.CREGIS_VALID_TIME || "",
   PAYER_ID: process.env.CREGIS_PAYER_ID || "",
+  // Payment currency - USDT for TRC20 crypto payments
+  PAYMENT_CURRENCY: process.env.CREGIS_PAYMENT_CURRENCY || "USDT",
 };
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(req: NextRequest) {
-  console.log('🚀 [EPAY] Starting card payment request processing');
+  console.log('🚀 [EPAY] Starting USDT TRC20 payment request processing');
   try {
     const body = await req.json();
     console.log('💳 [EPAY] Received card payment request:', body);
@@ -131,37 +146,48 @@ export async function POST(req: NextRequest) {
     if (account_number) callbackUrl.searchParams.set('account', account_number);
     if (account_type) callbackUrl.searchParams.set('type', account_type);
 
-    console.log('💳 [EPAY] Creating Cregis payment order for card deposit:', {
+    console.log('💰 [EPAY] Creating Cregis payment order for USDT TRC20 deposit:', {
       orderAmount,
       account_number,
       account_type,
       callbackUrl: callbackUrl.toString(),
     });
+    
+    // First, fetch available currency list to verify USDT support
+    console.log('📋 [EPAY] Fetching available payment currencies from Cregis...');
+    const currencyListResult = await getOrderCurrencyList();
+    if (currencyListResult.success) {
+      console.log('✅ [EPAY] Available payment currencies:', JSON.stringify(currencyListResult.data, null, 2));
+    } else {
+      console.warn('⚠️ [EPAY] Could not fetch currency list:', currencyListResult.error);
+    }
 
-    // Create payment order using Cregis for card payments
-    // Note: Cregis may require payer_id for card payments, using account number as unique ID
+    // Create payment order using Cregis for USDT TRC20 crypto payments
+    // Note: Cregis may require payer_id, using account number as unique ID
     const payerId = account_number || `${Date.now()}`;
+    const paymentCurrency = config.PAYMENT_CURRENCY;
     
     console.log('📝 [EPAY] Using payer_id:', payerId);
+    console.log('💎 [EPAY] Using payment currency:', paymentCurrency, '(USDT TRC20)');
     console.log('📝 [EPAY] Calling createPaymentOrder with:', {
       orderAmount: formattedAmount,
-      orderCurrency: "USD",
+      orderCurrency: paymentCurrency,
       callbackUrl: callbackUrl.toString(),
       successUrl,
       cancelUrl,
       payerId,
-      validTime: Number(config.VALID_TIME) || 600,
+      validTime: Number(config.VALID_TIME) || 30, // Default 30 minutes (range: 10-60 minutes)
     });
     
     try {
       const result = await createPaymentOrder({
         orderAmount: formattedAmount,
-        orderCurrency: "USD", // Card payments in USD
+        orderCurrency: paymentCurrency, // USDT for TRC20 crypto payments
         callbackUrl: callbackUrl.toString(),
         successUrl,
         cancelUrl,
         payerId: payerId,
-        validTime: Number(config.VALID_TIME) || 600,
+        validTime: Number(config.VALID_TIME) || 30, // Default 30 minutes (Cregis accepts 10-60 minutes)
       });
 
       console.log('📥 [EPAY] createPaymentOrder result:', {
@@ -183,7 +209,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.log("✅ [EPAY] Cregis payment order created successfully for card deposit");
+      console.log("✅ [EPAY] Cregis payment order created successfully for USDT TRC20 deposit");
       console.log("📋 [EPAY] Payment data:", JSON.stringify(result.data, null, 2));
 
       // Call backend to create deposit record
@@ -205,7 +231,8 @@ export async function POST(req: NextRequest) {
               amount: formattedAmount,
               cregisOrderId: result.data?.orderId,
               paymentUrl: result.data?.paymentUrl,
-              currency: 'USD',
+              currency: 'USDT',
+              network: 'TRC20',
             }),
           });
 

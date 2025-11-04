@@ -591,23 +591,32 @@ export function DepositDialog({
     try {
       const [accountNumber, accountType] = selectedAccount.split("|");
 
+      const requestPayload = {
+        order_amount: amount,
+        order_currency: selectedCrypto?.symbol || "USDT",
+        account_number: accountNumber,
+        account_type: accountType,
+        network: selectedNetwork,
+        crypto_symbol: selectedCrypto?.symbol,
+      };
+
+      console.log('💎 [DEPOSIT] Sending checkout request:', requestPayload);
+      console.log('💎 [DEPOSIT] Selected crypto:', selectedCrypto);
+      console.log('💎 [DEPOSIT] Selected network:', selectedNetwork);
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          order_amount: amount,
-          order_currency: selectedCrypto?.symbol || "BNB",
-          account_number: accountNumber,
-          account_type: accountType,
-          network: selectedNetwork,
-          crypto_symbol: selectedCrypto?.symbol,
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       const data = await response.json();
+      
+      console.log('💎 [DEPOSIT] Checkout response:', data);
 
       if (data.code !== "00000") {
-        throw new Error(data.msg || "Payment initiation failed");
+        console.error('❌ [DEPOSIT] Checkout failed:', data);
+        throw new Error(data.error || data.msg || "Payment initiation failed");
       }
 
       setCheckoutData(data.data);
@@ -627,9 +636,10 @@ export function DepositDialog({
 
       setStep(3);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Payment initiation failed"
-      );
+      console.error('❌ [DEPOSIT] Payment initiation error:', err);
+      const errorMessage = err instanceof Error ? err.message : "Payment initiation failed";
+      console.error('❌ [DEPOSIT] Error message:', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }

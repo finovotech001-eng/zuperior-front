@@ -13,6 +13,8 @@ const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://local
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('🚀 [CHECKOUT] ========== NEW CHECKOUT REQUEST ==========');
+    
     const body = (await req.json()) as {
       order_amount: string;
       order_currency: string;
@@ -24,47 +26,136 @@ export async function POST(req: NextRequest) {
       crypto_symbol?: string;
     };
 
+    console.log('📦 [CHECKOUT] Raw body received:', JSON.stringify(body, null, 2));
+
     const { order_amount, order_currency, payer_id, valid_time, account_number, account_type, network, crypto_symbol } = body;
 
-    console.log('💳 Received checkout request:', {
+    console.log('💳 [CHECKOUT] Parsed checkout request:', {
       order_amount,
       order_currency,
       account_number,
       network,
-      crypto_symbol
+      crypto_symbol,
+      order_amount_type: typeof order_amount,
+      order_amount_length: order_amount?.length,
+      order_currency_type: typeof order_currency,
+      order_currency_length: order_currency?.length,
     });
 
+    // Validate required fields
     if (!order_amount || !order_currency) {
+      console.error('❌ [CHECKOUT] Missing required fields');
       return NextResponse.json(
-        { error: "Missing required fields: order_amount, order_currency" },
+        { 
+          code: "10000",
+          msg: "Payment initiation failed",
+          error: "Missing required fields: order_amount, order_currency" 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate amount is not empty string
+    if (order_amount.trim() === '' || order_amount === '0') {
+      console.error('❌ [CHECKOUT] Invalid amount:', order_amount);
+      return NextResponse.json(
+        { 
+          code: "10000",
+          msg: "Payment initiation failed",
+          error: "Invalid amount: must be greater than 0" 
+        },
         { status: 400 }
       );
     }
 
     // Use fallback URLs if not configured
-    const successUrl = config.SUCCESS_URL || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/deposit/success`;
-    const cancelUrl = config.CANCEL_URL || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/deposit/cancel`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const successUrl = config.SUCCESS_URL || `${baseUrl}/deposit/success`;
+    const cancelUrl = config.CANCEL_URL || `${baseUrl}/deposit/cancel`;
     
-    console.log('📋 Using URLs:', { successUrl, cancelUrl });
+    console.log('📋 [CHECKOUT] Using URLs:', { 
+      baseUrl,
+      successUrl, 
+      cancelUrl,
+      hasSuccessUrl: !!successUrl,
+      hasCancelUrl: !!cancelUrl,
+    });
+
+    // Validate URLs are not empty
+    if (!successUrl || !cancelUrl) {
+      console.error('❌ [CHECKOUT] Empty URLs detected!');
+      return NextResponse.json(
+        { 
+          code: "10000",
+          msg: "Payment initiation failed",
+          error: "Server configuration error: Missing callback URLs" 
+        },
+        { status: 500 }
+      );
+    }
 
     // Generate callback URL with additional parameters
-    const callbackUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/cregis/payment-callback`);
+    const callbackUrl = new URL(`${baseUrl}/api/cregis/payment-callback`);
     if (account_number) callbackUrl.searchParams.set('account', account_number);
     if (account_type) callbackUrl.searchParams.set('type', account_type);
 
-    // Create payment order using Cregis service
-    const result = await createPaymentOrder({
-      orderAmount: order_amount,
-      orderCurrency: order_currency,
+    console.log('📝 [CHECKOUT] Callback URL:', callbackUrl.toString());
+
+    // Map currency to Cregis Payment Engine format
+    // Payment Engine might use different format than WaaS API
+    let cregisOrderCurrency = order_currency.trim();
+    
+    // Try different currency formats for Payment Engine
+    // Format 1: Simple name (e.g., "USDT")
+    // Format 2: With network (e.g., "USDT-TRC20") 
+    // Format 3: Full identifier (e.g., "195@TR7...")
+    
+    const currencyMappings: Record<string, string[]> = {
+      'USDT': [
+        'USDT',           // Try simple format first
+        'USDT-TRC20',     // Try with network
+        '195@TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // Full identifier
+      ],
+      'TRX': ['TRX', 'TRON', '195'],
+    };
+
+    // For now, try the simple format first
+    if (order_currency.toUpperCase() === 'USDT' || order_currency.toUpperCase() === 'USDT-TRC20') {
+      // Try simple "USDT" format for Payment Engine
+      cregisOrderCurrency = 'USDT';
+      console.log(`📝 [CHECKOUT] Using simple format: ${order_currency} → ${cregisOrderCurrency}`);
+    } else {
+      console.log(`⚠️ [CHECKOUT] Using original currency format: ${cregisOrderCurrency}`);
+    }
+    
+    console.log(`💡 [CHECKOUT] Available alternatives if this fails:`, currencyMappings[order_currency.toUpperCase()] || []);
+
+    // Prepare payment order parameters
+    const paymentParams = {
+      orderAmount: order_amount.trim(),
+      orderCurrency: cregisOrderCurrency,
       callbackUrl: callbackUrl.toString(),
       successUrl: successUrl,
       cancelUrl: cancelUrl,
-      payerId: payer_id || config.PAYER_ID,
-      validTime: valid_time || Number(config.VALID_TIME) || 600,
+      payerId: payer_id || config.PAYER_ID || `${Date.now()}`,
+      validTime: valid_time || Number(config.VALID_TIME) || 30, // FIXED: 30 minutes instead of 600
+    };
+
+    console.log('📤 [CHECKOUT] Creating Cregis payment order with:', {
+      originalCurrency: order_currency,
+      mappedCurrency: cregisOrderCurrency,
+      orderAmount: paymentParams.orderAmount,
+      validTime: paymentParams.validTime,
+      hasCallbackUrl: !!paymentParams.callbackUrl,
+      hasSuccessUrl: !!paymentParams.successUrl,
+      hasCancelUrl: !!paymentParams.cancelUrl,
     });
 
+    // Create payment order using Cregis service
+    const result = await createPaymentOrder(paymentParams);
+
     if (!result.success) {
-      console.error("❌ Cregis payment order failed:", result.error);
+      console.error("❌ [CHECKOUT] Cregis payment order failed:", result.error);
       return NextResponse.json(
         {
           code: "10000",
@@ -74,6 +165,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log('✅ [CHECKOUT] Cregis payment order created successfully');
+    console.log('📋 [CHECKOUT] Payment data:', {
+      hasCregisId: !!result.data?.cregisId,
+      hasPaymentUrl: !!result.data?.paymentUrl,
+      hasQrCode: !!result.data?.qrCode,
+      orderId: result.data?.orderId,
+    });
 
     // Call backend to create crypto deposit record
     if (account_number) {

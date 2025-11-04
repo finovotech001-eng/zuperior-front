@@ -5,9 +5,7 @@ import axios from "axios";
 import Image from "next/image";
 import { TextAnimate } from "@/components/ui/text-animate";
 import { DepositDialog } from "@/components/deposit/DepositDialog";
-import { CreditCardDialog } from "@/components/deposit/Epay/CreditCardDialog";
 import { ManualDepositDialog } from "@/components/deposit/ManualDepositDialog";
-import { Landmark } from "lucide-react";
 import { store } from "@/store";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
@@ -41,9 +39,7 @@ export default function DepositPage() {
     null
   );
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
-  const [creditCardDialogOpen, setCreditCardDialogOpen] = useState(false);
   const [manualDepositDialogOpen, setManualDepositDialogOpen] = useState(false);
-  // Removed activeTab state since we removed the tabs
   const dispatch = useAppDispatch();
   const [lifetimeDeposit, setLifetimeDeposit] = useState<number>(0);
   const [isLoadingCrypto, setIsLoadingCrypto] = useState(true);
@@ -146,12 +142,9 @@ export default function DepositPage() {
     }
   }, []);
 
-  // Filter items - show crypto options and credit card option
+  // Filter items - show only USDT TRC20 crypto options
   const filteredItems = useMemo(() => {
-    return [
-      ...cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto })),
-      { type: "bank", data: null },
-    ];
+    return cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto }));
   }, [cryptocurrencies]);
 
   // Show loading state while fetching crypto data
@@ -185,47 +178,26 @@ export default function DepositPage() {
           </TextAnimate> */}
         </div>
 
-        {/* Payment Cards */}
+        {/* Payment Cards - USDT TRC20 Only */}
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => {
-            if (item.type === "crypto") {
-              const crypto = item.data as Cryptocurrency;
-              return (
-                <MemoizedPaymentMethodCard
-                  key={crypto.id}
-                  onOpenNewAccount={() => handleCryptoSelect(crypto)}
-                  icon={crypto.icon}
-                  name={crypto.name}
-                />
-              );
-            } else {
-              return (
-                <div
-                  key="bank-card"
-                  onClick={() => setCreditCardDialogOpen(true)}
-                  className="group relative h-[180px] rounded-[15px] bg-[#fbfafd] dark:bg-[#0d0414] p-6 border dark:border-[#1D1825] border-gray-300 overflow-hidden cursor-pointer hover:bg-gradient-to-r from-white to-[#f4e7f6] text-semibold
-                 dark:from-[#330F33] flex flex-col items-center text-center dark:to-[#1C061C]"
-                >
-                  <Landmark width={40} height={40} className="mt-5 mb-4" />
-                  <h3 className="text-[18px] font-bold text-black dark:text-white">
-                    Credit / Debit Cards
-                  </h3>
-                </div>
-              );
-            }
+            const crypto = item.data as Cryptocurrency;
+            return (
+              <MemoizedPaymentMethodCard
+                key={crypto.id}
+                onOpenNewAccount={() => handleCryptoSelect(crypto)}
+                icon={crypto.icon}
+                name={crypto.name}
+              />
+            );
           })}
         </div>
 
-        {/* Dialogs */}
+        {/* Dialogs - USDT TRC20 Only */}
         <DepositDialog
           open={depositDialogOpen}
           onOpenChange={setDepositDialogOpen}
           selectedCrypto={selectedCrypto}
-          lifetimeDeposit={lifetimeDeposit}
-        />
-        <CreditCardDialog
-          open={creditCardDialogOpen}
-          onOpenChange={setCreditCardDialogOpen}
           lifetimeDeposit={lifetimeDeposit}
         />
         <ManualDepositDialog
