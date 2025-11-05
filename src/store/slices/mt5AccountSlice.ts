@@ -354,6 +354,7 @@ export const createMt5Account = createAsyncThunk(
       // Transform to match expected MT5Account format
       const transformedAccount: MT5Account = {
         accountId: String(mt5Login),
+        accountType: 'Live', // Default to Live for newly created accounts
         name: accountData?.Name || accountData?.name || data.name,
         group: accountData?.Group || accountData?.group || data.group,
         leverage: accountData?.Leverage || accountData?.leverage || data.leverage || 100,
@@ -830,14 +831,14 @@ const mt5AccountSlice = createSlice({
         const { accounts: accountsWithBalance, totalBalance } = action.payload;
         
         console.log(`[MT5] 🔄 Updating ${accountsWithBalance.length} accounts with FRESH balances from API...`);
-        console.log(`[MT5] 📊 Balance data received:`, accountsWithBalance.map(acc => ({
+        console.log(`[MT5] 📊 Balance data received:`, accountsWithBalance.map((acc: any) => ({
           accountId: acc.accountId,
           balance: acc.balance,
           equity: acc.equity
         })));
         
         // Update balances for all accounts that match - FORCE UPDATE (no checks)
-        accountsWithBalance.forEach((details) => {
+        accountsWithBalance.forEach((details: any) => {
           const account = state.accounts.find(acc => acc.accountId === details.accountId);
           if (account) {
             const oldBalance = account.balance;
