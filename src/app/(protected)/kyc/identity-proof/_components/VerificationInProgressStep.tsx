@@ -50,9 +50,8 @@ export default function VerificationInProgressStep({
                 Verifying your Identity...
               </h2>
               <p className="mt-4 text-gray-600 dark:text-gray-300 font-medium italic">
-                We are verifying your identity—this will only take 10-15
-                seconds. Please wait while we process your information. Almost
-                there! ⏳
+                We are verifying your identity—this will only take 30 to 60 secs. 
+                Please wait while we process your information. Almost there! ⏳
               </p>
             </div>
             <div className="w-full space-y-4">
@@ -116,6 +115,48 @@ export default function VerificationInProgressStep({
 
     );
 
+  // Show pending state - checking status
+  if (verificationStatus === "pending")
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] p-8 text-center space-y-6">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          controls={false}
+          className="rounded-md object-contain z-[9999] relative h-24 w-24"
+          preload="auto"
+        >
+          <source src="/logo.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+
+        <h2 className="text-2xl font-bold text-blue-400">
+          Verification In Progress...
+        </h2>
+
+        <p className="text-gray-400 max-w-md">
+          We're verifying your identity and performing background checks. 
+          This typically takes 30-60 seconds. Please wait... ⏳
+        </p>
+
+        <div className="text-sm text-gray-500">
+          Status will update automatically when complete.
+        </div>
+
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={onBack}
+        >
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+
+  // Only show declined if explicitly declined
+  if (verificationStatus === "declined")
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center space-y-6 max-w-lg mx-auto">
       <div className="w-16 h-16 flex items-center justify-center rounded-full bg-purple-900/40 border border-purple-700/40">
@@ -180,7 +221,39 @@ export default function VerificationInProgressStep({
         before retrying.
       </p>
     </div>
+  );
 
+  // Fallback - if status is unknown, default to pending (safe approach)
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[40vh] p-8 text-center space-y-6">
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        controls={false}
+        className="rounded-md object-contain z-[9999] relative h-24 w-24"
+        preload="auto"
+      >
+        <source src="/logo.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
 
+      <h2 className="text-2xl font-bold text-gray-400">
+        Checking Status...
+      </h2>
+
+      <p className="text-gray-400 max-w-md">
+        Please wait while we check your verification status...
+      </p>
+
+      <Button
+        variant="outline"
+        className="mt-4"
+        onClick={onBack}
+      >
+        Back to Dashboard
+      </Button>
+    </div>
   );
 }

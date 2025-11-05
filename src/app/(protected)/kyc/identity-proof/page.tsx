@@ -115,7 +115,10 @@ const handleSubmit = async () => {
       // dispatch(setAMLReference(amlVerificationResult.reference || ""));
 
       // Step 3: Handle AML + Update Database
+      console.log(`📊 AML Event Received: ${amlVerificationResult.event}`);
+      
       if (amlVerificationResult.event === "verification.accepted") {
+        // ✅ AML screening passed
         dispatch(setDocumentVerified(true));
         setVerificationStatus("verified");
         toast.success("Background screening completed successfully!");
@@ -133,9 +136,10 @@ const handleSubmit = async () => {
           toast.error("Failed to save verification status");
           throw error; // Re-throw to be caught by outer catch
         }
-      } else {
+      } else if (amlVerificationResult.event === "verification.declined") {
+        // ❌ AML screening explicitly declined
         setVerificationStatus("declined");
-        toast.warning("KYC verification successful, but background screening encountered an issue");
+        toast.error("Background screening was declined");
         
         // Update declined status in database
         try {
@@ -150,6 +154,16 @@ const handleSubmit = async () => {
         }
         
         setDeclinedReason(amlVerificationResult?.declined_reason?.split(".")[0] || null);
+      } else if (amlVerificationResult.event === "request.pending" || amlVerificationResult.event === "request.received") {
+        // ⏳ AML screening still in progress - keep as pending
+        setVerificationStatus("pending");
+        toast.info("Background screening is in progress. This may take a few moments.");
+        console.log("⏳ AML Status: PENDING - Will be updated via webhook");
+      } else {
+        // 🤷 Unknown event or timeout - default to pending
+        setVerificationStatus("pending");
+        toast.warning("Background screening status is being verified. Please check back shortly.");
+        console.log(`⚠️ AML Unknown event: ${amlVerificationResult.event} - Defaulting to pending`);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit document. Please try again.");

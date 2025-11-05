@@ -32,13 +32,27 @@ const Page = () => {
   const identityVerified = useAppSelector((state) => state.kyc.isDocumentVerified);
   const verificationStatus = useAppSelector((state) => state.kyc.verificationStatus);
 
-  // Refresh KYC status when page loads
+  // Refresh KYC status when page loads and periodically
   useEffect(() => {
     console.log('🔄 Refreshing KYC status on page load...');
     dispatch(fetchKycStatus()).catch((error) => {
       console.error("Failed to refresh KYC status:", error);
     });
-  }, [dispatch]);
+
+    // Auto-refresh every 30 seconds if verification is pending
+    const refreshInterval = setInterval(() => {
+      // Only auto-refresh if not fully verified
+      if (verificationStatus !== "verified") {
+        console.log('🔄 Auto-refreshing KYC status...');
+        dispatch(fetchKycStatus()).catch((error) => {
+          console.error("Failed to refresh KYC status:", error);
+        });
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    // Cleanup interval on unmount
+    return () => clearInterval(refreshInterval);
+  }, [dispatch, verificationStatus]);
 
   console.log("📊 Current KYC Status:", {
     addressVerified,

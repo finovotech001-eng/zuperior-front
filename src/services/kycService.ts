@@ -127,6 +127,22 @@ export async function refreshKycStatus(): Promise<KycStatusResponse> {
   return getKycStatus();
 }
 
+// Check verification status directly from Shufti Pro API
+export async function checkShuftiStatus(reference: string) {
+  try {
+    console.log('🔍 Checking Shufti Pro status for reference:', reference);
+    const response = await kycApi.post('/api/kyc/check-status', { reference });
+    console.log('✅ Shufti Pro status response:', {
+      reference,
+      event: response.data.data?.event
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Error checking Shufti status:", error?.response?.data || error.message);
+    throw error;
+  }
+}
+
 // Legacy function - kept for backward compatibility
 export async function updateKycStatus(
   email: string,
