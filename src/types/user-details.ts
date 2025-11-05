@@ -34,13 +34,26 @@ export interface TpAccountSnapshot {
 }
 
 export interface User {
-  crm_account_id: number;
-  accountname: string;
-  email1: string;
-  verification_status: string | null;
-  provider_name: string | null;
-  additional_information: string | null;
-  phone: string;
-  account_bill_ads_general: AccountBillAdsGeneral;
-  tp_accounts_last_snapshot_info: TpAccountSnapshot[];
+  // Database fields (User table)
+  id?: string;
+  clientId?: string;
+  name?: string;
+  email?: string;
+  country?: string;
+  createdAt?: string;
+  emailVerified?: boolean;
+  lastLoginAt?: string;
+  role?: string;
+  status?: string;
+  
+  // Legacy CRM fields (for backward compatibility)
+  crm_account_id?: number;
+  accountname?: string;
+  email1?: string;
+  verification_status?: string | null;
+  provider_name?: string | null;
+  additional_information?: string | null;
+  phone?: string;
+  account_bill_ads_general?: AccountBillAdsGeneral;
+  tp_accounts_last_snapshot_info?: TpAccountSnapshot[];
 }

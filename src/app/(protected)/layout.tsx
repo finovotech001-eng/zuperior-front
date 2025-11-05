@@ -6,6 +6,7 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useEffect, useState } from "react";
 import { fetchKycStatus } from "@/store/slices/kycSlice";
 import { useSessionCheck } from "@/hooks/useSessionCheck";
+import { getUser } from "@/store/slices/getUserSlice";
 
 export default function ProtectedLayout({
   children,
@@ -14,8 +15,10 @@ export default function ProtectedLayout({
 }) {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const userData = useAppSelector((state) => state.user.data);
 
   const [authChecked, setAuthChecked] = useState(false);
+  const [userFetched, setUserFetched] = useState(false);
   
   // Enable session checking (WebSocket + polling) for account deletion
   useSessionCheck();
@@ -24,11 +27,30 @@ export default function ProtectedLayout({
     // Check authentication using localStorage
     const token = localStorage.getItem('userToken');
     const clientId = localStorage.getItem('clientId');
+    const storedUser = localStorage.getItem('user');
 
     if (!token || !clientId) {
       router.push("/login");
     } else {
       setAuthChecked(true); // Mark auth as confirmed
+      
+      // Load user data from localStorage first if available and not yet fetched
+      if (storedUser && !userData && !userFetched) {
+        try {
+          const userObj = JSON.parse(storedUser);
+          // If we have email and token, fetch fresh user data from API
+          if (userObj.email) {
+            setUserFetched(true); // Mark as fetched to prevent re-fetching
+            dispatch(getUser({ email: userObj.email, access_token: token }))
+              .catch((error) => {
+                console.error("Failed to fetch user data:", error);
+                setUserFetched(false); // Allow retry on error
+              });
+          }
+        } catch (error) {
+          console.error("Failed to parse stored user:", error);
+        }
+      }
       
       // Fetch KYC status from database (non-blocking)
       dispatch(fetchKycStatus()).catch((error) => {
@@ -36,7 +58,7 @@ export default function ProtectedLayout({
         // Continue even if KYC fetch fails - don't block the app
       });
     }
-  }, [router, dispatch]);
+  }, [router, dispatch, userData, userFetched]);
 
 
   // Don't render layout until auth is confirmed

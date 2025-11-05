@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 
+const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+
 export async function POST(req: NextRequest) {
   const bodyText = await req.text();
   const params = new URLSearchParams(bodyText);
@@ -17,12 +19,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Call the new backend server's user endpoint
     const response = await axios.post(
-      "https://client.api.skaleapps.io/api/v-2/",
-      bodyText,
+      `${BACKEND_API_URL}/user/get-user`,
+      {
+        request,
+        email,
+        access_token,
+      },
       {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${access_token}`,
         },
       }
     );
@@ -31,18 +39,18 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       console.error(
-        "Skale API AxiosError:",
+        "Backend API AxiosError:",
         error.response?.data || error.message
       );
       return NextResponse.json(
         {
-          message: "Failed to call Skale API",
+          message: "Failed to fetch user from backend",
           error: error.response?.data || error.message,
         },
         { status: error.response?.status || 500 }
       );
     } else if (error instanceof Error) {
-      console.error("Skale API Error:", error.message);
+      console.error("Backend API Error:", error.message);
       return NextResponse.json(
         {
           message: "Unexpected error occurred",
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     } else {
-      console.error("Unknown error during Skale API call");
+      console.error("Unknown error during backend API call");
       return NextResponse.json(
         {
           message: "Unknown error occurred",

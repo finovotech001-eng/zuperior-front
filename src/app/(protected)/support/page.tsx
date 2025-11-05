@@ -5,10 +5,10 @@ import { MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSelector } from "react-redux";
-import { RootState, store } from "@/store";
+import { RootState } from "@/store";
 import { Plus } from "lucide-react";
 import { TextAnimate } from "@/components/ui/text-animate";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import OpenTicketFlow from "./_components/OpenTicketFlow";
 import TicketList from "./_components/TicketList";
 import TicketDetails from "./_components/TicketDetails";
@@ -20,38 +20,13 @@ import {
   TicketStatus,
 } from "@/services/createTicket";
 import { toast } from "sonner";
-import { fetchUserProfile } from "@/services/userService";
 
 export default function SupportHub() {
-  // State for user's actual name from database
-  const [userName, setUserName] = useState<string>("User");
-
-  // Fetch user's actual name from database
-  useEffect(() => {
-    const loadUserName = async () => {
-      try {
-        const profileResponse = await fetchUserProfile();
-        if (profileResponse.success && profileResponse.data) {
-          const { name, firstName } = profileResponse.data;
-          // Use firstName if available, otherwise use the full name, or first word of name
-          if (firstName) {
-            setUserName(firstName);
-          } else if (name) {
-            setUserName(name.split(" ")[0]);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
-        // Fallback to Redux state if API fails
-        const accountname = store.getState().user.data?.accountname;
-        if (accountname) {
-          setUserName(accountname.split(" ")[0]);
-        }
-      }
-    };
-
-    loadUserName();
-  }, []);
+  // Get user data directly from Redux store
+  const userData = useSelector((state: RootState) => state.user.data);
+  
+  // Use full user name from Redux state (check both name and accountname for compatibility)
+  const userName = (userData as any)?.name || userData?.accountname || "User";
 
   const [loading, setLoading] = useState(false);
   const [openTicketMode, setOpenTicketMode] = useState(false);
@@ -147,7 +122,7 @@ export default function SupportHub() {
       <section className="rounded-lg border-2 border-gray-300 dark:border-[#1D1825] dark:bg-gradient-to-r from-[#FFFFFF] to-[#f4e7f6] p-5 sm:p-7 dark:from-[#110F17] dark:to-[#1E1429]">
         {/* Header */}
         <h3 className="mb-4 text-xl sm:text-2xl font-semibold dark:text-white/75">
-          Hello {userName || "User"}, how can we help you?
+          Hello {userName}, how can we help you?
         </h3>
         <p className="text-sm sm:text-base dark:text-white/75">
           Your one-stop solution for all your needs. Find answers, troubleshoot

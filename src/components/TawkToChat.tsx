@@ -46,13 +46,14 @@ export default function TawkToChat() {
           if (user) {
             const setUserData = () => {
               if (window.Tawk_API && typeof window.Tawk_API.setAttributes === "function") {
-                // Set user name and email
-                const userName = user.accountname;
+                // Set user name and email (check both name and accountname fields)
+                const userName = (user as any)?.name || user.accountname;
+                const userEmail = (user as any)?.email || user.email1 || "";
                 if (userName) {
                   window.Tawk_API.setAttributes(
                     {
                       name: userName,
-                      email: user.email1 || "",
+                      email: userEmail,
                       hash: "", // Add hash if you're using secure mode
                     },
                     function (error: any) {
@@ -77,8 +78,8 @@ export default function TawkToChat() {
 
                 // Add additional user data
                 window.Tawk_API.setAttributes({
-                  "CRM Account ID": user.crm_account_id?.toString() || "N/A",
-                  "Account Name": user.accountname || "N/A",
+                  "CRM Account ID": user.crm_account_id?.toString() || (user as any)?.clientId || "N/A",
+                  "Account Name": userName || "N/A",
                   "Phone": user.phone || "N/A",
                   "Verification Status": user.verification_status || "N/A",
                 });
