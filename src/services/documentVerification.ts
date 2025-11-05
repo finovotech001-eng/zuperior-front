@@ -35,6 +35,10 @@ export async function documentVerification(params: DocumentVerificationParams) {
       lastName: params.lastName
     });
 
+    if (!token) {
+      throw new Error('Authentication token is required. Please log in again.');
+    }
+
     const response = await axios.post("/api/kyc/document", {
       reference: kycRef,
       document: {
@@ -49,7 +53,7 @@ export async function documentVerification(params: DocumentVerificationParams) {
       },
     }, {
       headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       }
     });

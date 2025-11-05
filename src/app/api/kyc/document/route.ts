@@ -9,15 +9,19 @@ export async function POST(request: Request) {
   let body: DocumentKYCRequestBody;
   
   try {
-    body = await request.json();
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    // Get authorization header - try both cases
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
 
     if (!token) {
+      console.error('❌ Missing authorization token in request headers');
       return NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    body = await request.json();
 
     console.log('📝 Document Verification Request (forwarding to backend):', {
       reference: body.reference,
