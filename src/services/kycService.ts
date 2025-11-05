@@ -138,7 +138,24 @@ export async function checkShuftiStatus(reference: string) {
     });
     return response.data;
   } catch (error: any) {
-    console.error("❌ Error checking Shufti status:", error?.response?.data || error.message);
+    const errorData = error?.response?.data;
+    
+    // Check if it's an invalid reference error
+    const isInvalidReference = 
+      errorData?.error?.key === 'reference' ||
+      errorData?.error?.message?.includes('invalid') ||
+      errorData?.event === 'request.invalid';
+    
+    if (isInvalidReference) {
+      console.error("❌ Invalid Shufti reference:", {
+        reference,
+        error: errorData?.error?.message || 'Reference not found in Shufti Pro',
+        hint: 'The verification request may not have reached Shufti Pro. User may need to resubmit.'
+      });
+    } else {
+      console.error("❌ Error checking Shufti status:", errorData || error.message);
+    }
+    
     throw error;
   }
 }

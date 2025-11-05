@@ -32,7 +32,7 @@ export async function GET() {
     if (!config.PAYMENT_ENGINE_KEY || !config.BASE_URL || !config.MERCHANT_ID) {
       console.warn("CreGIS API credentials not configured, returning mock data for development");
       
-      // Return mock data for development
+      // Return mock data for development (TRC20 only)
       const mockCryptoRates = [
         {
           symbol: "USDT",
@@ -40,33 +40,6 @@ export async function GET() {
           exchangeRate: 1.0,
           network: "195@TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
           blockchain: "TRC20",
-          logoUrl: "/trc20.png",
-          decimals: "6",
-        },
-        {
-          symbol: "USDT",
-          name: "USDT-ERC20",
-          exchangeRate: 1.0,
-          network: "60@0xdac17f958d2ee523a2206206994597c13d831ec7",
-          blockchain: "ERC20",
-          logoUrl: "/erc20.png",
-          decimals: "6",
-        },
-        {
-          symbol: "USDT",
-          name: "USDT-BEP20",
-          exchangeRate: 1.0,
-          network: "2510@0x55d398326f99059ff775485246999027b3197955",
-          blockchain: "BEP20",
-          logoUrl: "/bep20.png",
-          decimals: "18",
-        },
-        {
-          symbol: "USDT",
-          name: "USDT TRC20 QRl",
-          exchangeRate: 1.0,
-          network: "Manual@Twinxa7902309skjhfsdlhflksjdhlkLL",
-          blockchain: "Manual",
           logoUrl: "/trc20.png",
           decimals: "6",
         },
@@ -103,6 +76,12 @@ export async function GET() {
 
     const data = await response.json();
 
+    // Check if data.data exists and is an array
+    if (!data.data || !Array.isArray(data.data)) {
+      console.warn("Cregis API returned invalid data format, using fallback");
+      throw new Error("Invalid API response format");
+    }
+
     const blockchainMap: Record<string, string> = {
       "USDT-ERC20": "60@0xdac17f958d2ee523a2206206994597c13d831ec7",
       "USDT-TRC20": "195@TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -130,7 +109,7 @@ export async function GET() {
   } catch (err: unknown) {
     console.error("Crypto currency API error:", err);
     
-    // Fallback to mock data if API fails
+    // Fallback to mock data if API fails (TRC20 only)
     const fallbackCryptoRates = [
       {
         symbol: "USDT",
@@ -138,33 +117,6 @@ export async function GET() {
         exchangeRate: 1.0,
         network: "195@TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
         blockchain: "TRC20",
-        logoUrl: "/trc20.png",
-        decimals: "6",
-      },
-      {
-        symbol: "USDT",
-        name: "USDT-ERC20",
-        exchangeRate: 1.0,
-        network: "60@0xdac17f958d2ee523a2206206994597c13d831ec7",
-        blockchain: "ERC20",
-        logoUrl: "/erc20.png",
-        decimals: "6",
-      },
-      {
-        symbol: "USDT",
-        name: "USDT-BEP20",
-        exchangeRate: 1.0,
-        network: "2510@0x55d398326f99059ff775485246999027b3197955",
-        blockchain: "BEP20",
-        logoUrl: "/bep20.png",
-        decimals: "18",
-      },
-      {
-        symbol: "USDT",
-        name: "USDT TRC20 QR",
-        exchangeRate: 1.0,
-        network: "Manual@Twinxa7902309skjhfsdlhflksjdhlkLL",
-        blockchain: "Manual",
         logoUrl: "/trc20.png",
         decimals: "6",
       },

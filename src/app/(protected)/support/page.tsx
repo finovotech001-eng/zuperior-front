@@ -8,7 +8,7 @@ import { useSelector } from "react-redux";
 import { RootState, store } from "@/store";
 import { Plus } from "lucide-react";
 import { TextAnimate } from "@/components/ui/text-animate";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import OpenTicketFlow from "./_components/OpenTicketFlow";
 import TicketList from "./_components/TicketList";
 import TicketDetails from "./_components/TicketDetails";
@@ -20,27 +20,38 @@ import {
   TicketStatus,
 } from "@/services/createTicket";
 import { toast } from "sonner";
+import { fetchUserProfile } from "@/services/userService";
 
 export default function SupportHub() {
-  // Get username from multiple possible sources
-  const userName = useSelector((state: RootState) => {
-    // Try accountname first (from MT5/CRM API)
-    const accountname = state.user.data?.accountname;
-    if (accountname) return accountname.split(" ")[0];
-    
-    // Try from localStorage as fallback
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        return user?.accountname?.split(" ")[0];
+  // State for user's actual name from database
+  const [userName, setUserName] = useState<string>("User");
+
+  // Fetch user's actual name from database
+  useEffect(() => {
+    const loadUserName = async () => {
+      try {
+        const profileResponse = await fetchUserProfile();
+        if (profileResponse.success && profileResponse.data) {
+          const { name, firstName } = profileResponse.data;
+          // Use firstName if available, otherwise use the full name, or first word of name
+          if (firstName) {
+            setUserName(firstName);
+          } else if (name) {
+            setUserName(name.split(" ")[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        // Fallback to Redux state if API fails
+        const accountname = store.getState().user.data?.accountname;
+        if (accountname) {
+          setUserName(accountname.split(" ")[0]);
+        }
       }
-    } catch (e) {
-      console.error("Error parsing stored user:", e);
-    }
-    
-    return "User";
-  });
+    };
+
+    loadUserName();
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [openTicketMode, setOpenTicketMode] = useState(false);

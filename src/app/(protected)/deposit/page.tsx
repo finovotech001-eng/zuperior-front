@@ -5,7 +5,6 @@ import axios from "axios";
 import Image from "next/image";
 import { TextAnimate } from "@/components/ui/text-animate";
 import { DepositDialog } from "@/components/deposit/DepositDialog";
-import { ManualDepositDialog } from "@/components/deposit/ManualDepositDialog";
 import { store } from "@/store";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
@@ -39,7 +38,6 @@ export default function DepositPage() {
     null
   );
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
-  const [manualDepositDialogOpen, setManualDepositDialogOpen] = useState(false);
   const dispatch = useAppDispatch();
   const [lifetimeDeposit, setLifetimeDeposit] = useState<number>(0);
   const [isLoadingCrypto, setIsLoadingCrypto] = useState(true);
@@ -55,8 +53,8 @@ export default function DepositPage() {
 
         tokens.forEach((token) => {
           const id = token.name;
-          // Only include TRC20 (both regular and QR versions)
-          if (token.name === "USDT-TRC20" || token.name === "USDT TRC20 QR") {
+          // Only include TRC20 (regular version only, QR removed)
+          if (token.name === "USDT-TRC20") {
             if (!groupedMap.has(id)) {
               groupedMap.set(id, {
                 id,
@@ -75,17 +73,6 @@ export default function DepositPage() {
         });
 
         const cryptoList = Array.from(groupedMap.values());
-
-        // Sort: TRC20 QR first, then TRC20
-        cryptoList.sort((a, b) => {
-          const priority = (name: string) => {
-            if (name === "USDT TRC20 QR") return -2;
-            if (name === "USDT-TRC20") return -1;
-            return 0;
-          };
-
-          return priority(a.name) - priority(b.name);
-        });
 
         setCryptocurrencies(cryptoList);
       } catch (err) {
@@ -133,13 +120,8 @@ export default function DepositPage() {
 
   const handleCryptoSelect = useCallback((crypto: Cryptocurrency) => {
     setSelectedCrypto(crypto);
-    
-
-    if (crypto.name === "USDT TRC20 QR") {
-      setManualDepositDialogOpen(true);
-    } else {
-      setDepositDialogOpen(true);
-    }
+    // Always open the regular deposit dialog (QR option removed)
+    setDepositDialogOpen(true);
   }, []);
 
   // Filter items - show only USDT TRC20 crypto options
@@ -197,12 +179,6 @@ export default function DepositPage() {
         <DepositDialog
           open={depositDialogOpen}
           onOpenChange={setDepositDialogOpen}
-          selectedCrypto={selectedCrypto}
-          lifetimeDeposit={lifetimeDeposit}
-        />
-        <ManualDepositDialog
-          open={manualDepositDialogOpen}
-          onOpenChange={setManualDepositDialogOpen}
           selectedCrypto={selectedCrypto}
           lifetimeDeposit={lifetimeDeposit}
         />

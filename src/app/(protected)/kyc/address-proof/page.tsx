@@ -57,6 +57,7 @@ export default function AddressVerificationPage() {
       // Poll every 10 seconds until accepted or declined
       let pollCount = 0;
       const maxPolls = 30; // 30 polls * 10 seconds = 5 minutes
+      let invalidReferenceCount = 0;
       
       const pollInterval = setInterval(async () => {
         pollCount++;
@@ -93,15 +94,41 @@ export default function AddressVerificationPage() {
             } else if (event === "request.pending" || event === "request.received") {
               // ⏳ Still pending - continue polling
               console.log("⏳ Still pending, will check again in 10 seconds...");
+              // Reset invalid reference counter on successful pending response
+              invalidReferenceCount = 0;
               
             } else {
               // 🤷 Unknown event - continue polling but log it
               console.log(`🤷 Unknown event: ${event} - Continuing to poll...`);
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("⚠️ Error polling Shufti status:", error);
-          // Don't stop polling on error - Shufti might be temporarily unavailable
+          
+          // Check if error is "invalid reference"
+          const errorData = error?.response?.data;
+          const isInvalidReference = 
+            errorData?.error?.key === 'reference' ||
+            errorData?.error?.message?.includes('invalid') ||
+            errorData?.event === 'request.invalid';
+          
+          if (isInvalidReference) {
+            invalidReferenceCount++;
+            console.warn(`⚠️ Invalid reference detected (${invalidReferenceCount}/3)`);
+            
+            // If we get invalid reference 3 times in a row, the submission failed
+            if (invalidReferenceCount >= 3) {
+              console.error("❌ Reference is invalid. The initial submission likely failed.");
+              
+              // Show error and allow user to retry
+              setError("Verification submission failed. Please try again.");
+              toast.error("Verification submission failed. Please resubmit your documents.");
+              setStep(1); // Go back to start
+              clearInterval(pollInterval);
+              return;
+            }
+          }
+          // Don't stop polling on other errors - Shufti might be temporarily unavailable
         }
         
         // Stop polling after max attempts
