@@ -477,10 +477,14 @@ export function DepositDialog({
           throw new Error(`HTTP error! status: ${response.status}`);
 
         const paymentData = await response.json();
+        
+        // Handle both old and new data structures
         const receiveAmount =
-          paymentData.data.payment_info?.[0]?.receive_amount;
+          paymentData.data?.payment_info?.[0]?.receive_amount ||
+          paymentData.data?.payment_info?.[0]?.amount ||
+          amount; // Fallback to original amount
 
-        if (countdown <= 0 && paymentData.data.status === "pending") {
+        if (countdown <= 0 && paymentData.data?.status === "pending") {
           return {
             event_name: paymentData.data.event_name || "",
             event_type: "expired",
@@ -492,7 +496,7 @@ export function DepositDialog({
           };
         }
 
-        if (!["pending", "new"].includes(paymentData.data.status)) {
+        if (paymentData.data?.status && !["pending", "new"].includes(paymentData.data.status)) {
           return {
             event_name: paymentData.data.event_name || "",
             event_type: paymentData.data.status,

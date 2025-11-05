@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPaymentOrder } from "@/lib/cregis-payment.service";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 
 const config = {
   SUCCESS_URL: process.env.CREGIS_SUCCESS_URL || "",
   CANCEL_URL: process.env.CREGIS_CANCEL_URL || "",
   VALID_TIME: process.env.CREGIS_VALID_TIME || "",
   PAYER_ID: process.env.CREGIS_PAYER_ID || "",
+  // Static USDT TRC20 deposit address from Cregis WaaS
+  USDT_DEPOSIT_ADDRESS: process.env.CREGIS_USDT_DEPOSIT_ADDRESS || "",
+  // QR code for the deposit address (optional)
+  USDT_QR_CODE: process.env.CREGIS_USDT_QR_CODE || "",
 };
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
@@ -101,135 +105,93 @@ export async function POST(req: NextRequest) {
 
     console.log('📝 [CHECKOUT] Callback URL:', callbackUrl.toString());
 
-    // Map currency to Cregis Payment Engine format
-    // Payment Engine might use different format than WaaS API
-    let cregisOrderCurrency = order_currency.trim();
+    // Use static USDT TRC20 deposit address from environment
+    const depositAddress = config.USDT_DEPOSIT_ADDRESS;
     
-    // Try different currency formats for Payment Engine
-    // Format 1: Simple name (e.g., "USDT")
-    // Format 2: With network (e.g., "USDT-TRC20") 
-    // Format 3: Full identifier (e.g., "195@TR7...")
-    
-    const currencyMappings: Record<string, string[]> = {
-      'USDT': [
-        'USDT',           // Try simple format first
-        'USDT-TRC20',     // Try with network
-        '195@TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // Full identifier
-      ],
-      'TRX': ['TRX', 'TRON', '195'],
-    };
-
-    // For now, try the simple format first
-    if (order_currency.toUpperCase() === 'USDT' || order_currency.toUpperCase() === 'USDT-TRC20') {
-      // Try simple "USDT" format for Payment Engine
-      cregisOrderCurrency = 'USDT';
-      console.log(`📝 [CHECKOUT] Using simple format: ${order_currency} → ${cregisOrderCurrency}`);
-    } else {
-      console.log(`⚠️ [CHECKOUT] Using original currency format: ${cregisOrderCurrency}`);
-    }
-    
-    console.log(`💡 [CHECKOUT] Available alternatives if this fails:`, currencyMappings[order_currency.toUpperCase()] || []);
-
-    // Prepare payment order parameters
-    const paymentParams = {
-      orderAmount: order_amount.trim(),
-      orderCurrency: cregisOrderCurrency,
-      callbackUrl: callbackUrl.toString(),
-      successUrl: successUrl,
-      cancelUrl: cancelUrl,
-      payerId: payer_id || config.PAYER_ID || `${Date.now()}`,
-      validTime: valid_time || Number(config.VALID_TIME) || 30, // FIXED: 30 minutes instead of 600
-    };
-
-    console.log('📤 [CHECKOUT] Creating Cregis payment order with:', {
-      originalCurrency: order_currency,
-      mappedCurrency: cregisOrderCurrency,
-      orderAmount: paymentParams.orderAmount,
-      validTime: paymentParams.validTime,
-      hasCallbackUrl: !!paymentParams.callbackUrl,
-      hasSuccessUrl: !!paymentParams.successUrl,
-      hasCancelUrl: !!paymentParams.cancelUrl,
-    });
-
-    // Create payment order using Cregis service
-    const result = await createPaymentOrder(paymentParams);
-
-    if (!result.success) {
-      console.error("❌ [CHECKOUT] Cregis payment order failed:", result.error);
+    if (!depositAddress) {
+      console.error('❌ [CHECKOUT] No USDT deposit address configured!');
       return NextResponse.json(
         {
           code: "10000",
-          msg: "Payment initiation failed",
-          error: result.error,
+          msg: "Deposit address not configured",
+          error: "Please set CREGIS_USDT_DEPOSIT_ADDRESS in environment variables",
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
 
-    console.log('✅ [CHECKOUT] Cregis payment order created successfully');
-    console.log('📋 [CHECKOUT] Payment data:', {
-      hasCregisId: !!result.data?.cregisId,
-      hasPaymentUrl: !!result.data?.paymentUrl,
-      hasQrCode: !!result.data?.qrCode,
-      orderId: result.data?.orderId,
+    // Generate unique third_party_id for tracking this deposit
+    const thirdPartyId = `DEP_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    
+    console.log('💰 [CHECKOUT] Using static USDT deposit address:', {
+      address: depositAddress,
+      thirdPartyId,
+      amount: order_amount,
+      currency: order_currency,
+      account: account_number,
     });
 
-    // Call backend to create crypto deposit record
-    if (account_number) {
-      try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
+    // Try to call backend to create crypto deposit record (optional for now)
+    // If backend fails, we'll still return the address so user can deposit
+    try {
+      const cookieStore = await cookies();
+      const token = cookieStore.get('token')?.value;
 
-        if (token) {
-          console.log('📞 Calling backend to create crypto deposit record...');
-          
-          const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-crypto`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              mt5AccountId: account_number,
-              amount: order_amount,
-              currency: order_currency,
-              network: network || 'TRC20',
-              cregisOrderId: result.data?.orderId,
-              paymentUrl: result.data?.paymentUrl,
-            }),
-          });
+      if (token && account_number) {
+        console.log('📞 [CHECKOUT] Attempting to call backend to create deposit record...');
+        
+        const backendResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-crypto`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            mt5AccountId: account_number,
+            amount: order_amount,
+            currency: order_currency,
+            network: network || 'TRC20',
+            cregisOrderId: thirdPartyId,
+            paymentUrl: depositAddress,
+          }),
+        });
 
-          if (backendResponse.ok) {
-            const backendData = await backendResponse.json();
-            console.log('✅ Crypto deposit record created in backend:', backendData);
-          } else {
-            console.warn('⚠️ Failed to create crypto deposit record in backend:', await backendResponse.text());
-          }
+        if (backendResponse.ok) {
+          const backendData = await backendResponse.json();
+          console.log('✅ [CHECKOUT] Deposit record created in backend:', backendData);
         } else {
-          console.warn('⚠️ No auth token found in cookies, skipping backend call');
+          const errorText = await backendResponse.text();
+          console.warn('⚠️ [CHECKOUT] Backend call failed (continuing anyway):', errorText);
+          console.warn('⚠️ [CHECKOUT] Backend might not be running or route not found');
+          console.warn('💡 [CHECKOUT] User can still deposit - address will be shown');
         }
-      } catch (backendError) {
-        console.error('❌ Error calling backend:', backendError);
-        // Continue even if backend call fails
+      } else {
+        console.warn('⚠️ [CHECKOUT] No auth token or account - skipping backend call');
       }
+    } catch (backendError) {
+      console.warn('⚠️ [CHECKOUT] Backend error (continuing anyway):', backendError);
+      console.warn('💡 [CHECKOUT] User can still deposit - address will be shown');
+      // Don't return error - continue to show address even if backend fails
     }
 
-    // Transform Cregis response to match expected CheckoutData format
+    // Return deposit data to frontend
     const checkoutDataResponse = {
-      cregis_id: result.data?.cregisId || "",
+      cregis_id: thirdPartyId,
       order_currency: order_currency,
-      expire_time: result.data?.expireTime || new Date(Date.now() + 600000).toISOString(),
-      payment_url: result.data?.paymentUrl || "",
-      qr_code: result.data?.qrCode || "",
-      // For backward compatibility with old dialog that expects payment_info
-      payment_info: result.data?.paymentUrl ? [
+      expire_time: new Date(Date.now() + 1800000).toISOString(), // 30 minutes
+      payment_url: "", // No payment URL needed
+      qr_code: config.USDT_QR_CODE || "", // QR code from env or empty
+      // Include static deposit address in payment_info
+      payment_info: [
         {
-          payment_address: result.data.paymentUrl,
+          payment_address: depositAddress,
           receive_currency: order_currency,
-          blockchain: network || crypto_symbol || order_currency,
+          blockchain: network || 'TRC20',
           token_symbol: crypto_symbol || order_currency,
+          memo: "",
+          amount: order_amount,
         }
-      ] : [],
+      ],
     };
 
     // Return data in format expected by frontend
