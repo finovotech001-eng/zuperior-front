@@ -29,19 +29,19 @@ export default function CrispChat() {
           // Set user information if available
           if (user) {
             // Set user email
-            if (user.email) {
-              window.$crisp.push(["set", "user:email", user.email]);
+            if (user.email1) {
+              window.$crisp.push(["set", "user:email", user.email1]);
             }
             
             // Set user name
-            const userName = user.accountname || user.name;
+            const userName = user.accountname;
             if (userName) {
               window.$crisp.push(["set", "user:nickname", userName]);
             }
             
             // Set user phone if available
-            if (user.phone_no) {
-              window.$crisp.push(["set", "user:phone", user.phone_no]);
+            if (user.phone) {
+              window.$crisp.push(["set", "user:phone", user.phone]);
             }
             
             // Set additional user data
@@ -50,9 +50,9 @@ export default function CrispChat() {
               "session:data",
               [
                 [
-                  ["user_id", user.id || "N/A"],
+                  ["crm_account_id", user.crm_account_id?.toString() || "N/A"],
                   ["account_name", user.accountname || "N/A"],
-                  ["country", user.country || "N/A"],
+                  ["verification_status", user.verification_status || "N/A"],
                 ],
               ],
             ]);

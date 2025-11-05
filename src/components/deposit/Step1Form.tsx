@@ -184,7 +184,7 @@ export function Step1Form({
                         )
                       </span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        ${parseFloat(selectedAccountObj.balance || 0).toFixed(2)}
+                        ${parseFloat(String(selectedAccountObj.balance || 0)).toFixed(2)}
                       </span>
                     </span>
                   ) : (
@@ -224,7 +224,7 @@ export function Step1Form({
                           : ""}
                         )
                       </span>
-                      <span className="text-xs text-muted-foreground">${parseFloat(account.balance || 0).toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">${parseFloat(String(account.balance || 0)).toFixed(2)}</span>
                     </SelectItem>
                   ))}
               </SelectContent>

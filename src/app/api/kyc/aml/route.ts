@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
 
 export async function POST(request: Request) {
-  let requestBody: AMLRequestBody;
+  let requestBody: AMLRequestBody | undefined;
   
   try {
     // Load environment variables
@@ -18,6 +18,14 @@ export async function POST(request: Request) {
     } = process.env;
 
     requestBody = await request.json();
+    
+    if (!requestBody) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
+    
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
 
     console.log('🔍 AML Verification Request:', {
@@ -134,7 +142,7 @@ export async function POST(request: Request) {
     }
 
     // If Shufti Pro fails, fall back to test mode for development
-    if (process.env.NODE_ENV === 'development' && requestBody) {
+    if (process.env.NODE_ENV === 'development' && requestBody?.reference) {
       console.log("🔄 Falling back to test mode for AML due to Shufti Pro error");
       
       const mockResponse: AMLResponse = {

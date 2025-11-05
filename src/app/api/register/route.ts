@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const baseUrl =
       process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api";
     // Include emailVerified if OTP was verified
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const isVerified = cookieStore.get("otp_verified")?.value === "true";
 
     const response = await axios.post(

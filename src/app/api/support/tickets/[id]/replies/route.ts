@@ -5,9 +5,10 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:500
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!token) {
@@ -20,7 +21,7 @@ export async function POST(
     const body = await request.json();
     
     const response = await axios.post(
-      `${API_URL}/support/tickets/${params.id}/replies`,
+      `${API_URL}/support/tickets/${id}/replies`,
       body,
       {
         headers: {

@@ -26,7 +26,7 @@ export interface DocumentKYCResponse {
   verification_url?: string;
 
   // Only present when declined
-  declined_reason?: string;
+  declined_reason?: string | null;
   declined_codes?: string[] | string;
 
   // Common extracted document data
@@ -43,8 +43,12 @@ export interface DocumentKYCResponse {
   };
 
   // Verification result (0 = failed, 1 = passed)
+  // Can also contain status and message for backend responses
   verification_result?: {
-    document?: Record<string, number | null>;
+    document?: Record<string, number | null> | {
+      status?: string;
+      message?: string;
+    };
     address?: Record<string, number | null>;
   };
 
@@ -71,8 +75,8 @@ export interface DocumentKYCResponse {
     };
   };
 
-  // For error cases (like 401)
-  error?: {
+  // For error cases (like 401) - can be string or object
+  error?: string | {
     message: string;
   };
 }
@@ -94,8 +98,15 @@ export interface AMLRequestBody {
 export interface AMLResponse {
   reference?: string;
   event?: string;
-  declined_reason?: string;
-  error?: {
+  declined_reason?: string | null;
+  verification_url?: string;
+  verification_result?: {
+    background_checks?: {
+      status?: string;
+      message?: string;
+    };
+  };
+  error?: string | {
     message: string;
   };
 }
@@ -103,15 +114,18 @@ export interface AMLResponse {
 export interface AddressKYCResponse {
   reference: string;
   event?: string;
-  declined_reason?: string;
-  verification_result: {
+  declined_reason?: string | null;
+  verification_url?: string;
+  verification_result?: {
     address: {
-      address_document: number;
-      address_document_must_not_be_expired: number;
-      full_address: number;
+      address_document?: number;
+      address_document_must_not_be_expired?: number;
+      full_address?: number;
+      status?: string;
+      message?: string;
     };
   };
-  error?: {
+  error?: string | {
     message: string;
   };
 }

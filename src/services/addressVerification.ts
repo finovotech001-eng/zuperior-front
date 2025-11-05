@@ -67,7 +67,10 @@ export async function addressVerification(params: AddressVerificationParams) {
     // If there's an error in the response but we have a reference, still return it
     // This allows the frontend to show a message but continue with the reference
     if (data.error && !data.reference) {
-      throw new Error(data.error || 'Address verification failed');
+      const errorMessage = typeof data.error === 'string' 
+        ? data.error 
+        : data.error.message;
+      throw new Error(errorMessage || 'Address verification failed');
     }
 
     return data;

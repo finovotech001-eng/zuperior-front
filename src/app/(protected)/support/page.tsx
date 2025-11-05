@@ -28,16 +28,12 @@ export default function SupportHub() {
     const accountname = state.user.data?.accountname;
     if (accountname) return accountname.split(" ")[0];
     
-    // Try name field
-    const name = state.user.data?.name;
-    if (name) return name.split(" ")[0];
-    
     // Try from localStorage as fallback
     try {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);
-        return user?.name?.split(" ")[0] || user?.accountname?.split(" ")[0];
+        return user?.accountname?.split(" ")[0];
       }
     } catch (e) {
       console.error("Error parsing stored user:", e);

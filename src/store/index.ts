@@ -53,7 +53,7 @@ const rootReducer: Reducer<ReturnType<typeof appReducer>, AnyAction> = (
     if (typeof window !== "undefined") {
     }
 
-    // Reset specific slices
+    // Reset specific slices (keep mt5 to preserve _persist property)
     return appReducer(
       {
         ...state,
@@ -62,7 +62,6 @@ const rootReducer: Reducer<ReturnType<typeof appReducer>, AnyAction> = (
         accounts: accountsReducer(undefined, action),
         transactions: transactionsReducer(undefined, action),
         kyc: kycReducer(undefined, action),
-        mt5: mt5Reducer(undefined, action),
         admin: adminReducer(undefined, action),
         adminStats: adminStatsReducer(undefined, action),
       },

@@ -55,7 +55,7 @@ interface LoadingDotsProps {
   className?: string;
 }
 
-export function LoadingDots({ className }: LoadingDots) {
+export function LoadingDots({ className }: LoadingDotsProps) {
   return (
     <div className={cn("flex gap-1", className)}>
       {[0, 1, 2].map((i) => (

@@ -41,7 +41,6 @@ interface NewAccountResponse {
   profit?: number;
   isEnabled?: boolean;
   createdAt?: string;
-  updatedAt?: string;
 }
 
 export function NewAccountDialog({
@@ -302,7 +301,6 @@ export function NewAccountDialog({
           status: "success",
           status_code: "200",
           message: "Account created successfully",
-          accountType: accountType,
           _token: "",
           object: {
             crm_account_id: parseInt(result.accountId) || 0,
@@ -314,7 +312,7 @@ export function NewAccountDialog({
           accountId: result.accountId,
           name: result.name,
           group: result.group,
-          leverage: result.leverage,
+          leverage: result.leverage ?? undefined,
           balance: result.balance,
           equity: result.equity,
           credit: result.credit,
@@ -323,16 +321,16 @@ export function NewAccountDialog({
           marginLevel: result.marginLevel,
           profit: result.profit,
           isEnabled: result.isEnabled,
-          createdAt: result.createdAt,
-          updatedAt: result.updatedAt
+          createdAt: result.createdAt
         });
 
         // Fetch fresh account details from the API using correct endpoint
         console.log("🔄 Fetching fresh account details from API...");
         try {
+          const token = localStorage.getItem('userToken');
           const profileResponse = await fetch(`/api/mt5/user-profile/${result.accountId}`, {
             headers: {
-              'Authorization': `Bearer ${token || localStorage.getItem('userToken')}`
+              'Authorization': `Bearer ${token}`
             }
           });
           const profileData = await profileResponse.json();
@@ -354,8 +352,7 @@ export function NewAccountDialog({
               marginLevel: profileData.data.marginLevel || prev?.marginLevel,
               profit: profileData.data.profit || prev?.profit,
               isEnabled: profileData.data.isEnabled || prev?.isEnabled,
-              createdAt: profileData.data.createdAt || prev?.createdAt,
-              updatedAt: profileData.data.updatedAt || prev?.updatedAt
+              createdAt: profileData.data.createdAt || prev?.createdAt
             }));
           }
         } catch (profileError) {

@@ -7,9 +7,10 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:500
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!token) {
@@ -32,7 +33,7 @@ export async function PUT(
       );
     }
 
-    const response = await fetch(`${API_URL}/admin/kyc/${params.id}/status`, {
+    const response = await fetch(`${API_URL}/admin/kyc/${id}/status`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

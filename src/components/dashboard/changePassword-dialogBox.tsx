@@ -115,7 +115,7 @@ export function ChangePasswordDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           email: userEmail.trim(), 
-          name: user?.name || "User",
+          name: user?.accountname || "User",
           purpose: "password-change", // Specify purpose for password change
           useBackend: true 
         }),
@@ -209,7 +209,7 @@ export function ChangePasswordDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           email: userEmail, 
-          name: user?.name || "User",
+          name: user?.accountname || "User",
           purpose: "password-change",
           useBackend: true 
         }),

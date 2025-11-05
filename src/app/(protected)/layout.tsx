@@ -8,14 +8,6 @@ import Head from "next/head";
 import { fetchKycStatus } from "@/store/slices/kycSlice";
 import { useSessionCheck } from "@/hooks/useSessionCheck";
 
-// TypeScript declaration for Crisp
-declare global {
-  interface Window {
-    $crisp: Array<unknown>;
-    CRISP_WEBSITE_ID: string;
-  }
-}
-
 export default function ProtectedLayout({
   children,
 }: {
