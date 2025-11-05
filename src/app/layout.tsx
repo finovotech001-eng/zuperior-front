@@ -6,7 +6,7 @@ import ReduxProvider from "@/providers/redux-provider"; // your redux wrapper
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LoadingProvider } from "@/context/LoadingContext"; // Import the LoadingProvider here
-import CrispChat from "@/components/CrispChat";
+import TawkToChat from "@/components/TawkToChat";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               enableSystem
               disableTransitionOnChange
             >
-              <CrispChat />
+              <TawkToChat />
               <Toaster
                 position="bottom-right"
                 theme="dark"

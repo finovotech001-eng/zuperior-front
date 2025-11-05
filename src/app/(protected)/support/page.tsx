@@ -105,22 +105,29 @@ export default function SupportHub() {
     );
   }
 
-  const openCrispChat = () => {
-    if (typeof window !== "undefined" && window.$crisp) {
-      // For open tha chat
-      window.$crisp.push(["do", "chat:show"]);
-      window.$crisp.push(["do", "chat:open"]);
+  const openTawkToChat = () => {
+    if (
+      typeof window !== "undefined" &&
+      window.Tawk_API &&
+      typeof window.Tawk_API.showWidget === "function" &&
+      typeof window.Tawk_API.maximize === "function"
+    ) {
+      // Show and maximize the chat widget
+      window.Tawk_API.showWidget();
+      window.Tawk_API.maximize();
 
-      // After close hide it from every page
-      window.$crisp.push([
-        "on",
-        "chat:closed",
-        () => {
-          window.$crisp.push(["do", "chat:hide"]);
-        },
-      ]);
+      // Hide widget when chat is closed
+      if (typeof window.Tawk_API.hideWidget === "function") {
+        window.Tawk_API.onChatMinimized = function () {
+          if (window.Tawk_API && typeof window.Tawk_API.hideWidget === "function") {
+            window.Tawk_API.hideWidget();
+          }
+        };
+      }
     } else {
-      console.error("Crisp chat is not loaded yet");
+      console.error("Tawk.to chat is not loaded yet. Please wait a moment and try again.");
+      // Optionally show a toast notification to the user
+      toast.error("Chat is loading, please try again in a moment.");
     }
   };
 
@@ -222,7 +229,7 @@ export default function SupportHub() {
             <Button
               variant="outline"
               className="w-full sm:w-auto font-medium border-2 bg-transparent"
-              onClick={openCrispChat}
+              onClick={openTawkToChat}
             >
               <MessageCircle className="h-4 w-4 mr-2" />
               Start chat
