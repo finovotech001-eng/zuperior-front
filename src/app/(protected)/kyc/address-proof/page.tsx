@@ -75,42 +75,36 @@ export default function AddressVerificationPage() {
           selected_document_type: documentType,
         });
 
-      // dispatch(setAddressReference(addressVerificationResult.reference || ""));
+      // Backend already stores the addressReference during submission via submitAddress
+      // Status updates will come via webhook from Shufti
+      // Only update UI status based on Shufti response event
+      
+      const reference = addressVerificationResult.reference;
+      
+      if (!reference) {
+        console.error("❌ No reference returned from address verification");
+        setVerificationStatus("declined");
+        toast.error("Failed to get verification reference. Please try again.");
+        return;
+      }
 
       if (addressVerificationResult.event === "verification.accepted") {
-        // Update KYC status in new backend FIRST before showing success
-        try {
-          await updateAddressStatus({
-            addressReference: addressVerificationResult.reference || "",
-            isAddressVerified: true,
-          });
-          console.log("✅ KYC address status updated in database");
-          
-          // Only show success AFTER database update succeeds
-          setVerificationStatus("verified");
-          dispatch(setAddressVerified(true));
-          toast.success("Address verification completed successfully!");
-        } catch (error) {
-          console.error("Failed to update KYC address status in database:", error);
-          toast.error("Verification succeeded but failed to save. Please contact support.");
-          throw error; // Re-throw to be caught by outer catch
-        }
-      } else {
+        // Shufti accepted immediately (rare, usually it's pending)
+        setVerificationStatus("verified");
+        dispatch(setAddressVerified(true));
+        toast.success("Address verification completed successfully!");
+      } else if (addressVerificationResult.event === "verification.declined") {
         setVerificationStatus("declined");
-        toast.warning("Address verification failed, please try again.");
-        
-        // Update declined status in database
-        try {
-          await updateAddressStatus({
-            addressReference: addressVerificationResult.reference || "",
-            isAddressVerified: false,
-          });
-        } catch (error) {
-          console.error("Failed to update declined address status:", error);
-          // Don't throw here - we still want to show the declined message
-        }
-        
-        setDeclinedReason(addressVerificationResult?.declined_reason ?? "");
+        toast.warning("Address verification was declined. Please try again.");
+      } else {
+        // Usually "request.pending" or "request.received" - verification in progress
+        setVerificationStatus("pending");
+        toast.success("Address submitted for verification. We'll notify you when it's complete.");
+      }
+
+      // Set declined reason if available
+      if (addressVerificationResult?.declined_reason) {
+        setDeclinedReason(addressVerificationResult.declined_reason);
       }
     } catch (error) {
       toast.error(

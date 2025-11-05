@@ -53,20 +53,51 @@ export async function addressVerification(params: AddressVerificationParams) {
     });
 
     const data: AddressKYCResponse = response.data;
-    data.reference = addressRef;
+    
+    // Ensure reference is set (use from response or fallback to generated one)
+    data.reference = data.reference || addressRef;
 
     console.log('✅ Address verification response:', {
-      reference: addressRef,
+      reference: data.reference,
       event: data.event,
-      status: data.verification_result?.address?.status
+      status: data.verification_result?.address?.status,
+      error: data.error
     });
+
+    // If there's an error in the response but we have a reference, still return it
+    // This allows the frontend to show a message but continue with the reference
+    if (data.error && !data.reference) {
+      throw new Error(data.error || 'Address verification failed');
+    }
 
     return data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("❌ Error during address verification:", error);
-    // also return error so caller can handle
-    return error.response?.data || { error: error.message };
+    console.error("❌ Error during address verification:", {
+      error: error.response?.data || error.message,
+      status: error.response?.status
+    });
+    
+    // If we have a reference in the error response, return it with error info
+    const errorData = error.response?.data;
+    if (errorData?.reference) {
+      return {
+        reference: errorData.reference,
+        event: 'request.pending',
+        error: errorData.error || errorData.message || error.message,
+        verification_url: '',
+        verification_result: {
+          address: {
+            status: 'pending',
+            message: errorData.message || 'Address submitted but encountered an error'
+          }
+        },
+        declined_reason: null
+      } as AddressKYCResponse;
+    }
+    
+    // Otherwise throw the error so caller can handle
+    throw error;
   }
 }
