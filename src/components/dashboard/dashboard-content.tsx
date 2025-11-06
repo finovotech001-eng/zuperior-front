@@ -35,20 +35,25 @@ export function DashboardContent() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { fetchAllData, balance: totalBalance, isLoading, hasData, isAuthenticated } = useFetchUserData();
 
-  //auto refetch every 2 mins
+  //auto refetch every 10 seconds using optimized endpoint
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     fetchAllData();
 
     intervalRef.current = setInterval(() => {
-      fetchAllData();
-    }, 120000); // 2 min
+      // Use the optimized backend endpoint that fetches all balances in parallel
+      if (isAuthenticated) {
+        console.log('🔄 Refreshing all account balances...');
+        // This will be handled by the backend's getUserAccountsWithBalance endpoint
+        fetchAllData();
+      }
+    }, 10000); // 10 seconds
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchAllData]);
+  }, [fetchAllData, isAuthenticated]);
 
   // Log current API URL for debugging
   useEffect(() => {

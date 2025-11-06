@@ -9,14 +9,6 @@ export async function GET(
   { params }: { params: Promise<{ login: string }> }
 ) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
     const { login } = await params;
 
@@ -35,51 +27,37 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const cacheBuster = searchParams.get('_t') || Date.now().toString();
     
-    let response = await fetch(`${API_URL}/Users/${login}/getClientProfile?_t=${cacheBuster}`, {
+    // Direct call to getClientBalance - no auth needed
+    
+    let response = await fetch(`http://18.175.242.21:5003/api/client/getClientBalance/${login}?_t=${cacheBuster}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
       signal: controller.signal,
       cache: 'no-store',
     }).catch((err) => {
       return null as any;
     });
 
-    // If the primary route failed to connect (ECONNREFUSED/aborted), try the alternate backend path once
-    if (!response) {
-      try {
-        response = await fetch(`${API_URL}/mt5/user-profile/${login}?_t=${cacheBuster}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-          },
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-      } catch (e) {
-        // ignore here; handled below
-      }
-    }
+
 
     clearTimeout(timeout);
 
-    if (!response || !response.ok) {
-      const errorData = response ? (await response.json().catch(() => ({}))) : {};
+    if (!response) {
+      console.log('[Next.js API] Backend not accessible');
+      return NextResponse.json(
+        { success: false, message: 'Backend unavailable' },
+        { status: 503 }
+      );
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.log('[Next.js API] Backend error:', response.status, errorData);
       return NextResponse.json(
         {
           success: false,
-          message: errorData.message || (!response ? 'Backend unavailable' : 'Failed to fetch MT5 user profile')
+          message: errorData.message || 'Failed to fetch MT5 user profile'
         },
-        { status: response ? response.status : 503 }
+        { status: response.status }
       );
     }
 

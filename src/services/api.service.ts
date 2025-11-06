@@ -136,7 +136,14 @@ const refreshToken = async (): Promise<string | null> => {
 api.interceptors.request.use(
   (config) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    console.log('[API Service] Request to:', config.url);
+    console.log('[API Service] Token available:', !!token);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API Service] Authorization header set');
+    } else {
+      console.warn('[API Service] No token available for request');
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -499,7 +506,7 @@ const mt5Service = {
     }
   },
 
-  /** Get full account profile from ClientProfile API 
+  /** Get full account balance/profile from getClientBalance API 
    * Route: /api/mt5/user-profile/:accountId
    * This is the route used for fetching client details (every 400ms for balance/profit)
    */
@@ -553,7 +560,7 @@ const mt5Service = {
     throw lastError;
   },
 
-  /** Get only Balance and Profit for efficient polling (every 400ms) */
+  /** Get only Balance and Profit(Floating) for efficient polling */
   getAccountBalanceAndProfit: async (accountId: string | number, password: string, opts?: { signal?: AbortSignal }) => {
     const maxRetries = 2;
     let lastError: any = null;
@@ -570,11 +577,12 @@ const mt5Service = {
         const normalized = normalizeOk(response.data);
         
         if (normalized.success && normalized.data) {
+          const d: any = normalized.data;
           return {
             success: true,
             data: {
-              Balance: normalized.data.Balance || normalized.data.balance || 0,
-              Profit: normalized.data.Profit || normalized.data.profit || 0
+              Balance: d.Balance ?? d.balance ?? 0,
+              Profit: (d.Floating ?? d.floating ?? d.Profit ?? d.profit ?? 0)
             }
           };
         }

@@ -165,12 +165,12 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
     // Fetch immediately on mount
     fetchBalances();
 
-    // Set up polling every 10 seconds - this will continue until component unmounts
+    // Set up polling every 30 seconds - this will continue until component unmounts
     balancePollIntervalRef.current = setInterval(() => {
       fetchBalances();
-    }, 10000); // 10 seconds
+    }, 30000); // 30 seconds
 
-    console.log(`[AccountsSection] ✅ Started automatic balance refresh every 10 seconds for ${accounts.length} accounts`);
+    console.log(`[AccountsSection] ✅ Started automatic balance refresh every 30 seconds for ${accounts.length} accounts`);
   }, [accounts.length]); // Check when accounts become available, but guard prevents restarting
 
   // Cleanup on unmount only
@@ -184,6 +184,24 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
       }
     };
   }, []); // Only run cleanup on unmount
+
+  // Trigger immediate refresh when window gains focus or tab becomes visible
+  useEffect(() => {
+    const onFocus = () => {
+      try {
+        dispatchRef.current(fetchAllAccountsWithBalance() as any);
+      } catch (_) {}
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') onFocus();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   // DISABLED: Fetch ClientProfile - stopped per user request to prevent continuous API calls
   // useEffect(() => {
@@ -301,6 +319,16 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
               </Button>
             </DialogTrigger>
           </Dialog>
+          {/* Manual refresh */}
+          <button
+            aria-label="Refresh balances"
+            className="h-11 px-3 rounded-[15px] border border-white/10 text-sm font-semibold dark:text-white/80"
+            onClick={() => {
+              try { dispatch(fetchAllAccountsWithBalance() as any); } catch (_) {}
+            }}
+          >
+            Refresh
+          </button>
         </div>
       </div>
             <Tabs

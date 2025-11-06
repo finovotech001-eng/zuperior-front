@@ -7,7 +7,9 @@ export async function GET(
   try {
     const { login } = await params;
     // Use MT5 Manager endpoint that returns the client profile
-    const targetUrl = `http://18.175.242.21:5003/api/Users/${login}/getClientProfile`;
+    // Add cache-busting param to force fresh data on every request
+    const cacheBuster = Date.now();
+    const targetUrl = `http://18.175.242.21:5003/api/Users/${login}/getClientBalance?_t=${cacheBuster}`;
 
     console.log('Proxying user profile request to:', targetUrl);
 
@@ -16,7 +18,12 @@ export async function GET(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
+      cache: 'no-store',
+      next: { revalidate: 0 },
     });
 
     let data;
@@ -28,11 +35,14 @@ export async function GET(
       data = responseText;
     }
 
-    // Add CORS headers to the response
+    // Add CORS and no-cache headers to the response
     const headers = new Headers();
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
 
     console.log('User profile proxy response status:', response.status);
 

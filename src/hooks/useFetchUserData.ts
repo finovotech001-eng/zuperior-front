@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
-import { fetchUserAccountsFromDb, resetForNewClient, updateAccountBalance } from "@/store/slices/mt5AccountSlice";
+import { fetchUserAccountsFromDb, resetForNewClient, updateAccountBalance, fetchAllAccountsWithBalance } from "@/store/slices/mt5AccountSlice";
 import { authService, mt5Service } from "@/services/api.service";
 
 export function useFetchUserData() {
@@ -28,8 +28,15 @@ export function useFetchUserData() {
       dispatch(resetForNewClient(currentClientId));
     }
 
-    // Allow force refresh after account creation, but keep the guard for normal auto-fetch
+    // Allow force refresh after account creation
     if (hasFetchedRef.current && !forceRefresh) {
+      // For 10-second polling, only fetch balances, not full account data
+      console.log('🔄 Quick balance refresh...');
+      try {
+        await dispatch(fetchAllAccountsWithBalance() as any);
+      } catch (e: any) {
+        console.warn('⚠️ Quick balance refresh failed:', e?.message);
+      }
       return;
     }
 
@@ -48,34 +55,26 @@ export function useFetchUserData() {
 
       console.log("✅ MT5 accounts fetched successfully from DB");
 
-      // DISABLED: Refresh balances from MT5 getClientProfile - stopped per user request to prevent continuous API calls
-      // try {
-      //   const ids = (accounts || []).map(a => a.accountId).filter(Boolean);
-      //   const ensureIdsRaw = ids.length ? ids : (
-      //     (await mt5Service.getUserMt5AccountsFromDb())?.data?.accounts?.map((a: any) => a.accountId) ?? []
-      //   );
-      //   // Filter invalid/duplicate ids and avoid '0'
-      //   const ensureIds = Array.from(new Set(
-      //     ensureIdsRaw
-      //       .map((id: any) => String(id).trim())
-      //       .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
-      //   ));
-      //   await Promise.all(
-      //     ensureIds.map(async (id: string) => {
-      //       const res: any = await mt5Service.getMt5AccountProfile(id);
-      //       if (res?.success && res.data) {
-      //         const d = res.data;
-      //         const bal = Number(d.Balance ?? d.balance ?? 0);
-      //         const eq = Number(d.Equity ?? d.equity ?? 0);
-      //         if (!Number.isNaN(bal)) {
-      //           dispatch(updateAccountBalance({ login: Number(id), balance: bal, equity: eq }));
-      //         }
-      //       }
-      //     })
-      //   );
-      // } catch (balErr) {
-      //   console.warn("⚠️ Failed to refresh balances:", balErr);
-      // }
+      // Refresh balances from MT5 getClientProfile every 10 seconds
+      try {
+        const ids = (accounts || []).map(a => a.accountId).filter(Boolean);
+        const ensureIdsRaw = ids.length ? ids : (
+          (await mt5Service.getUserMt5AccountsFromDb())?.data?.accounts?.map((a: any) => a.accountId) ?? []
+        );
+        // Filter invalid/duplicate ids and avoid '0'
+        const ensureIds = Array.from(new Set(
+          ensureIdsRaw
+            .map((id: any) => String(id).trim())
+            .filter((id: string) => id && id !== '0' && /^\d+$/.test(id))
+        ));
+        // Fetch fresh balances using optimized endpoint with cache busting
+        console.log('🔄 Fetching FRESH balances for all accounts with cache bust...');
+        await dispatch(fetchAllAccountsWithBalance() as any).catch((e: any) => {
+          console.warn('⚠️ Failed to refresh balances:', e?.message || 'Unknown error');
+        });
+      } catch (balErr) {
+        console.warn("⚠️ Failed to refresh balances:", balErr);
+      }
       hasFetchedRef.current = true;
     } catch (err: any) {
       // Don't throw error for authentication issues
