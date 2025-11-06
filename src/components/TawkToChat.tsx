@@ -12,7 +12,7 @@ export default function TawkToChat() {
     if (typeof window !== "undefined") {
       // Check if script is already loaded
       const existingScript = document.querySelector(
-        'script[src="https://embed.tawk.to/690bacf549726e195b007aa9/1j9apn8qo"]'
+        'script[src="https://embed.tawk.to/690bc64ce10d0719502af37f/1j9avt755"]'
       );
 
       if (!existingScript) {
@@ -22,7 +22,7 @@ export default function TawkToChat() {
 
         // Create and append the script
         const script = document.createElement("script");
-        script.src = "https://embed.tawk.to/690bacf549726e195b007aa9/1j9apn8qo";
+        script.src = "https://embed.tawk.to/690bc64ce10d0719502af37f/1j9avt755";
         script.async = true;
         script.charset = "UTF-8";
         script.setAttribute("crossorigin", "*");
