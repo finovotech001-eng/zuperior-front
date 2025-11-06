@@ -192,14 +192,7 @@ export default function TicketDetails({ ticketId, onBack }: TicketDetailsProps) 
                         <span className="font-semibold dark:text-white/75 text-gray-900">
                           {reply.sender_name}
                         </span>
-                        {reply.sender_type === "admin" && (
-                          <Badge 
-                            variant="secondary"
-                            className="text-xs bg-purple-600/20 text-purple-400 border-purple-600/30"
-                          >
-                            Support
-                          </Badge>
-                        )}
+
                         <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
                           {format(parseISO(reply.created_at), "MMM dd, yyyy HH:mm")}
                         </span>
