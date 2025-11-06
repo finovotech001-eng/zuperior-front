@@ -3,12 +3,40 @@
 import { DocumentKYCRequestBody, DocumentKYCResponse } from "@/types/kyc";
 import { NextResponse } from "next/server";
 
+// Increase body size limit for this route (handles base64-encoded images)
+export const maxDuration = 30; // 30 seconds max execution time
+export const runtime = 'nodejs'; // Use Node.js runtime
+
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+
+// Create an AbortController for timeout
+function createFetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeoutId));
+}
 
 export async function POST(request: Request) {
   let body: DocumentKYCRequestBody;
   
   try {
+    // Validate environment variable
+    if (!process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+      console.error('❌ NEXT_PUBLIC_BACKEND_API_URL environment variable is not set');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Server configuration error: Backend API URL not configured",
+          details: "Please check server environment variables"
+        },
+        { status: 500 }
+      );
+    }
+
     // Get authorization header - try both cases
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
     const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
@@ -21,23 +49,84 @@ export async function POST(request: Request) {
       );
     }
 
-    body = await request.json();
+    // Parse request body with error handling
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Invalid request body",
+          details: parseError instanceof Error ? parseError.message : "Could not parse JSON"
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate required fields
+    if (!body.reference || !body.document) {
+      console.error('❌ Missing required fields in request body');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Missing required fields: reference and document are required"
+        },
+        { status: 400 }
+      );
+    }
 
     console.log('📝 Document Verification Request (forwarding to backend):', {
       reference: body.reference,
       documentType: body.document?.supported_types,
-      hasToken: !!token
+      hasToken: !!token,
+      backendUrl: BACKEND_API_URL
     });
 
-    // Forward request to backend API
-    const response = await fetch(`${BACKEND_API_URL}/kyc/submit-document`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    // Forward request to backend API with timeout
+    let response: Response;
+    try {
+      response = await createFetchWithTimeout(
+        `${BACKEND_API_URL}/kyc/submit-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+        30000 // 30 second timeout
+      );
+    } catch (fetchError: any) {
+      // Handle network errors, timeouts, etc.
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ Request timeout when calling backend API');
+        return NextResponse.json(
+          {
+            error: "Request timeout: Backend API did not respond in time",
+            success: false,
+            details: "The backend server may be slow or unreachable"
+          },
+          { status: 504 }
+        );
+      }
+      
+      if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+        console.error('❌ Network error when calling backend API:', fetchError.message);
+        return NextResponse.json(
+          {
+            error: "Network error: Unable to reach backend API",
+            success: false,
+            details: fetchError.message,
+            backendUrl: BACKEND_API_URL
+          },
+          { status: 503 }
+        );
+      }
+      
+      throw fetchError; // Re-throw unknown errors
+    }
 
     if (!response.ok) {
       let errorData: any = {};
@@ -46,25 +135,41 @@ export async function POST(request: Request) {
         errorData = text ? JSON.parse(text) : {};
       } catch (e) {
         console.error('Failed to parse error response:', e);
+        errorData = { message: `Backend returned status ${response.status}` };
       }
       
       console.error('❌ Backend API Error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorData
+        error: errorData,
+        backendUrl: BACKEND_API_URL
       });
       
       return NextResponse.json(
         {
           error: errorData.message || errorData.error || 'Failed to submit document for verification',
           success: false,
-          details: errorData.details || errorData.error
+          details: errorData.details || errorData.error || `Backend returned ${response.status}`,
+          status: response.status
         },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse backend response:', parseError);
+      return NextResponse.json(
+        {
+          error: "Invalid response from backend server",
+          success: false,
+          details: "Backend response could not be parsed as JSON"
+        },
+        { status: 502 }
+      );
+    }
     
     console.log('✅ Document submitted successfully:', {
       reference: body.reference,
@@ -98,13 +203,21 @@ export async function POST(request: Request) {
     return NextResponse.json(kycResponse);
 
   } catch (error: any) {
-    console.error("❌ KYC verification error:", error);
+    // Catch-all for any unexpected errors
+    console.error("❌ KYC verification error:", {
+      error: error,
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      backendUrl: BACKEND_API_URL
+    });
     
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Internal server error",
         success: false,
-        status: 500
+        status: 500,
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
       },
       { status: 500 }
     );

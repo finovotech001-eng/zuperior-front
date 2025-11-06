@@ -313,7 +313,9 @@ export function NewAccountDialog({
           name: result.name,
           group: result.group,
           leverage: result.leverage ?? undefined,
-          balance: result.balance,
+          balance: (isDemo && topUpAmount && parseFloat(topUpAmount) > 0)
+            ? parseFloat(topUpAmount)
+            : (result.balance ?? 0),
           equity: result.equity,
           credit: result.credit,
           margin: result.margin,
@@ -344,7 +346,10 @@ export function NewAccountDialog({
               name: profileData.data.name || prev?.name,
               group: profileData.data.group || prev?.group,
               leverage: profileData.data.leverage || prev?.leverage,
-              balance: profileData.data.balance || prev?.balance,
+              balance: Math.max(
+                (profileData.data.balance ?? 0),
+                (prev?.balance ?? 0)
+              ),
               equity: profileData.data.equity || prev?.equity,
               credit: profileData.data.credit || prev?.credit,
               margin: profileData.data.margin || prev?.margin,
