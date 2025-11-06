@@ -32,14 +32,14 @@ import { useEffect } from "react";
 export default function VerifyPage() {
   const [step, setStep] = useState(1);
   const user = useSelector((state: RootState) => state.user.data)
-  const country = user?.account_bill_ads_general.bill_country;
+  const country = user?.account_bill_ads_general?.bill_country;
   const [documentType, setDocumentType] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Make fields editable by using state
-  const [firstName, setFirstName] = useState(user?.accountname.split(" ")[0] || "");
-  const [lastName, setLastName] = useState(user?.accountname.split(" ")[1] || "");
+  const [firstName, setFirstName] = useState(user?.accountname?.split(" ")[0] || "");
+  const [lastName, setLastName] = useState(user?.accountname?.split(" ")[1] || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
   const [selectedCountry, setSelectedCountry] = useState(country || "");
   const [isLoading, setIsLoading] = useState(false);
