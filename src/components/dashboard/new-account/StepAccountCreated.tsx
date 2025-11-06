@@ -64,6 +64,26 @@ export const StepAccountCreated: React.FC<StepAccountCreatedProps> = ({
       return;
     }
 
+    // If we have an accountId for the just-created account, set it as default
+    try {
+      const accountId = latestAccount?.object?.tp_id || latestAccount?.object?.crm_account_id || latestAccount?.accountId;
+      if (accountId) {
+        fetch('/api/mt5/set-default-account', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ accountId: String(accountId) }),
+        }).catch(() => {});
+        // Persist for immediate use by terminal launcher
+        try {
+          localStorage.setItem('defaultMt5Account', String(accountId));
+          sessionStorage.setItem('defaultMt5Account', String(accountId));
+        } catch (_e) {}
+      }
+    } catch (_err) {}
+
     // Get terminal URL from environment variable
     const terminalBaseUrl = process.env.NEXT_PUBLIC_TERMINAL_URL || 'https://trade.zuperior.com';
     const terminalUrl = `${terminalBaseUrl}/login?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}&autoLogin=true`;

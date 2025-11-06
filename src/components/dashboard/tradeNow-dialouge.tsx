@@ -50,6 +50,11 @@ const TradeNowDialouge = ({
       const data = await response.json();
       if (data.success) {
         console.log('✅ Default MT5 account set successfully');
+        try {
+          // Persist locally so terminal launcher and UI can read immediately
+          localStorage.setItem('defaultMt5Account', String(mtLogin));
+          sessionStorage.setItem('defaultMt5Account', String(mtLogin));
+        } catch (_e) {}
       } else {
         console.warn('⚠️ Failed to set default account:', data.message);
       }
