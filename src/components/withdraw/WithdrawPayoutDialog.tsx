@@ -39,7 +39,7 @@ export function WithdrawPayoutDialog({
   ); */
   // Prefer MT5 accounts from the new flow; fall back to legacy snapshot
   const mt5Accounts = useSelector((state: RootState) => state.mt5.accounts);
-  const legacyAccounts = useSelector((state: RootState) => state.accounts.data).filter((a) => a.account_type === 'Live');
+  const legacyAccounts = useSelector((state: RootState) => state.accounts.data)?.filter((a) => a.account_type === 'Live') || [];
 
   const mapMt5ToTp = (a: any): TpAccountSnapshot => ({
     tradingplatformaccountsid: parseInt(a.accountId),
