@@ -188,19 +188,7 @@ const AccountDetails = ({
             <h3 className={`text-[28px] font-bold tracking-tighter leading-8`}>
               {headerBalance}
             </h3>
-            <p className="font-semibold opacity-75 text-xs -tracking-[0.03em]">
-              PnL
-              <span className="ml-1 tracking-tighter font-bold dark:text-[#ff4d4d] text-red-600">
-                <span
-                  className={`ml-1 tracking-tighter font-bold ${
-                    isProfit
-                      ? "text-[#8CBD79] dark:text-[#8CBD79]"
-                      : "text-red-600 dark:text-[#ff4d4d]"
-                  }`}>
-                  {pnl.toFixed(2)} ({pnlPercentage.toFixed(2)}%)
-                </span>
-              </span>
-            </p>
+
           </div>
 
           {/* Show these only on MD Account Details*/}
