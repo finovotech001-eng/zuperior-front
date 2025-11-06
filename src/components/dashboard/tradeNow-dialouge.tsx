@@ -21,9 +21,25 @@ const TradeNowDialouge = ({
   mtLogin,
 }: TradeDialogProps) => {
   const [step, setStep] = useState(1);
+  const MT5_DOWNLOAD_URL = "https://download.mql5.com/cdn/web/zuperior.fx.limited/mt5/zuperiorfx5setup.exe";
 
   const resetAllStates = useCallback(() => {
     setStep(1);
+  }, []);
+
+  // Handle MT5 download
+  const handleMt5Download = useCallback(() => {
+    try {
+      const link = document.createElement('a');
+      link.href = MT5_DOWNLOAD_URL;
+      link.download = '';
+      link.rel = 'noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (_e) {
+      window.open(MT5_DOWNLOAD_URL, '_blank');
+    }
   }, []);
 
   // Handle Web Terminal click with auto-login and set default account
@@ -178,7 +194,7 @@ const TradeNowDialouge = ({
                 </div>
 
                 {/* MetaTrader Card 1 */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border-2 border-gray-300 dark:border-[#1D1825] p-4 bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border-2 border-gray-300 dark:border-[#1D1825] p-4 bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429] cursor-pointer" onClick={handleMt5Download}>
                   <div className="flex items-center gap-3 mb-3 sm:mb-0">
                     <Image
                       src={mt5}
