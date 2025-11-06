@@ -109,8 +109,10 @@ const AccountDetails = ({
   // Available for Withdrawal = Equity (per user requirement)
   const availableForWithdrawal = equity;
   
-  const balance = `$${bal.toFixed(2)}`;
   const equityFormatted = `${equity.toFixed(2)}`;
+  // Header should display Equity (Balance + P/L), details row labeled "Balance" should show actual balance
+  const headerBalance = `$${equity.toFixed(2)}`;
+  const actualBalance = `$${bal.toFixed(2)}`;
   const freeMargin = `${parseFloat(accountDetails.margin_free || "0").toFixed(2)}`;
   const credit = `${parseFloat(accountDetails.credit || "0").toFixed(2)}`;
   const leverage = `1:${accountDetails.leverage || 1000}`;
@@ -230,7 +232,7 @@ const AccountDetails = ({
         <div className="flex items-center gap-2 lg:gap-0 xl:gap-2">
           <div className="flex items-center gap-2.5 md:min-w-45">
             <h3 className={`text-[28px] font-bold tracking-tighter leading-8`}>
-              {balance}
+              {headerBalance}
             </h3>
             <p className="font-semibold opacity-75 text-xs -tracking-[0.03em]">
               PnL
@@ -465,7 +467,7 @@ const AccountDetails = ({
                   </div>
                   <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Balance</p>
-                    <div className="text-sm w-24 text-right" style={numericStyle}>{balance}</div>
+                    <div className="text-sm w-24 text-right" style={numericStyle}>{actualBalance}</div>
                   </div>
                   <div className="flex justify-between w-full items-center">
                     <p className="text-xs opacity-75">Credit</p>
