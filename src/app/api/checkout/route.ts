@@ -105,30 +105,39 @@ export async function POST(req: NextRequest) {
 
     console.log('📝 [CHECKOUT] Callback URL:', callbackUrl.toString());
 
-    // Use static USDT TRC20 deposit address from environment
-    const depositAddress = config.USDT_DEPOSIT_ADDRESS;
+    // Call Cregis Checkout API to get dynamic payment address
+    console.log('🔄 [CHECKOUT] Calling Cregis Checkout API...');
     
-    if (!depositAddress) {
-      console.error('❌ [CHECKOUT] No USDT deposit address configured!');
+    const { createPaymentOrder } = await import('@/lib/cregis-payment.service');
+    
+    const cregisResult = await createPaymentOrder({
+      orderAmount: order_amount,
+      orderCurrency: order_currency,
+      callbackUrl: callbackUrl.toString(),
+      successUrl,
+      cancelUrl,
+      payerId: payer_id || account_number,
+      validTime: valid_time || parseInt(config.VALID_TIME) || 30,
+    });
+
+    if (!cregisResult.success || !cregisResult.data) {
+      console.error('❌ [CHECKOUT] Cregis API failed:', cregisResult.error);
       return NextResponse.json(
         {
           code: "10000",
-          msg: "Deposit address not configured",
-          error: "Please set CREGIS_USDT_DEPOSIT_ADDRESS in environment variables",
+          msg: "Failed to create payment order",
+          error: cregisResult.error || "Cregis API error",
         },
         { status: 500 }
       );
     }
 
-    // Generate unique third_party_id for tracking this deposit
-    const thirdPartyId = `DEP_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    const thirdPartyId = cregisResult.data.orderId;
     
-    console.log('💰 [CHECKOUT] Using static USDT deposit address:', {
-      address: depositAddress,
+    console.log('✅ [CHECKOUT] Cregis payment order created:', {
+      cregisId: cregisResult.data.cregis_id,
       thirdPartyId,
-      amount: order_amount,
-      currency: order_currency,
-      account: account_number,
+      hasPaymentInfo: !!cregisResult.data.payment_info,
     });
 
     // Try to call backend to create crypto deposit record (optional for now)
@@ -174,31 +183,17 @@ export async function POST(req: NextRequest) {
       // Don't return error - continue to show address even if backend fails
     }
 
-    // Return deposit data to frontend
-    const checkoutDataResponse = {
-      cregis_id: thirdPartyId,
-      order_currency: order_currency,
-      expire_time: new Date(Date.now() + 1800000).toISOString(), // 30 minutes
-      payment_url: "", // No payment URL needed
-      qr_code: config.USDT_QR_CODE || "", // QR code from env or empty
-      // Include static deposit address in payment_info
-      payment_info: [
-        {
-          payment_address: depositAddress,
-          receive_currency: order_currency,
-          blockchain: network || 'TRC20',
-          token_symbol: crypto_symbol || order_currency,
-          memo: "",
-          amount: order_amount,
-        }
-      ],
-    };
-
-    // Return data in format expected by frontend
+    // Return Cregis checkout data to frontend
     return NextResponse.json({
       code: "00000",
       msg: "Success",
-      data: checkoutDataResponse,
+      data: {
+        cregis_id: cregisResult.data.cregis_id,
+        order_currency: order_currency,
+        expire_time: cregisResult.data.expire_time,
+        checkout_url: cregisResult.data.checkout_url,
+        payment_info: cregisResult.data.payment_info,
+      },
     });
   } catch (err: unknown) {
     const error = err as Error;

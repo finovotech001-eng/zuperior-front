@@ -487,8 +487,17 @@ export function Step3Payment({
             <h3 className="text-lg font-semibold dark:text-white/75 text-black mb-3">
               Pay with {selectedCrypto.name}
             </h3>
-            {checkoutData.payment_info
-              .filter((info) => info.blockchain === selectedNetwork)
+            {checkoutData?.payment_info && checkoutData.payment_info.length > 0 ? (
+              checkoutData.payment_info
+              .filter((info) => {
+                // Match blockchain: TRC20 -> TRON, BEP20 -> BNB Smart Chain, ERC20 -> Ethereum
+                const networkMap: Record<string, string> = {
+                  'TRC20': 'TRON',
+                  'BEP20': 'BNB Smart Chain',
+                  'ERC20': 'Ethereum'
+                };
+                return info.blockchain === networkMap[selectedNetwork] || info.blockchain === selectedNetwork;
+              })
               .map((payment) => (
                 <div key={payment.blockchain} className="mb-2 rounded-lg p-1">
                   <div className="flex flex-col md:flex-row gap-6">
@@ -540,7 +549,12 @@ export function Step3Payment({
                     permanently lost
                   </p>
                 </div>
-              ))}
+              ))
+            ) : (
+              <div className="text-center p-4 text-red-500">
+                No payment information available
+              </div>
+            )}
           </div>
         )}
       </div>

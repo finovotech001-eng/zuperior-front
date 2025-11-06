@@ -208,36 +208,26 @@ export async function createPaymentOrder({
     
     // Extract payment data from Cregis response
     const paymentData = {
-      cregisId: data.data?.cregis_id,
-      paymentUrl: data.data?.payment_url,
-      qrCode: data.data?.qr_code,
-      expireTime: data.data?.expire_time,
+      cregis_id: data.data?.cregis_id,
+      checkout_url: data.data?.checkout_url,
+      payment_info: data.data?.payment_info,
+      expire_time: data.data?.expire_time,
       orderId,
     };
     
     console.log("📋 Extracted payment data:", {
-      hasCregisId: !!paymentData.cregisId,
-      hasPaymentUrl: !!paymentData.paymentUrl,
-      hasQrCode: !!paymentData.qrCode,
-      hasExpireTime: !!paymentData.expireTime,
+      hasCregisId: !!paymentData.cregis_id,
+      hasCheckoutUrl: !!paymentData.checkout_url,
+      hasPaymentInfo: !!paymentData.payment_info,
+      paymentInfoCount: paymentData.payment_info?.length || 0,
       orderId: paymentData.orderId,
-      paymentUrl: paymentData.paymentUrl || 'MISSING',
     });
     
-    // Verify payment_url is present
-    if (!paymentData.paymentUrl) {
-      console.error("❌ Missing payment_url in Cregis response!");
+    // Verify payment_info is present
+    if (!paymentData.payment_info || paymentData.payment_info.length === 0) {
+      console.error("❌ Missing payment_info in Cregis response!");
       console.error("📋 Full data.data object:", JSON.stringify(data.data, null, 2));
-      console.error("💡 Possible causes:");
-      console.error("   1. Currency not supported/enabled for this project");
-      console.error("   2. Card payments not enabled in Cregis dashboard");
-      console.error("   3. Test environment limitations");
-      console.error("   4. Project configuration incomplete");
-      console.error("📝 Action required:");
-      console.error("   - Check Cregis dashboard for enabled payment methods");
-      console.error("   - Verify currency code is correct for your region");
-      console.error("   - Contact Cregis support to enable card payments");
-      throw new Error(`Cregis API did not return a payment URL. Currency '${orderCurrency}' may not be enabled for your project, or card payments need to be activated. Check console logs and Cregis dashboard.`);
+      throw new Error(`Cregis API did not return payment information. Check console logs.`);
     }
 
     return {

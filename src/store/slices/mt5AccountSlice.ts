@@ -533,7 +533,12 @@ export const fetchAllAccountsWithBalance = createAsyncThunk(
         totalBalance: Number(totalBalance ?? 0),
       };
     } catch (error: any) {
-      console.error(`[MT5] ❌ fetchAllAccountsWithBalance error:`, error?.response?.data || error?.message || error);
+      // Ignore canceled requests (expected when component unmounts)
+      if (error?.message === 'canceled' || error?.name === 'AbortError') {
+        return rejectWithValue('Request canceled');
+      }
+      const errorDetails = error?.response?.data || error?.message || JSON.stringify(error) || 'Unknown error';
+      console.error(`[MT5] ❌ fetchAllAccountsWithBalance error:`, errorDetails);
       return rejectWithValue(
         error.response?.data?.message || error.response?.data?.Message || error.message || "Failed to fetch account balances"
       );

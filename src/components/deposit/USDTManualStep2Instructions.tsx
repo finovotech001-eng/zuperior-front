@@ -5,7 +5,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
-import { Copy, CheckCircle } from "lucide-react";
+import { Copy, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface USDTManualStep2InstructionsProps {
@@ -19,8 +19,63 @@ export function USDTManualStep2Instructions({
   selectedAccount,
   nextStep,
 }: USDTManualStep2InstructionsProps) {
-  const paymentAddress = "Twinxa7902309skjhfsdlhflksjdhlkLL";
+  const [paymentAddress, setPaymentAddress] = React.useState<string>("");
+  const [paymentUrl, setPaymentUrl] = React.useState<string>("");
+  const [qrCode, setQrCode] = React.useState<string>("");
+  const [loading, setLoading] = React.useState(true);
   const [copied, setCopied] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchPaymentAddress = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/cregis/create-deposit-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mt5AccountId: selectedAccount,
+            amount,
+            currency: "USD",
+          }),
+        });
+
+        const result = await response.json();
+        
+        console.log("🔍 Full API Response:", JSON.stringify(result, null, 2));
+        console.log("🔍 result.data:", result.data);
+        console.log("🔍 result.data.paymentInfo:", result.data?.paymentInfo);
+
+        if (result.success && result.data) {
+          const paymentInfo = result.data.paymentInfo;
+          console.log("🔍 Payment Info Array:", paymentInfo);
+          
+          // Find USDT-TRC20 payment address
+          const trc20Payment = paymentInfo?.find((p: any) => p.token_name === "USDT-TRC20");
+          console.log("🔍 TRC20 Payment:", trc20Payment);
+          
+          if (trc20Payment?.payment_address) {
+            console.log("✅ Setting payment address:", trc20Payment.payment_address);
+            setPaymentAddress(trc20Payment.payment_address);
+            setPaymentUrl(result.data.checkoutUrl || result.data.checkout_url || "");
+            setQrCode(result.data.qrCode || "");
+          } else {
+            console.error("❌ No TRC20 payment address found in:", paymentInfo);
+            toast.error("USDT-TRC20 payment address not available");
+          }
+        } else {
+          console.error("❌ API Error:", result.error);
+          toast.error(result.error || "Failed to generate payment address");
+        }
+      } catch (error) {
+        console.error("Error fetching payment address:", error);
+        toast.error("Failed to generate payment address");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPaymentAddress();
+  }, [amount, selectedAccount]);
 
   const handleCopyAddress = async () => {
     try {
@@ -32,6 +87,15 @@ export function USDTManualStep2Instructions({
       toast.error("Failed to copy address");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="w-full px-6 py-4 flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="w-12 h-12 animate-spin text-purple-500 mb-4" />
+        <p className="text-gray-600 dark:text-white/60">Generating payment address...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full px-6 py-4">
@@ -56,10 +120,8 @@ export function USDTManualStep2Instructions({
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">USDT TRC20 QR Network</h3>
               <h4 className="text-md font-medium text-gray-700 dark:text-white/80 mb-2">Payment Address</h4>
-              <p className="text-sm font-mono text-gray-600 dark:text-white/60 mb-3">
-                Twinxa7902309<br />
-                skjhfsdlhflks<br />
-                jdhlkLL
+              <p className="text-sm font-mono text-gray-600 dark:text-white/60 mb-3 break-all">
+                {paymentAddress || "Generating..."}
               </p>
               <Button
                 onClick={handleCopyAddress}
@@ -105,13 +167,22 @@ export function USDTManualStep2Instructions({
         </div>
       </div>
 
-      {/* Continue Button */}
-      <div className="mt-6">
+      {/* Payment Buttons */}
+      <div className="mt-6 space-y-3">
+        {paymentUrl && (
+          <Button
+            className="w-full cursor-pointer bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white hover:bg-[#9d6ad9]"
+            onClick={() => window.open(paymentUrl, "_blank")}
+          >
+            Open Payment Page
+          </Button>
+        )}
         <Button
-          className="w-full cursor-pointer bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white hover:bg-[#9d6ad9]"
+          variant="outline"
+          className="w-full cursor-pointer dark:text-white text-gray-900 border-gray-300 dark:border-white/20"
           onClick={nextStep}
         >
-          Continue
+          I've Completed Payment
         </Button>
       </div>
     </div>
