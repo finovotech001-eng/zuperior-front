@@ -139,6 +139,7 @@ export default function TransactionsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let tableData: any[] = [];
   if (activeTab === "all") {
+    // Show only entries from Deposit and Withdrawal tables (avoid duplicates from MT5 audit table)
     tableData = [
       ...transactionsData.deposits.map((tx) => ({
         ...tx,
@@ -149,50 +150,24 @@ export default function TransactionsPage() {
       ...transactionsData.withdrawals.map((tx) => ({
         ...tx,
         type: "Withdrawal",
-        status: tx.status || transactionsData.status || "Success",
-        account_id: transactionsData.MT5_account || tx.login,
-      })),
-      ...transactionsData.mt5Transactions.map((tx) => ({
-        ...tx,
-        type: tx.type,
         status: tx.status || transactionsData.status || "Success",
         account_id: transactionsData.MT5_account || tx.login,
       })),
     ];
   } else if (activeTab === "deposits") {
-    tableData = [
-      ...transactionsData.deposits.map((tx) => ({
-        ...tx,
-        type: "Deposit",
-        status: tx.status || transactionsData.status || "Success",
-        account_id: transactionsData.MT5_account || tx.login,
-      })),
-      ...transactionsData.mt5Transactions
-        .filter((tx) => tx.type === "Deposit")
-        .map((tx) => ({
-          ...tx,
-          type: tx.type,
-          status: tx.status || transactionsData.status || "Success",
-          account_id: transactionsData.MT5_account || tx.login,
-        })),
-    ];
+    tableData = transactionsData.deposits.map((tx) => ({
+      ...tx,
+      type: "Deposit",
+      status: tx.status || transactionsData.status || "Success",
+      account_id: transactionsData.MT5_account || tx.login,
+    }));
   } else {
-    tableData = [
-      ...transactionsData.withdrawals.map((tx) => ({
-        ...tx,
-        type: "Withdrawal",
-        status: tx.status || transactionsData.status || "Success",
-        account_id: transactionsData.MT5_account || tx.login,
-      })),
-      ...transactionsData.mt5Transactions
-        .filter((tx) => tx.type === "Withdrawal")
-        .map((tx) => ({
-          ...tx,
-          type: tx.type,
-          status: tx.status || transactionsData.status || "Success",
-          account_id: transactionsData.MT5_account || tx.login,
-        })),
-    ];
+    tableData = transactionsData.withdrawals.map((tx) => ({
+      ...tx,
+      type: "Withdrawal",
+      status: tx.status || transactionsData.status || "Success",
+      account_id: transactionsData.MT5_account || tx.login,
+    }));
   }
 
   // Search
