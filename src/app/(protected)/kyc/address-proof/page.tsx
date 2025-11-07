@@ -21,8 +21,12 @@ export default function AddressVerificationPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   // Make fields editable by using state
-  const [firstName, setFirstName] = useState(user?.accountname.split(" ")[0] || "");
-  const [lastName, setLastName] = useState(user?.accountname.split(" ")[1] || "");
+  // Be defensive: user or accountname can be undefined on first render
+  const accountName = String(user?.accountname || "");
+  const defaultFirst = accountName ? accountName.split(" ")[0] : "";
+  const defaultLast = accountName ? accountName.split(" ").slice(1).join(" ") : "";
+  const [firstName, setFirstName] = useState(defaultFirst);
+  const [lastName, setLastName] = useState(defaultLast);
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
   const [address, setAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +125,7 @@ export default function AddressVerificationPage() {
               console.error("❌ Reference is invalid. The initial submission likely failed.");
               
               // Show error and allow user to retry
-              setError("Verification submission failed. Please try again.");
+              setDeclinedReason("Verification submission failed. Please try again.");
               toast.error("Verification submission failed. Please resubmit your documents.");
               setStep(1); // Go back to start
               clearInterval(pollInterval);
