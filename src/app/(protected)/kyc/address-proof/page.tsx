@@ -20,9 +20,13 @@ export default function AddressVerificationPage() {
   const user = useSelector((state: RootState) => state.user.data);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // Make fields editable by using state
-  const [firstName, setFirstName] = useState(user?.accountname.split(" ")[0] || "");
-  const [lastName, setLastName] = useState(user?.accountname.split(" ")[1] || "");
+  // Make fields editable by using state (safe parse of accountname)
+  const fullName = (user?.accountname ?? '').trim();
+  const nameParts = fullName ? fullName.split(/\s+/).filter(Boolean) : [];
+  const initialFirst = nameParts[0] || '';
+  const initialLast = nameParts.slice(1).join(' ') || '';
+  const [firstName, setFirstName] = useState(initialFirst);
+  const [lastName, setLastName] = useState(initialLast);
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || "");
   const [address, setAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
