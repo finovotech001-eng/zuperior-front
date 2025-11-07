@@ -103,7 +103,7 @@ export function Step1FormPayout({
       toast.error("Wallet address is required");
       return false;
     }
-    if (!selectedNetwork.trim()) {
+    if (!(selectedNetwork ?? '').trim()) {
       toast.error("Network is required");
       return false;
     }
@@ -112,9 +112,10 @@ export function Step1FormPayout({
     try {
       // If selected from approved list, we skip external validation
       if (!approvedWallets.includes(toWallet.trim())) {
+        const chainId = ((selectedNetwork ?? selectedCrypto?.network ?? '') as string).split("@")[0];
         const { data } = await axios.post("/api/payout-address-legal", {
           address: toWallet.trim(),
-          chain_id: selectedNetwork.split("@")[0],
+          chain_id: chainId,
         });
         if (data.code !== "00000" || !data.data?.result) {
           throw new Error(data.data?.result || "Invalid wallet address");

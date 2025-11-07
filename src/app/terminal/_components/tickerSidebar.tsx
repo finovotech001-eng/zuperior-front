@@ -15,8 +15,8 @@ import { Menu } from "lucide-react";
 const TickerSidebar: React.FC = () => {
   const { theme } = useTheme();
   const tvTheme = theme === "dark" ? "dark" : "light";
-  const username =
-    store.getState().user.data?.accountname.split(" ")[0] || "User";
+  const rawName = (store.getState().user.data?.accountname ?? '').trim();
+  const username = rawName ? (rawName.split(/\s+/)[0] || 'User') : 'User';
 
   // Dropdown logic
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

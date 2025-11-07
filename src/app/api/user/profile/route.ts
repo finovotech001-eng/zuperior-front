@@ -1,6 +1,6 @@
 /**
  * User Profile API Route
- * Proxy to backend /api/profile endpoint
+ * Proxy to backend /api/user/profile endpoint
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,9 +10,15 @@ const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://local
 
 export async function GET(req: NextRequest) {
   try {
-    // Get token from cookies
+    // Get token from cookies, else from Authorization header
     const cookieStore = await cookies();
-    const token = cookieStore.get('token')?.value;
+    let token = cookieStore.get('token')?.value || '';
+    if (!token) {
+      const auth = req.headers.get('authorization') || '';
+      if (auth.toLowerCase().startsWith('bearer ')) {
+        token = auth.slice(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json(
@@ -27,7 +33,7 @@ export async function GET(req: NextRequest) {
     console.log('📥 [Profile API] Fetching user profile from backend...');
 
     // Call backend API
-    const response = await fetch(`${BACKEND_API_URL}/profile`, {
+    const response = await fetch(`${BACKEND_API_URL}/user/profile`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
