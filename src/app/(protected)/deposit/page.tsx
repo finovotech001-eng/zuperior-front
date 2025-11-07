@@ -5,6 +5,7 @@ import axios from "axios";
 import Image from "next/image";
 import { TextAnimate } from "@/components/ui/text-animate";
 import { DepositDialog } from "@/components/deposit/DepositDialog";
+import { BankDepositDialog } from "@/components/deposit/BankDepositDialog";
 import { store } from "@/store";
 import { useAppDispatch } from "@/store/hooks";
 import { fetchAccessToken } from "@/store/slices/accessCodeSlice";
@@ -38,6 +39,8 @@ export default function DepositPage() {
     null
   );
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [wireAvailable, setWireAvailable] = useState(false);
   const dispatch = useAppDispatch();
   const [lifetimeDeposit, setLifetimeDeposit] = useState<number>(0);
   const [isLoadingCrypto, setIsLoadingCrypto] = useState(true);
@@ -86,6 +89,17 @@ export default function DepositPage() {
   }, []);
 
   useEffect(() => {
+    // determine if wire gateway exists
+    (async () => {
+      try {
+        const r = await fetch('/api/manual-gateway?type=wire', { cache: 'no-store' });
+        const j = await r.json();
+        setWireAvailable(Boolean(j?.success));
+      } catch (_) { setWireAvailable(false); }
+    })();
+  }, []);
+
+  useEffect(() => {
     const fetchDeposit = async () => {
       try {
         const email = store.getState().user.data?.email1;
@@ -126,8 +140,10 @@ export default function DepositPage() {
 
   // Filter items - show only USDT TRC20 crypto options
   const filteredItems = useMemo(() => {
-    return cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto }));
-  }, [cryptocurrencies]);
+    const items: any[] = cryptocurrencies.map((crypto) => ({ type: "crypto", data: crypto }));
+    if (wireAvailable) items.unshift({ type: 'wire', data: { id: 'WIRE', name: 'Wire Transfer', icon: '/bank.png' } });
+    return items;
+  }, [cryptocurrencies, wireAvailable]);
 
   // Show loading state while fetching crypto data
   if (isLoadingCrypto) {
@@ -163,6 +179,16 @@ export default function DepositPage() {
         {/* Payment Cards - USDT TRC20 Only */}
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => {
+            if (item.type === 'wire') {
+              return (
+                <MemoizedPaymentMethodCard
+                  key="WIRE"
+                  onOpenNewAccount={() => setBankDialogOpen(true)}
+                  icon={item.data.icon}
+                  name={item.data.name}
+                />
+              );
+            }
             const crypto = item.data as Cryptocurrency;
             return (
               <MemoizedPaymentMethodCard
@@ -182,6 +208,8 @@ export default function DepositPage() {
           selectedCrypto={selectedCrypto}
           lifetimeDeposit={lifetimeDeposit}
         />
+        {/* Wire Transfer Dialog */}
+        <BankDepositDialog open={bankDialogOpen} onOpenChange={setBankDialogOpen} lifetimeDeposit={lifetimeDeposit} />
       </main>
     </div>
   );
