@@ -182,51 +182,50 @@ const AccountDetails = ({
         className="border-2 border-black/50 dark:border-white/50 pointer-events-none"
       />
       {/* Header with account details */}
-      <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-2 lg:gap-0 xl:gap-2">
-          <div className="flex items-center gap-2.5 md:min-w-45">
-            <h3 className={`text-[28px] font-bold tracking-tighter leading-8`}>
-              {headerBalance}
-            </h3>
-
-          </div>
-
-          {/* Show these only on MD Account Details*/}
-          <div className="hidden md:flex items-center md:gap-1 lg:gap-1 xl:gap-2.5">
-            {[
-              accountType,
-              accountDetails?.account_type_requested, // Package from database (Standard/Pro)
-              platformName,
-              accountDetails?.tp_account_scf.cf_1479, // Name on Account from database
-              accountId,
-            ]
-              .filter((text) => {
-                // Only filter out undefined, null, empty strings - but show valid values even if they're "null" string
-                if (text === undefined || text === null) return false;
-                const str = String(text).trim();
-                return str !== "";
-              })
-              .map((text, index, arr) => (
-                <div
-                  className="flex bg-[#9F8ACF]/15 p-[5px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[13px] leading-[1.1em]"
-                  key={index}>
-                  {index === arr.length - 1 ? (
-                    <>
-                      Account ID: #
-                      <span className="text-[#000000] font-bold dark:text-[#FFFFFF]">
-                        {text}
-                      </span>
-                    </>
-                  ) : (
-                    String(text)
-                  )}
-                </div>
-              ))}
-          </div>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center w-full gap-4 md:gap-5">
+        {/* Column 1: Balance (fixed character width for alignment) */}
+        <div className="flex items-center gap-2.5 md:w-[18ch] xl:w-[20ch] shrink-0">
+          <h3 className={`whitespace-nowrap text-[28px] font-bold tracking-tighter leading-8`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {headerBalance}
+          </h3>
         </div>
 
-        {/* buttons for actions */}
-        <div className="flex items-center gap-1.5">
+        {/* Column 2: Badges (wrap, aligned with balance start) */}
+        <div className="hidden md:flex flex-wrap items-center gap-1.5 pl-1">
+          {[
+            accountType,
+            accountDetails?.account_type_requested, // Package from database (Standard/Pro)
+            platformName,
+            accountDetails?.tp_account_scf.cf_1479, // Name on Account from database
+            accountId,
+          ]
+            .filter((text) => {
+              // Only filter out undefined, null, empty strings - but show valid values
+              if (text === undefined || text === null) return false;
+              const str = String(text).trim();
+              return str !== "";
+            })
+            .map((text, index, arr) => (
+              <div
+                className="flex bg-[#9F8ACF]/15 px-[6px] py-[5px] rounded-[6px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[13px] leading-[1.1em]"
+                key={index}
+              >
+                {index === arr.length - 1 ? (
+                  <>
+                    Account ID: #
+                    <span className="text-[#000000] font-bold dark:text-[#FFFFFF] ml-0.5">
+                      {text}
+                    </span>
+                  </>
+                ) : (
+                  String(text)
+                )}
+              </div>
+            ))}
+        </div>
+
+        {/* Column 3: Actions (right aligned, fixed width) */}
+        <div className="flex items-center justify-end gap-1.5 shrink-0">
           {/* Always visible (both mobile + desktop) */}
           <Button
             imageSrc={Candle}
@@ -329,7 +328,7 @@ const AccountDetails = ({
           {/* Toggle chevron (only desktop) */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className={`flex dark:text-white text-black cursor-pointer transition-all duration-200 ease-in-out ${
+            className={`ml-1 flex dark:text-white text-black cursor-pointer transition-all duration-200 ease-in-out ${
               expanded ? "rotate-180" : ""
             }`}
           >

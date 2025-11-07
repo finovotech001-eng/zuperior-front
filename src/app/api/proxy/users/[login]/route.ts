@@ -6,10 +6,10 @@ export async function GET(
 ) {
   try {
     const { login } = await params;
-    // Use MT5 Manager endpoint that returns the client profile
+    // Use MT5 client endpoint that returns the client profile (balance/equity)
     // Add cache-busting param to force fresh data on every request
     const cacheBuster = Date.now();
-    const targetUrl = `http://18.175.242.21:5003/api/Users/${login}/getClientBalance?_t=${cacheBuster}`;
+    const targetUrl = `http://18.175.242.21:5003/api/client/getClientBalance/${login}?_t=${cacheBuster}`;
 
     console.log('Proxying user profile request to:', targetUrl);
 
@@ -86,4 +86,3 @@ export async function HEAD() {
     },
   });
 }
-
