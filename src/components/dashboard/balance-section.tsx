@@ -25,9 +25,13 @@ export function BalanceSection({ balance }: BalanceSectionProps) {
         </motion.h2>
       </AnimatePresence>
 
-      <div className="flex w-full flex-col md:flex-row gap-2.5 md:h-[190px] px-2 md:px-0">
-        <WalletBalance balance={balance} />
-        <ForexAdBanner />
+      <div className="flex w-full flex-col md:flex-row gap-2.5 md:h-[196px] px-2 md:px-0">
+        <div className="w-full md:basis-[25%]">
+          <WalletBalance balance={balance} />
+        </div>
+        <div className="w-full md:basis-[75%]">
+          <ForexAdBanner />
+        </div>
       </div>
     </div>
   );

@@ -75,7 +75,7 @@ export function SidebarMenu({ items, collapsed, onLinkClick }: SidebarMenuProps)
             onClick={() => handleItemClick(item)}
           >
             <Image
-              className={`${!isActive && !isSubActive ? "dark:opacity-25" : ""}`}
+              className={`${!isActive && !isSubActive ? "opacity-80" : ""}`}
               height={25}
               width={25}
               src={isActive || isSubActive ? item.active : item.icon}

@@ -55,6 +55,7 @@ export interface Step1FormProps {
   setToWallet: (address: string) => void; // Add this
   setSelectedDest?: (dest: WithdrawDest | null) => void;
   allowedMethodType?: 'crypto' | 'bank';
+  useWallet?: boolean;
 }
 export interface Step2ConfirmationProps {
   amount: string;
@@ -71,6 +72,7 @@ export interface Step2ConfirmationProps {
   selectedDest?: WithdrawDest | null;
   toWallet?: string;
   setToWallet?: (address: string) => void;
+  useWallet?: boolean;
 }
 
 export interface Step3PaymentProps {

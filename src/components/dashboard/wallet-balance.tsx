@@ -53,7 +53,7 @@ const WalletBalance = ({ balance }: { balance: string | number }) => {
 
   return (
     <div
-      className="relative w-full md:w-[350px] text-white rounded-[15px] overflow-hidden py-[25px] pl-[30px] pr-10 bg-[linear-gradient(120deg,#6242a5_0%,rgb(98,66,165)_32.947987049549546%,rgba(120,74,164,0.82826)_42.942944088497676%,rgba(163,91,162,0.4)_67.86787015897734%,rgba(163,91,162,0.4)_100%,rgb(0,0,0)_100%)] dark:bg-[radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))]"
+      className="relative w-full text-white rounded-[15px] overflow-hidden py-[25px] pl-[30px] pr-10 bg-[linear-gradient(120deg,#6242a5_0%,rgb(98,66,165)_32.947987049549546%,rgba(120,74,164,0.82826)_42.942944088497676%,rgba(163,91,162,0.4)_67.86787015897734%,rgba(163,91,162,0.4)_100%,rgb(0,0,0)_100%)] dark:bg-[radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))]"
     >
       <FloatingDots />
       <div

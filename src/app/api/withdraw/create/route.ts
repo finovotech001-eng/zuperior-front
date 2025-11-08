@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
         mt5AccountId: body.mt5AccountId,
         amount: body.amount,
         walletAddress: body.walletAddress,
+        method: body.method,
+        bankDetails: body.bankDetails,
       }),
     });
 

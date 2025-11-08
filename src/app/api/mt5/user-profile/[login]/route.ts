@@ -27,15 +27,28 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const cacheBuster = searchParams.get('_t') || Date.now().toString();
     
-    // Direct call to getClientBalance - no auth needed
-    
-    let response = await fetch(`http://18.175.242.21:5003/api/client/getClientBalance/${login}?_t=${cacheBuster}`, {
-      method: 'GET',
-      signal: controller.signal,
-      cache: 'no-store',
-    }).catch((err) => {
-      return null as any;
-    });
+    // Try calling backend protected endpoint first (requires Authorization)
+    const incomingAuth = request.headers.get('authorization');
+    let response: Response | null = null;
+    try {
+      if (incomingAuth) {
+        response = await fetch(`${API_URL}/mt5/user-profile/${login}`, {
+          method: 'GET',
+          headers: { 'Authorization': incomingAuth },
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+      }
+    } catch (_) {}
+
+    // Fallback to direct MT5 endpoint if backend route not available or returns 401
+    if (!response || response.status === 401) {
+      response = await fetch(`http://18.175.242.21:5003/api/client/getClientBalance/${login}?_t=${cacheBuster}`, {
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store',
+      }).catch(() => null as any);
+    }
 
 
 

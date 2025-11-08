@@ -156,6 +156,14 @@ export function Navbar() {
             <div className="flex flex-col gap-1 ">
               <DropdownMenuItem asChild>
                 <Link
+                  href="/wallet"
+                  className="flex items-center gap-2 text-black dark:text-white/50 dark:hover:text-white transition w-full">
+                  <Image className="h-5 w-5" src={Wallet} alt="Wallet" />
+                  <span>Wallet</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link
                   href="/settings"
                   className="flex items-center gap-2 text-black dark:text-white/50 dark:hover:text-white transition w-full">
                   <Settings

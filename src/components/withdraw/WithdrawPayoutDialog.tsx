@@ -134,6 +134,7 @@ export function WithdrawPayoutDialog({
             setToWallet={setToWallet}
             setSelectedDest={setSelectedDest}
             allowedMethodType={allowedType}
+            useWallet={true}
           />
         );
       case 2:
@@ -153,6 +154,7 @@ export function WithdrawPayoutDialog({
             exchangeRate={1}
             handleContinueToPayment={nextStep}
             selectedDest={selectedDest}
+            useWallet={true}
             setPayoutId={setPayoutId} // Pass the setPayoutId function
           />
         );

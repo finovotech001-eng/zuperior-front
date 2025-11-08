@@ -31,6 +31,7 @@ export function Step1FormPayout({
   setToWallet,
   setSelectedDest,
   allowedMethodType,
+  useWallet,
 }: Step1FormProps & {
   accounts: TpAccountSnapshot[];
   selectedAccount: TpAccountSnapshot | null;
@@ -39,6 +40,7 @@ export function Step1FormPayout({
   setToWallet: (address: string) => void;
   setSelectedDest?: (dest: WithdrawDest | null) => void;
   allowedMethodType?: 'crypto' | 'bank';
+  useWallet?: boolean;
 }) {
   const [isValidating, setIsValidating] = useState(false);
   const [kycStep, setKycStep] = useState<
@@ -46,6 +48,7 @@ export function Step1FormPayout({
   >("");
   type ApprovedMethod = { type: 'crypto' | 'bank'; label: string; value: string; bank?: WithdrawDest['bank'] };
   const [approvedMethods, setApprovedMethods] = useState<ApprovedMethod[]>([]);
+  const [wallet, setWallet] = useState<any>(null);
 
   // KYC Step
   useEffect(() => {
@@ -58,6 +61,12 @@ export function Step1FormPayout({
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
         const base = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/api';
+        // load wallet if using wallet flow
+        if (useWallet) {
+          const wr = await fetch('/api/wallet', { headers: token ? { Authorization: `Bearer ${token}` } : undefined, cache: 'no-store' });
+          const wj = await wr.json();
+          if (wj?.success) setWallet(wj.data);
+        }
         const res = await fetch(`${base}/user/payment-methods`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -98,13 +107,14 @@ export function Step1FormPayout({
 
   // Amount Validation
   const validateAmount = () => {
-    if (!selectedAccount) {
+    // when using wallet flow, do not require MT5 account
+    if (!useWallet && !selectedAccount) {
       toast.error("Please select an account");
       return false;
     }
     const amountNum = parseFloat(amount);
     // Use account balance for withdrawal availability display/validation
-    const balance = parseFloat(selectedAccount.balance);
+    const balance = useWallet ? parseFloat(String(wallet?.balance || 0)) : parseFloat(selectedAccount.balance);
 
     if (isNaN(amountNum) || amountNum <= 0) {
       toast.error("Please enter a valid amount");
@@ -153,7 +163,7 @@ export function Step1FormPayout({
 
   // Continue Handler
   const handleNextStep = async () => {
-    if (!selectedAccount) return toast.error("Please select an account");
+    if (!useWallet && !selectedAccount) return toast.error("Please select an account");
     if (!amount.trim()) return toast.error("Amount is required");
     if (!validateAmount()) return;
     const isValid = await validateWalletAddress();
@@ -174,59 +184,47 @@ export function Step1FormPayout({
 
   return (
     <div className="w-full px-6">
-      {/* ACCOUNT SELECT */}
-      <div className="mt-4">
-        <Label className="text-sm dark:text-white/75 text-black mb-1">
-          Account
-        </Label>
-        {/** De-duplicate and sanitize account list */}
-        {(() => { return null; })()}
-        <Select
-          onValueChange={(value) => {
-            const found = accounts.find(
-              (account) => account.acc.toString() === value
-            );
-            if (found) setSelectedAccount(found);
-          }}
-          value={selectedAccount?.acc.toString()}
-        >
-          <SelectTrigger className="w-full mt-1">
-            <SelectValue placeholder="Select Account" />
-          </SelectTrigger>
-          <SelectContent>
-            {useMemo(() => {
-              const seen = new Set<string>();
-              return accounts
-                .filter((account) => {
-                  // Only show Live accounts
+      {/* ACCOUNT SELECT or Wallet Info */}
+      {!useWallet ? (
+        <div className="mt-4">
+          <Label className="text-sm dark:text-white/75 text-black mb-1">Account</Label>
+          {(() => { return null; })()}
+          <Select
+            onValueChange={(value) => {
+              const found = accounts.find((account) => account.acc.toString() === value);
+              if (found) setSelectedAccount(found);
+            }}
+            value={selectedAccount?.acc.toString()}
+          >
+            <SelectTrigger className="w-full mt-1"><SelectValue placeholder="Select Account" /></SelectTrigger>
+            <SelectContent>
+              {useMemo(() => {
+                const seen = new Set<string>();
+                return accounts.filter((account) => {
                   const accountType = (account as any).accountType || account.account_type || 'Live';
                   if (accountType !== 'Live') return false;
                   const id = String(account.acc ?? '').trim();
                   if (!id || id === '0' || seen.has(id)) return false;
                   seen.add(id);
                   return true;
-                })
-                .map((account, index) => (
-                  <SelectItem
-                    key={`${account.acc}-${index}`}
-                    value={account.acc.toString()}
-                    disabled={parseFloat(account.balance) === 0}
-                  >
-                    <span className="px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">
-                      MT5
-                    </span>
-                    <span className="text-black dark:text-white/75">
-                      {account.acc}
-                    </span>
-                    <span className="text-xs  text-black dark:text-white/75">
-                      ${parseFloat(account.balance).toFixed(2)}
-                    </span>
+                }).map((account, index) => (
+                  <SelectItem key={`${account.acc}-${index}`} value={account.acc.toString()} disabled={parseFloat(account.balance) === 0}>
+                    <span className="px-2 py-[2px] rounded-[5px] font-semibold text-black dark:text-white/75 tracking-tighter text-[10px]">MT5</span>
+                    <span className="text-black dark:text-white/75">{account.acc}</span>
+                    <span className="text-xs  text-black dark:text-white/75">${parseFloat(account.balance).toFixed(2)}</span>
                   </SelectItem>
                 ));
-            }, [accounts])}
-          </SelectContent>
-        </Select>
-      </div>
+              }, [accounts])}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-lg border border-[#362e36] p-3">
+          <div className="text-sm dark:text-white/75 text-black mb-1">Wallet</div>
+          <div className="flex justify-between text-sm"><span className="opacity-70">Wallet Number</span><span className="font-medium">{wallet?.walletNumber || '-'}</span></div>
+          <div className="flex justify-between text-sm"><span className="opacity-70">Balance</span><span className="font-medium">${(wallet?.balance ?? 0).toFixed?.(2) || '0.00'}</span></div>
+        </div>
+      )}
 
       {/* WALLET / BANK DESTINATION */}
       <div className="mt-4">

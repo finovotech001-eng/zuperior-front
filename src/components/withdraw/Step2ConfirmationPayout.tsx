@@ -53,7 +53,7 @@ export function Step2ConfirmationPayout({
   // Function to handle payout API call
   const handlePayout = async () => {
     const isBank = selectedDest?.type === 'bank';
-    if ((!amount || !selectedAccount) || (!isBank && !selectedCrypto)) {
+    if (!amount || (!isBank && !selectedCrypto)) {
       toast.error("Missing required information");
       return;
     }
@@ -70,11 +70,11 @@ export function Step2ConfirmationPayout({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          mt5AccountId: selectedAccount.acc,
+          ...(selectedAccount?.acc ? { mt5AccountId: selectedAccount.acc } : {}),
           amount: Number(amount),
-          // For bank, send account number as walletAddress (server expects this field)
           walletAddress: isBank ? (selectedDest?.bank?.accountNumber || toWallet) : toWallet,
           method: isBank ? 'bank' : 'crypto',
+          bankDetails: isBank ? selectedDest?.bank : undefined,
         }),
       });
       const json = await resp.json();
@@ -101,7 +101,7 @@ export function Step2ConfirmationPayout({
         Pay {amount} {selectedCrypto?.name || "USD"}
       </h2>
 
-      {selectedCrypto && selectedAccount && (
+      {selectedCrypto && selectedAccount && !useWallet && (
         <div className="mt-3 rounded-lg ">
           {/* Account Information */}
           <div className="flex justify-between items-center mb-2">

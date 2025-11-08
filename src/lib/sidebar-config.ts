@@ -66,6 +66,13 @@ export const getMenuItems = ({ theme }: { theme: string }): MenuItem[] => {
       subItems: [],
     },
     {
+      name: "Wallet",
+      icon: walletImage,
+      active: wallet,
+      link: "/wallet",
+      subItems: [],
+    },
+    {
       name: "Payment Methods",
       icon: walletImage,
       active: wallet,
