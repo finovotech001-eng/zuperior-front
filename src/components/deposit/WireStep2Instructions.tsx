@@ -34,7 +34,7 @@ export function WireStep2Instructions({ bank, amount, nextStep }: Props) {
     <div className="w-full px-6 py-4">
       <h2 className="text-2xl text-center font-bold dark:text-white/75 text-black mb-6">Bank Transfer Details</h2>
 
-      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#0B0710] border border-gray-200 dark:border-white/10 shadow-sm">
+      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#221D22] border border-gray-200 dark:border-[#362e36] shadow-sm">
         <div className="grid md:grid-cols-2 gap-4">
           <Field label="Bank Name" value={bank.bankName} onCopy={() => copy('Bank Name', bank.bankName)} copied={copied === 'Bank Name'} />
           <Field label="Account Name" value={bank.accountName} onCopy={() => copy('Account Name', bank.accountName)} copied={copied === 'Account Name'} />
@@ -72,11 +72,21 @@ function Field({ label, value, onCopy, copied }: { label: string; value?: string
           <div className="text-xs text-gray-500 dark:text-white/50">{label}</div>
           <div className="text-sm font-medium text-gray-900 dark:text-white break-all">{value || '-'}</div>
         </div>
-        <Button onClick={onCopy} variant="outline" size="sm" className="dark:text-white text-gray-900 border-gray-300 dark:border-white/20">
-          {copied ? (<><CheckCircle className="w-4 h-4 mr-2" />Copied</>) : (<><Copy className="w-4 h-4 mr-2" />Copy</>)}
+        <Button
+          onClick={onCopy}
+          variant="outline"
+          size="icon"
+          className="dark:text-white text-gray-900 border-gray-300 dark:border-white/20 size-8"
+          aria-label="Copy"
+          title={copied ? 'Copied' : 'Copy'}
+        >
+          {copied ? (
+            <CheckCircle className="w-4 h-4" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
         </Button>
       </div>
     </div>
   );
 }
-

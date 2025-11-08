@@ -97,12 +97,7 @@ export default function VerificationProfile({
             <div className="text-lg font-semibold dark:text-white/75 mb-1">
               {getDepositLimit()}
             </div>
-            {resolvedStatus !== "verified" && (
-              <div className="text-sm font-semibold dark:text-white/75">
-                <span>Remaining limit: </span>
-                <span>Contact support</span>
-              </div>
-            )}
+            {/* Removed remaining limit text per request */}
           </div>
         </div>
       </div>

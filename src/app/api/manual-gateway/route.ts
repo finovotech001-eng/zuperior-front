@@ -6,10 +6,12 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'wire';
-    const token = (await request.headers.get('authorization')) || '';
+    const token = request.headers.get('authorization');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = token;
 
     const res = await fetch(`${API_URL}/manual-gateway?type=${encodeURIComponent(type)}`, {
-      headers: { 'Authorization': token },
+      headers,
       cache: 'no-store',
     });
     const data = await res.json();
@@ -18,4 +20,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, message: error?.message || 'Failed to fetch manual gateway' }, { status: 500 });
   }
 }
-

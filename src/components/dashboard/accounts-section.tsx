@@ -319,16 +319,7 @@ export function AccountsSection({ onOpenNewAccount }: AccountsSectionProps) {
               </Button>
             </DialogTrigger>
           </Dialog>
-          {/* Manual refresh */}
-          <button
-            aria-label="Refresh balances"
-            className="h-11 px-3 rounded-[15px] border border-white/10 text-sm font-semibold dark:text-white/80"
-            onClick={() => {
-              try { dispatch(fetchAllAccountsWithBalance() as any); } catch (_) {}
-            }}
-          >
-            Refresh
-          </button>
+          {/* Refresh button removed as requested */}
         </div>
       </div>
             <Tabs

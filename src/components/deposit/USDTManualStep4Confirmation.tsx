@@ -4,8 +4,19 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Copy, ExternalLink } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
+interface BankDetails {
+  bankName?: string | null;
+  accountName?: string | null;
+  accountNumber?: string | null;
+  ifscCode?: string | null;
+  swiftCode?: string | null;
+  accountType?: string | null;
+  countryCode?: string | null;
+}
 
 interface USDTManualStep4ConfirmationProps {
   amount: string;
@@ -13,6 +24,7 @@ interface USDTManualStep4ConfirmationProps {
   transactionId: string;
   depositRequestId: string;
   onClose: () => void;
+  bank?: BankDetails; // Admin bank details
 }
 
 export function USDTManualStep4Confirmation({
@@ -21,26 +33,10 @@ export function USDTManualStep4Confirmation({
   transactionId,
   depositRequestId,
   onClose,
+  bank = {},
 }: USDTManualStep4ConfirmationProps) {
-  const paymentAddress = "Twinxa7902309skjhfsdlhflksjdhlkLL";
-
-  const handleCopyTransactionId = async () => {
-    try {
-      await navigator.clipboard.writeText(transactionId);
-      toast.success("Transaction ID copied to clipboard");
-    } catch (err) {
-      toast.error("Failed to copy transaction ID");
-    }
-  };
-
-  const handleCopyAddress = async () => {
-    try {
-      await navigator.clipboard.writeText(paymentAddress);
-      toast.success("Address copied to clipboard");
-    } catch (err) {
-      toast.error("Failed to copy address");
-    }
-  };
+  // Step 4 no copy UI needed per request
+  const router = useRouter();
 
   return (
     <div className="w-full px-6 py-4">
@@ -56,59 +52,31 @@ export function USDTManualStep4Confirmation({
         </p>
       </div>
 
-      {/* Payment Details */}
-      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#0B0710] border border-gray-200 dark:border-white/10 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Details</h3>
-
-        <div className="space-y-4">
+      {/* Summary (amount + bank name) */}
+      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#221D22] border border-gray-200 dark:border-[#362e36] shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Deposit Summary</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label className="text-sm text-gray-600 dark:text-white/60">Amount</Label>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white">{amount} USDT</p>
+            <div className="text-xs text-gray-500 dark:text-white/50">Amount Submitted</div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white break-all">{amount ? `${amount} USD` : '-'}</div>
           </div>
-
           <div>
-            <Label className="text-sm text-gray-600 dark:text-white/60">Payment Address</Label>
-            <div className="flex items-center justify-between bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-lg p-3">
-              <span className="font-mono text-sm text-gray-700 dark:text-white/80">
-                {paymentAddress}
-              </span>
-              <Button
-                onClick={handleCopyAddress}
-                variant="ghost"
-                size="sm"
-                className="dark:text-white text-gray-900 hover:bg-gray-100 dark:hover:bg-white/10"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-            </div>
+            <div className="text-xs text-gray-500 dark:text-white/50">Bank</div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white break-all">{bank?.bankName || '-'}</div>
           </div>
+        </div>
+      </div>
 
-          <div>
-            <Label className="text-sm text-gray-600 dark:text-white/60">Transaction ID</Label>
-            <div className="flex items-center justify-between bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-lg p-3">
-              <span className="font-mono text-sm text-gray-700 dark:text-white/80">
-                {transactionId}
-              </span>
-              <Button
-                onClick={handleCopyTransactionId}
-                variant="ghost"
-                size="sm"
-                className="dark:text-white text-gray-900 hover:bg-gray-100 dark:hover:bg-white/10"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm text-gray-600 dark:text-white/60">Request ID</Label>
-            <p className="font-mono text-sm text-gray-700 dark:text-white/80">{depositRequestId}</p>
-          </div>
-
-          <div>
-            <Label className="text-sm text-gray-600 dark:text-white/60">Account</Label>
-            <p className="text-gray-700 dark:text-white/80">{selectedAccount}</p>
-          </div>
+      {/* Bank details for the account deposited into */}
+      <div className="rounded-lg p-6 mb-6 bg-white dark:bg-[#221D22] border border-gray-200 dark:border-[#362e36] shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bank Account Details</h3>
+        <div className="grid md:grid-cols-2 gap-4">
+          <ReadOnlyField label="Bank Name" value={bank?.bankName} />
+          <ReadOnlyField label="Account Name" value={bank?.accountName} />
+          <ReadOnlyField label="Account Number" value={bank?.accountNumber} />
+          <ReadOnlyField label="IFSC / SWIFT" value={bank?.swiftCode || bank?.ifscCode} />
+          <ReadOnlyField label="Account Type" value={bank?.accountType} />
+          <ReadOnlyField label="Country" value={bank?.countryCode} />
         </div>
       </div>
 
@@ -130,25 +98,22 @@ export function USDTManualStep4Confirmation({
           onClick={() => {
             toast.success("Payment request submitted successfully!");
             onClose();
+            router.push("/transactions");
           }}
         >
           Done
-        </Button>
-
-        <Button
-          variant="outline"
-          className="w-full dark:text-white text-gray-900 border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10"
-          onClick={() => {
-            window.open(`/transactions/${depositRequestId}`, '_blank');
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          View Transaction Details
         </Button>
       </div>
     </div>
   );
 }
 
-// Add missing import for Label
-import { Label } from "@/components/ui/label";
+// small read-only field used above
+function ReadOnlyField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <div className="text-xs text-gray-500 dark:text-white/50">{label}</div>
+      <div className="text-sm font-medium text-gray-900 dark:text-white break-all">{value || '-'}</div>
+    </div>
+  );
+}

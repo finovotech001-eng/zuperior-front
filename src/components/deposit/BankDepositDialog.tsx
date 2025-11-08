@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { USDTManualStep1Form } from "./USDTManualStep1Form";
 import { WireStep2Instructions } from "./WireStep2Instructions";
@@ -31,9 +31,33 @@ export function BankDepositDialog({ open, onOpenChange, lifetimeDeposit }: { ope
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const res = await fetch('/api/manual-gateway?type=wire', { cache: 'no-store' });
-      const data = await res.json();
-      if (data?.success) setBank(data.data.bank);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+        const res = await fetch('/api/manual-gateway?type=wire', {
+          cache: 'no-store',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+        });
+        const data = await res.json();
+        if (data?.success) {
+          const raw = data?.data?.bank || data?.data || {};
+          // Normalize keys in case backend returns snake_case
+          const normalized = {
+            bankName: raw.bankName ?? raw.bank_name ?? null,
+            accountName: raw.accountName ?? raw.account_name ?? null,
+            accountNumber: raw.accountNumber ?? raw.account_number ?? null,
+            ifscCode: raw.ifscCode ?? raw.ifsc_code ?? null,
+            swiftCode: raw.swiftCode ?? raw.swift_code ?? null,
+            accountType: raw.accountType ?? raw.account_type ?? null,
+            countryCode: raw.countryCode ?? raw.country_code ?? null,
+          };
+          setBank(normalized);
+        } else {
+          setBank(null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch manual gateway:', e);
+        setBank(null);
+      }
     })();
   }, [open]);
 
@@ -96,6 +120,7 @@ export function BankDepositDialog({ open, onOpenChange, lifetimeDeposit }: { ope
             transactionId={transactionId}
             depositRequestId={depositRequestId}
             onClose={() => onOpenChange(false)}
+            bank={bank || {}}
           />
         );
     }
@@ -103,12 +128,61 @@ export function BankDepositDialog({ open, onOpenChange, lifetimeDeposit }: { ope
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[95%] lg:max-w-2xl gap-4 bg-background shadow-lg border-2 border-transparent p-6 text-white rounded-[18px] flex flex-col items-center w-full max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-[95%] lg:max-w-2xl gap-4 bg-background shadow-lg border-2 border-transparent p-6 text-white rounded-[18px] flex flex-col items-center w-full max-h-[90vh] overflow-y-auto [background:linear-gradient(#fff,#fff)_padding-box,conic-gradient(from_var(--border-angle),#ddd,#f6e6fc,theme(colors.purple.400/48%))_border-box] dark:[background:linear-gradient(#070206,#030103)_padding-box,conic-gradient(from_var(--border-angle),#030103,#030103,color-mix(in_oklab,oklch(71.4%_0.203_305.504)_48%,transparent))_border-box] animate-border">
         <VisuallyHidden><DialogTitle>Wire Transfer</DialogTitle></VisuallyHidden>
+        {/* Stepper header to match USDT dialog */}
+        <DialogHeader className="w-full py-3">
+          <div className="flex items-center justify-between w-full pt-2">
+            <div className="flex items-center space-x-2 w-full mx-10">
+              <div
+                className={`flex h-8 w-8 px-4 mx-0 items-center justify-center rounded-full ${
+                  step >= 1 ? "bg-[#9F8BCF]" : "bg-[#594B7A]"
+                }`}
+              >
+                <span className="text-sm font-medium">1</span>
+              </div>
+              <div
+                className={`h-[4px] w-full mx-0 ${
+                  step >= 2 ? "bg-[#6B5993]" : "bg-[#392F4F]"
+                }`}
+              />
+              <div
+                className={`flex h-8 w-8 p-4 mx-0 items-center justify-center rounded-full ${
+                  step >= 2 ? "bg-[#9F8BCF]" : "bg-[#594B7A]"
+                }`}
+              >
+                <span className="text-sm font-medium ">2</span>
+              </div>
+              <div
+                className={`h-[4px] w-full mx-0 ${
+                  step >= 3 ? "bg-[#6B5993]" : "bg-[#392F4F]"
+                }`}
+              />
+              <div
+                className={`flex h-8 w-8 p-4 items-center justify-center rounded-full ${
+                  step >= 3 ? " bg-[#9F8BCF]" : "bg-[#594B7A]"
+                }`}
+              >
+                <span className="text-sm font-medium">3</span>
+              </div>
+              <div
+                className={`h-[4px] w-full mx-0 ${
+                  step >= 4 ? "bg-[#6B5993]" : "bg-[#392F4F]"
+                }`}
+              />
+              <div
+                className={`flex h-8 w-8 p-4 items-center justify-center rounded-full ${
+                  step >= 4 ? " bg-[#9F8BCF]" : "bg-[#594B7A]"
+                }`}
+              >
+                <span className="text-sm font-medium">4</span>
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
         <h2 className="text-2xl text-center font-bold dark:text-white/75 text-black">Wire Transfer</h2>
         {renderStep()}
       </DialogContent>
     </Dialog>
   );
 }
-

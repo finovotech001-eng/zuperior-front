@@ -14,6 +14,7 @@ import { PaymentStatusData, PaymentStatus } from "./types";
 import { useAppDispatch } from "@/store/hooks";
 import { toast } from "sonner";
 import { mt5Service } from "@/services/api.service";
+import { useRouter } from "next/navigation";
 
 type StatusConfigType = {
   [key in PaymentStatus]: {
@@ -105,6 +106,7 @@ export function Step4Status({
   const dispatch = useAppDispatch();
   const hasCalledDeposit = useRef(false);
   const hasShownStatusToast = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!hasShownStatusToast.current) {
@@ -339,7 +341,7 @@ Time: ${new Date(statusData.timestamp * 1000).toLocaleString()}`;
 
       <div className="flex justify-center mt-4">
         <Button
-          onClick={onClose}
+          onClick={() => { onClose(); router.push('/transactions'); }}
           className="hover:bg-green-700 bg-green-600 dark:text-white/75 text-black font-semibold px-6 py-2 rounded-lg"
         >
           Close

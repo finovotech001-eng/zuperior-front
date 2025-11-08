@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    const data = await resp.json().catch(() => ({}));
+    const text = await resp.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { data = { success: false, message: text || 'Server Error' }; }
     return NextResponse.json(data, { status: resp.status });
   } catch (e: any) {
     console.error('Withdraw proxy error:', e?.message || e);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }
 }
-

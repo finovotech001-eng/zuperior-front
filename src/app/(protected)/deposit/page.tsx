@@ -92,7 +92,8 @@ export default function DepositPage() {
     // determine if wire gateway exists
     (async () => {
       try {
-        const r = await fetch('/api/manual-gateway?type=wire', { cache: 'no-store' });
+        const token = localStorage.getItem('userToken');
+        const r = await fetch('/api/manual-gateway?type=wire', { cache: 'no-store', headers: token ? { 'Authorization': `Bearer ${token}` } : undefined });
         const j = await r.json();
         setWireAvailable(Boolean(j?.success));
       } catch (_) { setWireAvailable(false); }
