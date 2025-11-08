@@ -112,10 +112,12 @@ export default function WalletPage() {
     <div className="p-4 mx-auto w-full max-w-full space-y-6">
       {/* Balance section */}
       <div>
-        <h2 className="text-xl font-semibold mb-3">Balance</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-          <WalletBalance balance={wallet?.balance ?? 0} />
-          <div className="rounded-[15px] border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/40 p-6 flex items-center justify-center text-center min-h-[140px]">
+        <h2 className="text-xl font-semibold mb-3">Wallet</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
+          <div className="lg:col-span-1">
+            <WalletBalance balance={wallet?.balance ?? 0} />
+          </div>
+          <div className="lg:col-span-3 rounded-[15px] border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/40 p-6 flex items-center justify-center text-center min-h-[140px]">
             <div>
               <div className="text-sm opacity-70">Wallet Number</div>
               <div className="text-lg font-semibold tracking-tight">{wallet?.walletNumber || '-'}</div>

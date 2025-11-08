@@ -58,6 +58,7 @@ const TransferFundsDialog = ({
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [step, setStep] = useState<"form" | "review" | "progress">("form");
+  const [walletNumber, setWalletNumber] = useState<string>("");
   const dispatch = useAppDispatch();
   const { fetchAllData } = useFetchUserData();
   const router = useRouter();
@@ -79,6 +80,13 @@ const TransferFundsDialog = ({
     if (open) {
       console.log('🔄 Fetching MT5 accounts for transfer dialog...');
       dispatch(fetchUserAccountsFromDb() as any);
+      // Also fetch user's wallet number for wallet transfer option
+      const token = localStorage.getItem('userToken');
+      fetch('/api/wallet', { headers: token ? { Authorization: `Bearer ${token}` } : undefined, cache: 'no-store' })
+        .then(r=>r.json()).then(j=>{
+          const wn = j?.data?.walletNumber || j?.walletNumber || '';
+          if (wn) setWalletNumber(String(wn));
+        }).catch(()=>{});
     }
   }, [open, dispatch]);
 
@@ -258,6 +266,14 @@ const TransferFundsDialog = ({
                       <SelectValue placeholder="Select Account" />
                     </SelectTrigger>
                     <SelectContent>
+                      {/* Wallet option */}
+                      {walletNumber && (
+                        <SelectItem key={`wallet-${walletNumber}`} value={`WALLET`} disabled={fromAccount === 'WALLET'}>
+                          <span className="bg-[#9F8ACF]/30 px-2 py-[2px] rounded-[5px] font-semibold text-black/75 dark:text-white/75 tracking-tighter text-[10px]">WALLET</span>
+                          <span>{walletNumber}</span>
+                        </SelectItem>
+                      )}
+
                       {filteredAccounts
                         .filter((account) => {
                           // Only show Live accounts
@@ -345,7 +361,7 @@ const TransferFundsDialog = ({
                   <strong>From Account:</strong> {fromAccount}
                 </div>
                 <div>
-                  <strong>To Account:</strong> {toAccount}
+                  <strong>To Account:</strong> {toAccount === 'WALLET' ? `WALLET (${walletNumber||'-'})` : toAccount}
                 </div>
                 <div>
                   <strong>Amount:</strong> ${parseFloat(amount).toFixed(2)}
