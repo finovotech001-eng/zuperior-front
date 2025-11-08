@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { TransactionsTable } from '@/components/transactions/TransactionTable';
 import { useRouter } from 'next/navigation';
 import WalletBalance from '@/components/dashboard/wallet-balance';
+import { WalletMoveDialog } from '@/components/wallet/WalletMoveDialog';
 
 export default function WalletPage() {
   const dispatch = useAppDispatch();
@@ -25,6 +26,8 @@ export default function WalletPage() {
   const [loadingTx, setLoadingTx] = useState(false);
   const [walletTx, setWalletTx] = useState<any[]>([]);
   const accounts = useSelector((s: RootState) => s.mt5.accounts);
+  const [openIn, setOpenIn] = useState(false);
+  const [openOut, setOpenOut] = useState(false);
   const [mt5Balances, setMt5Balances] = useState<Record<string, number>>({});
   const filteredAccounts = useMemo(() => {
     const seen = new Set<string>();
@@ -121,59 +124,22 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-[#1D1825] bg-white dark:bg-transparent p-4">
-        <h3 className="text-lg font-medium mb-3">Transfer from MT5 to Wallet</h3>
-        <div className="grid gap-3">
-          <div>
-            <div className="text-sm mb-1">MT5 Account</div>
-            <Select value={mt5Id} onValueChange={setMt5Id}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select account" /></SelectTrigger>
-              <SelectContent>
-                {filteredAccounts.map((a:any)=> {
-                  const bal = mt5Balances[String(a.accountId)] ?? a.balance ?? 0;
-                  return (
-                    <SelectItem key={a.accountId} value={String(a.accountId)}>{a.accountId} (${Number(bal).toFixed(2)})</SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <div className="text-sm mb-1">Amount</div>
-            <Input value={amount} onChange={(e)=>setAmount(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Enter amount" />
-          </div>
-          <Button className="w-full bg-gradient-to-r from-[#6242a5] to-[#9f8bcf]" onClick={submit} disabled={loadingIn}>
-            {loadingIn ? 'Transferring...' : 'Transfer'}
-          </Button>
-        </div>
+      {/* Transfer chooser cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button onClick={()=>setOpenIn(true)} className="rounded-xl p-6 text-left bg-gradient-to-br from-[#1b1426] to-[#221a30] border border-[#2a2139] hover:opacity-90">
+          <div className="text-sm text-white/70 mb-1">Transfer</div>
+          <div className="text-lg font-semibold text-white">MT5 to Wallet</div>
+          <div className="text-xs text-white/50 mt-2">Move funds into your wallet</div>
+        </button>
+        <button onClick={()=>setOpenOut(true)} className="rounded-xl p-6 text-left bg-gradient-to-br from-[#1b1426] to-[#221a30] border border-[#2a2139] hover:opacity-90">
+          <div className="text-sm text-white/70 mb-1">Transfer</div>
+          <div className="text-lg font-semibold text-white">Wallet to MT5</div>
+          <div className="text-xs text-white/50 mt-2">Move funds to your trading account</div>
+        </button>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-[#1D1825] bg-white dark:bg-transparent p-4">
-        <h3 className="text-lg font-medium mb-3">Transfer from Wallet to MT5</h3>
-        <div className="grid gap-3">
-          <div>
-            <div className="text-sm mb-1">MT5 Account</div>
-            <Select value={mt5IdOut} onValueChange={setMt5IdOut}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select account" /></SelectTrigger>
-              <SelectContent>
-                {filteredAccounts.map((a:any)=> {
-                  const bal = mt5Balances[String(a.accountId)] ?? a.balance ?? 0;
-                  return (
-                    <SelectItem key={a.accountId} value={String(a.accountId)}>{a.accountId} (${Number(bal).toFixed(2)})</SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <div className="text-sm mb-1">Amount</div>
-            <Input value={amountOut} onChange={(e)=>setAmountOut(e.target.value.replace(/[^0-9.]/g,''))} placeholder="Enter amount" />
-          </div>
-          <Button className="w-full bg-gradient-to-r from-[#6242a5] to-[#9f8bcf]" onClick={submitOut} disabled={loadingOut}>
-            {loadingOut ? 'Transferring...' : 'Transfer'}
-          </Button>
-        </div>
-      </div>
+      <WalletMoveDialog open={openIn} onOpenChange={(v)=>{ setOpenIn(v); if (!v) { load(); loadTx(); } }} direction="MT5_TO_WALLET" />
+      <WalletMoveDialog open={openOut} onOpenChange={(v)=>{ setOpenOut(v); if (!v) { load(); loadTx(); } }} direction="WALLET_TO_MT5" />
 
       <div className="rounded-[15px] bg-white dark:bg-gradient-to-r dark:from-[#15101d] dark:to-[#181422] border border-black/10 dark:border-none p-3">
         <h3 className="text-lg font-medium mb-3">Wallet Transactions</h3>

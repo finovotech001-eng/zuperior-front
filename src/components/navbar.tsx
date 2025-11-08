@@ -21,7 +21,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLoading } from "@/context/LoadingContext";
 
 // Icons
@@ -43,6 +43,7 @@ export function Navbar() {
   const router = useRouter();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -62,6 +63,25 @@ export function Navbar() {
   const fullName = userDetails?.name ?? "";
   const firstName = fullName.split(" ")[0] ?? "";
 
+  // Fetch wallet balance for the top bar
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('userToken');
+      fetch('/api/wallet', { headers: token ? { Authorization: `Bearer ${token}` } : undefined, cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          const bal = Number(j?.data?.balance ?? j?.balance ?? 0);
+          if (!Number.isNaN(bal)) setWalletBalance(bal);
+        })
+        .catch(()=>{});
+    } catch {}
+  }, []);
+
+  const formattedBalance = useMemo(() => {
+    if (walletBalance === null || walletBalance === undefined) return '-';
+    return `$${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }, [walletBalance]);
+
   const handleLogoutWithDelay = () => {
     setIsLoggingOut(true);
     setTimeout(() => {
@@ -79,6 +99,14 @@ export function Navbar() {
           Balance:
           <p>${formattedBalance}</p>
         </Button> */}
+
+        {/* Wallet balance button (same style as Deposit) */}
+        <Link href="/wallet">
+          <Button className="hidden md:flex rounded-[10px] items-center gap-[6px] py-2 px-4 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent">
+            {formattedBalance}
+            <Image className="h-5 w-5" src={Wallet} alt="Wallet" />
+          </Button>
+        </Link>
 
         <Link href="/deposit">
           <Button className="hidden md:flex rounded-[10px] items-center gap-[5px] py-2 px-6 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent">
