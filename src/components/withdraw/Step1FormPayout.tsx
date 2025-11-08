@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Step1FormProps } from "@/components/withdraw/types";
+import { Step1FormProps, WithdrawDest } from "@/components/withdraw/types";
 import { useEffect, useMemo, useState } from "react";
 import { store } from "@/store";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ export function Step1FormPayout({
   amount,
   setAmount,
   selectedNetwork,
+  setSelectedNetwork,
   selectedCrypto,
   nextStep,
   accounts,
@@ -28,18 +29,22 @@ export function Step1FormPayout({
   setSelectedAccount,
   toWallet,
   setToWallet,
+  setSelectedDest,
+  allowedMethodType,
 }: Step1FormProps & {
   accounts: TpAccountSnapshot[];
   selectedAccount: TpAccountSnapshot | null;
   setSelectedAccount: (account: TpAccountSnapshot) => void;
   toWallet: string;
   setToWallet: (address: string) => void;
+  setSelectedDest?: (dest: WithdrawDest | null) => void;
+  allowedMethodType?: 'crypto' | 'bank';
 }) {
   const [isValidating, setIsValidating] = useState(false);
   const [kycStep, setKycStep] = useState<
     "unverified" | "partial" | "verified" | ""
   >("");
-  type ApprovedMethod = { type: 'crypto' | 'bank'; label: string; value: string };
+  type ApprovedMethod = { type: 'crypto' | 'bank'; label: string; value: string; bank?: WithdrawDest['bank'] };
   const [approvedMethods, setApprovedMethods] = useState<ApprovedMethod[]>([]);
 
   // KYC Step
@@ -58,23 +63,38 @@ export function Step1FormPayout({
         });
         const json = await res.json();
         if (json?.status === 'Success') {
-          const list: ApprovedMethod[] = (json.data || [])
+          let list: ApprovedMethod[] = (json.data || [])
             .filter((pm: any) => pm.status === 'approved')
             .map((pm: any) => {
               const type = (pm.methodType ?? 'crypto') as 'crypto' | 'bank';
               if (type === 'bank') {
                 const label = `${pm.bankName || 'Bank'} • ${pm.accountNumber || ''}`.trim();
-                return { type: 'bank', label, value: pm.accountNumber || label };
+                return { type: 'bank', label, value: pm.accountNumber || label, bank: {
+                  bankName: pm.bankName,
+                  accountName: pm.accountName,
+                  accountNumber: pm.accountNumber,
+                  ifscSwiftCode: pm.ifscSwiftCode,
+                  accountType: pm.accountType,
+                }};
               }
               return { type: 'crypto', label: pm.address, value: pm.address };
             });
+          if (allowedMethodType) {
+            list = list.filter((m) => m.type === allowedMethodType);
+          }
           setApprovedMethods(list);
-          if (list.length && !toWallet) setToWallet(list[0].value);
+          if (list.length && !toWallet) {
+            setToWallet(list[0].value);
+            if (typeof setSelectedDest === 'function') {
+              const dest: WithdrawDest = { type: list[0].type, label: list[0].label, value: list[0].value, bank: list[0].bank };
+              setSelectedDest(dest);
+            }
+          }
         }
       } catch {}
     };
     load();
-  }, [setToWallet, toWallet]);
+  }, [setToWallet, toWallet, allowedMethodType]);
 
   // Amount Validation
   const validateAmount = () => {
@@ -124,25 +144,8 @@ export function Step1FormPayout({
 
     setIsValidating(true);
     try {
-      // If selected from approved list, we may skip external validation
-      if (!isBank) {
-        const chainId = ((selectedNetwork ?? selectedCrypto?.network ?? '') as string).split("@")[0];
-        const { data } = await axios.post("/api/payout-address-legal", {
-          address: toWallet.trim(),
-          chain_id: chainId,
-        });
-        if (data.code !== "00000" || !data.data?.result) {
-          throw new Error(data.data?.result || "Invalid wallet address");
-        }
-      }
+      // Skipping external address validation (no API available). Non-empty value already checked.
       return true;
-    } catch (error) {
-      toast.error(
-        error instanceof Error && error.message
-          ? error.message
-          : "Address validation failed"
-      );
-      return false;
     } finally {
       setIsValidating(false);
     }
@@ -227,10 +230,16 @@ export function Step1FormPayout({
 
       {/* WALLET / BANK DESTINATION */}
       <div className="mt-4">
-        <Label className="text-sm dark:text-white/75 text-black mb-1">Wallet / Bank</Label>
-        <Select value={toWallet} onValueChange={setToWallet}>
+        <Label className="text-sm dark:text-white/75 text-black mb-1">{allowedMethodType === 'bank' ? 'Bank Account' : 'Wallet Address'}</Label>
+        <Select value={toWallet} onValueChange={(val) => {
+          setToWallet(val);
+          if (typeof setSelectedDest === 'function') {
+            const m = approvedMethods.find((x) => x.value === val);
+            if (m) setSelectedDest({ type: m.type, label: m.label, value: m.value, bank: m.bank });
+          }
+        }}>
           <SelectTrigger className="w-full mt-1">
-            <SelectValue placeholder={approvedMethods.length ? "Select method" : "No approved methods found"} />
+            <SelectValue placeholder={approvedMethods.length ? (allowedMethodType === 'bank' ? 'Select bank account' : 'Select wallet') : "No approved methods found"} />
           </SelectTrigger>
           <SelectContent>
             {approvedMethods.length === 0 ? (

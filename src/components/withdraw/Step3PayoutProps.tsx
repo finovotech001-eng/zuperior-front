@@ -4,6 +4,7 @@ import { Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { CopyButton } from "../CopyButton";
+import { WithdrawDest } from "./types";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +19,7 @@ interface Step3PayoutProps {
   } | null;
   accountNumber: string | undefined;
   payoutId?: string;
+  selectedDest?: WithdrawDest | null;
 }
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
@@ -28,6 +30,7 @@ export default function Step3Payout({
   selectedCrypto,
   payoutDetails,
   accountNumber,
+  selectedDest,
 }: Step3PayoutProps) {
   const router = useRouter();
   useEffect(() => {
@@ -68,31 +71,48 @@ export default function Step3Payout({
         </div>
 
         <div className="flex justify-between py-2">
-          <span className="text-black dark:text-white/75">Amount</span>
-          <span className="font-medium text-black dark:text-white/75">
+          <span className="text-black dark:text-white/70 text-xs">Amount</span>
+          <span className="text-black dark:text-white/85 text-sm font-medium">
             {payoutDetails?.amount || amount}
           </span>
         </div>
 
-        <div className="flex justify-between py-2">
-          <span className="text-black dark:text-white/75">Currency</span>
-          <span className="font-medium text-black dark:text-white/75">{selectedCrypto?.name}</span>
-        </div>
-
-        <div className="flex items-center justify-between py-2">
-          <span className="text-black dark:text-white/75">Address</span>
-          <div className="flex items-center gap-2">
-            <span className="font-medium break-all text-xs text-black dark:text-white/75 text-right ">
-              {payoutDetails?.address || toWallet}
-            </span>
-            <CopyButton text={payoutDetails?.address || toWallet} className="text-black dark:text-white/75" />
-          </div>
-        </div>
+        {selectedDest?.type === 'bank' ? (
+          <>
+            <div className="flex justify-between py-2">
+              <span className="text-black dark:text-white/70 text-xs">Method</span>
+              <span className="text-black dark:text-white/85 text-sm font-medium">Bank Transfer</span>
+            </div>
+            <div className="space-y-2 py-2">
+              <Field label="Bank Name" value={selectedDest?.bank?.bankName} />
+              <Field label="Account Name" value={selectedDest?.bank?.accountName} />
+              <Field label="Account Number" value={selectedDest?.bank?.accountNumber} />
+              <Field label="IFSC / SWIFT" value={selectedDest?.bank?.ifscSwiftCode} />
+              <Field label="Account Type" value={selectedDest?.bank?.accountType} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between py-2">
+              <span className="text-black dark:text-white/70 text-xs">Currency</span>
+              <span className="text-black dark:text-white/85 text-sm font-medium">{selectedCrypto?.name}</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-black dark:text-white/70 text-xs">Address</span>
+              <div className="flex items-center gap-2">
+                <span className="break-all text-sm font-medium text-black dark:text-white/85 text-right ">
+                  {payoutDetails?.address || toWallet}
+                </span>
+                <CopyButton text={payoutDetails?.address || toWallet} className="text-black dark:text-white/75" />
+              </div>
+            </div>
+          </>
+        )}
 
         {accountNumber && (
           <div className="flex justify-between py-2">
-            <span className="text-black dark:text-white/75">Account Number</span>
-            <span className="font-medium text-black dark:text-white/75">{accountNumber}</span>
+            <span className="text-black dark:text-white/70 text-xs">Account Number</span>
+            <span className="text-black dark:text-white/85 text-sm font-medium">{accountNumber}</span>
           </div>
         )}
         <div className="mt-3 p-2 bg-black/20 rounded text-xs text-black dark:text-white/75">
@@ -109,6 +129,15 @@ export default function Step3Payout({
           Done
         </Button>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-center justify-between w-full gap-3">
+      <span className="text-black dark:text-white/70 text-xs">{label}</span>
+      <span className="text-black dark:text-white/80 text-xs font-medium break-all text-right">{value || '-'}</span>
     </div>
   );
 }

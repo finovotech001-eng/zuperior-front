@@ -46,6 +46,7 @@ export default function WithdrawalDepositPage() {
   );
 
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
   const isUnverified = store.getState().kyc.verificationStatus === "unverified";
 
   const [internalTransferDialogOpen, setInternalTransferDialogOpen] =
@@ -202,6 +203,16 @@ export default function WithdrawalDepositPage() {
                   onOpenNewAccount={() => handleCryptoSelect(crypto)}
                 />
               ))}
+            {/* Bank transfer tile */}
+            {(activeTab === "all" || activeTab === "bank") && (
+              <PaymentTile
+                key="BANK"
+                icon={'/bank.png'}
+                name={'Bank Transfer'}
+                unverified={isUnverified}
+                onOpenNewAccount={() => setBankDialogOpen(true)}
+              />
+            )}
           </div>
 
           {activeTab === "all" && (
@@ -258,6 +269,14 @@ export default function WithdrawalDepositPage() {
             open={depositDialogOpen}
             onOpenChange={setDepositDialogOpen}
             selectedCrypto={selectedCrypto}
+            allowedType="crypto"
+          />
+          {/* Bank withdraw dialog */}
+          <WithdrawPayoutDialog
+            open={bankDialogOpen}
+            onOpenChange={setBankDialogOpen}
+            selectedCrypto={null}
+            allowedType="bank"
           />
           <TransferFundsDialog
             open={internalTransferDialogOpen}

@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "../ui/button";
 import Image from "next/image";
-import { Step2ConfirmationProps } from "./types";
+import { Step2ConfirmationProps, WithdrawDest } from "./types";
 import fallbackImg from "@/assets/binance.png";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function Step2ConfirmationPayout({
   handleContinueToPayment,
   selectedAccount,
   setPayoutId,
+  selectedDest,
 }: Step2ConfirmationProps & {
   selectedAccount: TpAccountSnapshot | null;
   toWallet: string;
@@ -51,7 +52,8 @@ export function Step2ConfirmationPayout({
 
   // Function to handle payout API call
   const handlePayout = async () => {
-    if (!selectedCrypto || !amount || !selectedAccount) {
+    const isBank = selectedDest?.type === 'bank';
+    if ((!amount || !selectedAccount) || (!isBank && !selectedCrypto)) {
       toast.error("Missing required information");
       return;
     }
@@ -70,7 +72,9 @@ export function Step2ConfirmationPayout({
         body: JSON.stringify({
           mt5AccountId: selectedAccount.acc,
           amount: Number(amount),
-          walletAddress: toWallet,
+          // For bank, send account number as walletAddress (server expects this field)
+          walletAddress: isBank ? (selectedDest?.bank?.accountNumber || toWallet) : toWallet,
+          method: isBank ? 'bank' : 'crypto',
         }),
       });
       const json = await resp.json();
@@ -115,24 +119,28 @@ export function Step2ConfirmationPayout({
         <div className="space-y-2 flex justify-between items-center text-sm">
           <p className="text-black dark:text-white/75">Payment Method</p>
           <div className="flex items-center">
-            {(() => {
-              const methodName = (selectedCrypto?.name || paymentMethod || 'USDT-TRC20');
-              const iconSrc = methodName.toUpperCase().includes('TRC20')
-                ? '/trc20.png'
-                : (selectedCrypto?.icon || (paymentMethod ? paymentImages[paymentMethod] : undefined) || fallbackImg);
-              return (
-                <>
-                  <Image
-                    src={iconSrc}
-                    alt={methodName}
-                    className="h-6 w-6 mr-2"
-                    width={24}
-                    height={24}
-                  />
-                  <p className="text-black dark:text-white/75">{methodName}</p>
-                </>
-              );
-            })()}
+            {selectedDest?.type === 'bank' ? (
+              <p className="text-black dark:text-white/75">Bank Transfer</p>
+            ) : (
+              (() => {
+                const methodName = (selectedCrypto?.name || paymentMethod || 'USDT-TRC20');
+                const iconSrc = methodName.toUpperCase().includes('TRC20')
+                  ? '/trc20.png'
+                  : (selectedCrypto?.icon || (paymentMethod ? paymentImages[paymentMethod] : undefined) || fallbackImg);
+                return (
+                  <>
+                    <Image
+                      src={iconSrc}
+                      alt={methodName}
+                      className="h-6 w-6 mr-2"
+                      width={24}
+                      height={24}
+                    />
+                    <p className="text-black dark:text-white/75">{methodName}</p>
+                  </>
+                );
+              })()
+            )}
           </div>
         </div>
 
@@ -147,10 +155,20 @@ export function Step2ConfirmationPayout({
 
         <hr className="border-t border-[#31263a]" />
 
-        <div className="space-y-2 flex justify-between items-center text-sm">
-          <p className="text-black dark:text-white/75">Wallet Address</p>
-          <p className="text-black dark:text-white/75 break-all text-xs">{toWallet}</p>
-        </div>
+        {selectedDest?.type === 'bank' ? (
+          <div className="space-y-2 text-sm">
+            <Field label="Bank Name" value={selectedDest?.bank?.bankName} />
+            <Field label="Account Name" value={selectedDest?.bank?.accountName} />
+            <Field label="Account Number" value={selectedDest?.bank?.accountNumber} />
+            <Field label="IFSC / SWIFT" value={selectedDest?.bank?.ifscSwiftCode} />
+            <Field label="Account Type" value={selectedDest?.bank?.accountType} />
+          </div>
+        ) : (
+          <div className="space-y-2 flex justify-between items-center text-sm">
+            <p className="text-black dark:text-white/75">Wallet Address</p>
+            <p className="text-black dark:text-white/75 break-all text-xs">{toWallet}</p>
+          </div>
+        )}
 
         <hr className="border-t border-[#31263a]" />
 
@@ -208,6 +226,15 @@ export function Step2ConfirmationPayout({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-center justify-between w-full py-0.5">
+      <span className="text-black dark:text-white/70 text-xs">{label}</span>
+      <span className="text-black dark:text-white/85 text-sm font-medium break-all text-right">{value || '-'}</span>
     </div>
   );
 }

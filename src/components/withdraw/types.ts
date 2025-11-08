@@ -53,6 +53,8 @@ export interface Step1FormProps {
   nextStep: () => void;
   toWallet: string; // Add this
   setToWallet: (address: string) => void; // Add this
+  setSelectedDest?: (dest: WithdrawDest | null) => void;
+  allowedMethodType?: 'crypto' | 'bank';
 }
 export interface Step2ConfirmationProps {
   amount: string;
@@ -66,6 +68,9 @@ export interface Step2ConfirmationProps {
   exchangeRate?: number;
   prevStep: () => void;
   handleContinueToPayment: () => void;
+  selectedDest?: WithdrawDest | null;
+  toWallet?: string;
+  setToWallet?: (address: string) => void;
 }
 
 export interface Step3PaymentProps {
@@ -94,6 +99,21 @@ export type Cryptocurrency = {
   icon: string;
   networks?: NetworkInfo[];
   network: string
+};
+
+// Withdrawal destination (crypto wallet or bank)
+export type WithdrawDest = {
+  type: 'crypto' | 'bank';
+  label: string;
+  value: string;
+  bank?: {
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    ifscSwiftCode?: string;
+    accountType?: string;
+    countryCode?: string;
+  };
 };
 
 export interface Account {

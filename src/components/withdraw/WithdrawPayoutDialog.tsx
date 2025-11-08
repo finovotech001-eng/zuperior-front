@@ -24,10 +24,12 @@ export function WithdrawPayoutDialog({
   open,
   onOpenChange,
   selectedCrypto,
-}: NewAccountDialogProps) {
+  allowedType,
+}: NewAccountDialogProps & { allowedType?: 'crypto' | 'bank' }) {
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState("");
   const [toWallet, setToWallet] = useState("");
+  const [selectedDest, setSelectedDest] = useState<any>(null);
   const [selectedNetwork, setSelectedNetwork] = useState("");
   const [apiResponse, setApiResponse] = useState<{ status?: string } | null>(
     null
@@ -130,6 +132,8 @@ export function WithdrawPayoutDialog({
             setSelectedAccount={setSelectedAccount}
             toWallet={toWallet}
             setToWallet={setToWallet}
+            setSelectedDest={setSelectedDest}
+            allowedMethodType={allowedType}
           />
         );
       case 2:
@@ -148,6 +152,7 @@ export function WithdrawPayoutDialog({
             prevStep={prevStep}
             exchangeRate={1}
             handleContinueToPayment={nextStep}
+            selectedDest={selectedDest}
             setPayoutId={setPayoutId} // Pass the setPayoutId function
           />
         );
@@ -158,6 +163,7 @@ export function WithdrawPayoutDialog({
             toWallet={toWallet}
             accountNumber={selectedAccount?.acc.toString()}
             selectedCrypto={selectedCrypto ?? { name: "", symbol: "" }}
+            selectedDest={selectedDest}
             payoutId={payoutId || undefined}
           />
         );
