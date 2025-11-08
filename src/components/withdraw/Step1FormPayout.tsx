@@ -39,14 +39,15 @@ export function Step1FormPayout({
   const [kycStep, setKycStep] = useState<
     "unverified" | "partial" | "verified" | ""
   >("");
-  const [approvedWallets, setApprovedWallets] = useState<string[]>([]);
+  type ApprovedMethod = { type: 'crypto' | 'bank'; label: string; value: string };
+  const [approvedMethods, setApprovedMethods] = useState<ApprovedMethod[]>([]);
 
   // KYC Step
   useEffect(() => {
     setKycStep(store.getState().kyc.verificationStatus);
   }, []);
 
-  // Load approved payment methods (wallet addresses)
+  // Load approved payment methods (wallet addresses + bank accounts)
   useEffect(() => {
     const load = async () => {
       try {
@@ -57,9 +58,18 @@ export function Step1FormPayout({
         });
         const json = await res.json();
         if (json?.status === 'Success') {
-          const list = (json.data || []).filter((pm: any) => pm.status === 'approved').map((pm: any) => pm.address);
-          setApprovedWallets(list);
-          if (list.length && !toWallet) setToWallet(list[0]);
+          const list: ApprovedMethod[] = (json.data || [])
+            .filter((pm: any) => pm.status === 'approved')
+            .map((pm: any) => {
+              const type = (pm.methodType ?? 'crypto') as 'crypto' | 'bank';
+              if (type === 'bank') {
+                const label = `${pm.bankName || 'Bank'} • ${pm.accountNumber || ''}`.trim();
+                return { type: 'bank', label, value: pm.accountNumber || label };
+              }
+              return { type: 'crypto', label: pm.address, value: pm.address };
+            });
+          setApprovedMethods(list);
+          if (list.length && !toWallet) setToWallet(list[0].value);
         }
       } catch {}
     };
@@ -103,15 +113,19 @@ export function Step1FormPayout({
       toast.error("Wallet address is required");
       return false;
     }
-    if (!(selectedNetwork ?? '').trim()) {
-      toast.error("Network is required");
-      return false;
+    const selectedMethod = approvedMethods.find((m) => m.value === toWallet.trim());
+    const isBank = selectedMethod?.type === 'bank';
+    if (!isBank) {
+      if (!(selectedNetwork ?? '').trim()) {
+        toast.error("Network is required");
+        return false;
+      }
     }
 
     setIsValidating(true);
     try {
-      // If selected from approved list, we skip external validation
-      if (!approvedWallets.includes(toWallet.trim())) {
+      // If selected from approved list, we may skip external validation
+      if (!isBank) {
         const chainId = ((selectedNetwork ?? selectedCrypto?.network ?? '') as string).split("@")[0];
         const { data } = await axios.post("/api/payout-address-legal", {
           address: toWallet.trim(),
@@ -211,19 +225,19 @@ export function Step1FormPayout({
         </Select>
       </div>
 
-      {/* WALLET ADDRESS */}
+      {/* WALLET / BANK DESTINATION */}
       <div className="mt-4">
-        <Label className="text-sm dark:text-white/75 text-black mb-1">Wallet Address</Label>
+        <Label className="text-sm dark:text-white/75 text-black mb-1">Wallet / Bank</Label>
         <Select value={toWallet} onValueChange={setToWallet}>
           <SelectTrigger className="w-full mt-1">
-            <SelectValue placeholder={approvedWallets.length ? "Select wallet" : "No approved wallets found"} />
+            <SelectValue placeholder={approvedMethods.length ? "Select method" : "No approved methods found"} />
           </SelectTrigger>
           <SelectContent>
-            {approvedWallets.length === 0 ? (
-              <SelectItem disabled value="__no_wallets__">No approved wallets found</SelectItem>
+            {approvedMethods.length === 0 ? (
+              <SelectItem disabled value="__no_wallets__">No approved methods found</SelectItem>
             ) : (
-              approvedWallets.map((addr) => (
-                <SelectItem key={addr} value={addr}>{addr}</SelectItem>
+              approvedMethods.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
               ))
             )}
           </SelectContent>

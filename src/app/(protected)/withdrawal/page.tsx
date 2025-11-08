@@ -130,7 +130,7 @@ export default function WithdrawalDepositPage() {
 
             <div className="relative mt-6 md:mt-0 md:absolute md:right-0">
               <Link
-                href={isUnverified ? "#" : "/withdrawal/pending"}
+                href={isUnverified ? "#" : "/transactions"}
                 className={`flex items-center justify-center gap-2 rounded-[10px] py-3 px-3 text-[16px] leading-[14px] w-auto border-2 border-gray-300 dark:border-[#1D1825] bg-white text-black dark:bg-gradient-to-r from-[#FFFFFF] dark:from-[#110F17] to-[#f4e7f6] dark:to-[#1E1429] dark:text-white/75
                 ${
                   isUnverified

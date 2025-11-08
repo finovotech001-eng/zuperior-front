@@ -4,6 +4,8 @@ import { Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { CopyButton } from "../CopyButton";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 interface Step3PayoutProps {
   amount: string;
@@ -27,17 +29,14 @@ export default function Step3Payout({
   payoutDetails,
   accountNumber,
 }: Step3PayoutProps) {
+  const router = useRouter();
   useEffect(() => {
     toast.success(
       "Your withdrawal request has been successfully submitted and is being processed."
     );
   }, []);
 
-  const handleSupportClick = () => {
-    toast.message("Contact Support", {
-      description: `Please email ${SUPPORT_EMAIL} for assistance with your withdrawal.`,
-    });
-  };
+  // Removed contact support link per request
 
   return (
     <div className="flex flex-col items-center justify-center space-y-6 w-full relative">
@@ -56,12 +55,7 @@ export default function Step3Payout({
             processed. It will be completed within the next 12 to 24 hours.
           </p>
           
-          <button
-            onClick={handleSupportClick}
-            className="text-[#2e7d52] hover:text-[#3a9365] text-xs mt-2 underline cursor-pointer"
-          >
-            Contact support if you have questions
-          </button>
+          {/* Contact support link removed */}
         </div>
       </div>
 
@@ -101,9 +95,19 @@ export default function Step3Payout({
             <span className="font-medium text-black dark:text-white/75">{accountNumber}</span>
           </div>
         )}
-         <div className="mt-3 p-2 bg-black/20 rounded text-xs text-black dark:text-white/75">
+        <div className="mt-3 p-2 bg-black/20 rounded text-xs text-black dark:text-white/75">
           Your withdrawal order has been generated, and the amount has been deducted from your trading account. Once approved, the funds will be transferred to your given wallet.
         </div>
+      </div>
+
+      {/* Done button */}
+      <div className="w-full max-w-md">
+        <Button
+          className="w-full cursor-pointer bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white hover:bg-[#9d6ad9]"
+          onClick={() => router.push('/transactions')}
+        >
+          Done
+        </Button>
       </div>
     </div>
   );
