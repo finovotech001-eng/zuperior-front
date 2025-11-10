@@ -74,7 +74,7 @@ export const StepChooseAccountType: React.FC<StepChooseAccountTypeProps> = ({
           <div className="flex space-x-4 w-full md:w-[540px]">
             <AccountTypeCard
               userRole="For Beginners"
-              title="Standard"
+              title="Startup"
               selected={accountPlan === "standard"}
               onClick={() => setAccountPlan("standard")}
             />

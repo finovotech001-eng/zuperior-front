@@ -23,12 +23,15 @@ export function AccountInfoDialog({
 }: AccountInfoDialogProps) {
   const fields: Array<[string, string | JSX.Element]> = useMemo(() => {
     if (!account) return [];
+    const pkgRaw = account.account_type_requested
+      ? account.account_type_requested.charAt(0).toUpperCase() + account.account_type_requested.slice(1)
+      : "Standard";
+    const pkgDisplay = /^Standard$/i.test(pkgRaw) ? 'Startup' : pkgRaw;
+
     return [
       ["Account", account.acc !== undefined ? `# ${account.acc}` : ""],
       ["Nickname", account.tp_account_scf.cf_1479 ?? ""],
-      ["Package", account.account_type_requested
-  ? account.account_type_requested.charAt(0).toUpperCase() + account.account_type_requested.slice(1)
-  : "Standard"],
+      ["Package", pkgDisplay],
       [
         "Actual leverage",
         account.leverage !== undefined ? `1:${account.leverage}` : "",

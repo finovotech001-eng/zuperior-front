@@ -68,7 +68,8 @@ export function USDTManualStep1Form({
   // Helper function to extract account type from group name
   // Helper function to get account package (use package field from DB)
   const getAccountPackage = (account: MT5Account): string => {
-    return account.package || 'Standard';
+    const raw = account.package || 'Standard';
+    return /^(standard)$/i.test(raw) ? 'Startup' : raw;
   };
 
   const selectedAccountObj = accounts.find(

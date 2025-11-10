@@ -45,7 +45,8 @@ export function useAccountsList(filterLiveOnly: boolean = false): AccountDropdow
       return true;
     })
     .map((account: MT5Account) => {
-      const packageDisplay = account.package || 'Standard';
+      const rawPkg = account.package || 'Standard';
+      const packageDisplay = /^(standard)$/i.test(rawPkg) ? 'Startup' : rawPkg;
       const balance = account.balance || 0;
       
       return {
@@ -66,4 +67,3 @@ export function useAccountsList(filterLiveOnly: boolean = false): AccountDropdow
 
   return accountItems;
 }
-
