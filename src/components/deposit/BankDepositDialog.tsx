@@ -110,6 +110,7 @@ export function BankDepositDialog({ open, onOpenChange, lifetimeDeposit }: { ope
             setProofFile={setProofFile}
             nextStep={handleCreate}
             isProcessing={false}
+            variant="bank"
           />
         );
       case 4:

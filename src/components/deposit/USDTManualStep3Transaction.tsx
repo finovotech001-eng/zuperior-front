@@ -18,6 +18,7 @@ interface USDTManualStep3TransactionProps {
   setProofFile: (file: File | null) => void;
   nextStep: () => void;
   isProcessing?: boolean;
+  variant?: 'usdt' | 'bank';
 }
 
 export function USDTManualStep3Transaction({
@@ -29,6 +30,7 @@ export function USDTManualStep3Transaction({
   setProofFile,
   nextStep,
   isProcessing = false,
+  variant = 'usdt',
 }: USDTManualStep3TransactionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,8 +73,12 @@ export function USDTManualStep3Transaction({
 
   const handleContinue = () => {
     if (!transactionId.trim()) {
-      toast.error("Transaction ID required", {
-        description: "Please enter the transaction ID/hash to continue.",
+      const title = variant === 'bank' ? 'Reference number required' : 'Transaction ID required';
+      const desc = variant === 'bank'
+        ? 'Please enter the bank transfer reference number to continue.'
+        : 'Please enter the transaction ID/hash to continue.';
+      toast.error(title, {
+        description: desc,
       });
       return;
     }
@@ -94,16 +100,18 @@ export function USDTManualStep3Transaction({
         <div className="rounded-lg">
           <div className="mt-4">
             <Label className="text-sm dark:text-white/75 text-black mb-1">
-              Transaction ID/Hash *
+              {variant === 'bank' ? 'Reference Number *' : 'Transaction ID/Hash *'}
             </Label>
             <Input
-              placeholder="Enter transaction hash"
+              placeholder={variant === 'bank' ? 'Enter reference number' : 'Enter transaction hash'}
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               className="dark:text-white/75 text-black border-[#362e36] p-5 focus-visible:ring-blue-600 w-full"
             />
             <p className="text-xs text-white/60 mt-1">
-              Enter the transaction hash from your USDT transfer
+              {variant === 'bank'
+                ? 'Enter reference number for your bank transfer'
+                : 'Enter the transaction hash from your USDT transfer'}
             </p>
           </div>
         </div>
