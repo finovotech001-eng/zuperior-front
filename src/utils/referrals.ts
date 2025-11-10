@@ -114,14 +114,15 @@ export async function registerReferral(
   code: string,
   email: string,
   fullName?: string,
-  password?: string
+  password?: string,
+  phone?: string
 ): Promise<boolean> {
   if (!code || !email || !IB_API) return false;
   try {
     const res = await fetch(`${IB_API}/public/referrals/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ referralCode: code, email, fullName, password, source: 'crm' })
+      body: JSON.stringify({ referralCode: code, email, fullName, password, phone, source: 'crm' })
     });
     if (res.ok) {
       try { localStorage.removeItem('z_referral_code'); } catch {}

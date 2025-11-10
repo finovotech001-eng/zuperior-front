@@ -129,7 +129,8 @@ const AuthForm = () => {
             code,
             registerData.email,
             registerData.name,
-            registerBuffer.password
+            registerBuffer.password,
+            registerBuffer.phone
           );
         }
       } catch {
