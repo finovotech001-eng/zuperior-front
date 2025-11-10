@@ -5,6 +5,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay } from "swiper/modules";
 import AuthForm from "./_components/auth-form";
 import { useEffect } from "react";
+import { persistReferralCode } from "@/utils/referrals";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "next/navigation";
 
@@ -19,6 +20,9 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Persist referral code from URL if present
+    persistReferralCode();
+
     // Check if user is already authenticated
     const token = localStorage.getItem('userToken');
     const clientId = localStorage.getItem('clientId');

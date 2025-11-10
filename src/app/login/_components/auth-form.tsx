@@ -15,6 +15,7 @@ import RegisterStep2OtpForm from "./RegisterStep2OtpForm";
 import LoginForm from "./LoginForm";
 import SubmitButton from "./SubmitButton";
 import ForgotPasswordNewPasswordForm from "./ForgotPasswordNewPasswordForm";
+import { attachReferral, getActiveReferralCode, getStoredReferralCode } from "@/utils/referrals";
 
 const AuthForm = () => {
   const router = useRouter();
@@ -104,6 +105,16 @@ const AuthForm = () => {
       // Store user data for navbar display
       if (response.user) {
         localStorage.setItem('user', JSON.stringify(response.user));
+      }
+
+      // Attempt IB referral attach after successful registration
+      try {
+        const code = getActiveReferralCode();
+        if (code) {
+          await attachReferral(code, registerData.email);
+        }
+      } catch {
+        // non-blocking
       }
 
       toast.success("Account created! Welcome aboard.");
@@ -380,6 +391,16 @@ const AuthForm = () => {
       // Store user data for navbar display
       if (response.user) {
         localStorage.setItem('user', JSON.stringify(response.user));
+      }
+
+      // Fallback: attempt referral attach on login if code exists
+      try {
+        const code = getStoredReferralCode();
+        if (code) {
+          await attachReferral(code, loginData.email);
+        }
+      } catch {
+        // non-blocking
       }
 
       toast.success("Welcome back! You've successfully logged in.");

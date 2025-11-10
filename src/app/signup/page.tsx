@@ -2,11 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { persistReferralCode } from "@/utils/referrals";
 
 export default function SignupPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Persist referral code (if present) then redirect to login
+    persistReferralCode();
     // Redirect to login page since signup is integrated there
     router.replace("/login");
   }, [router]);
@@ -17,4 +20,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
