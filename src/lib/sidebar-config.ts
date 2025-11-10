@@ -31,7 +31,11 @@ export const getMenuItems = ({ theme }: { theme: string }): MenuItem[] => {
   const platformsImage = theme === "dark" ? platforms : platformsBlack;
   const supportImage = theme === "dark" ? support : supportBlack;
   const settingsImage = theme === "dark" ? settings : settingsBlack;
-  const walletImage = theme === "dark" ? wallet : walletBlack;
+  // Wallet icon tweak: in light mode use Trading Tools icon instead
+  const walletImage = theme === "dark" ? wallet : toolsBlack;
+  // Payment Methods icon tweak: in light mode use Deposits icon instead
+  const paymentMethodsImage = theme === "dark" ? wallet : depositsBlack;
+  const paymentMethodsActive = theme === "dark" ? wallet : deposits;
   // const accountsImage = theme === "dark" ? accounts : accountsBlack;
 
 
@@ -74,8 +78,8 @@ export const getMenuItems = ({ theme }: { theme: string }): MenuItem[] => {
     },
     {
       name: "Payment Methods",
-      icon: walletImage,
-      active: wallet,
+      icon: paymentMethodsImage,
+      active: paymentMethodsActive,
       link: "/payment-methods",
       subItems: [],
     },

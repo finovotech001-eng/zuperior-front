@@ -74,10 +74,8 @@ export function SidebarMenu({ items, collapsed, onLinkClick }: SidebarMenuProps)
             )}
             onClick={() => handleItemClick(item)}
           >
-            <Image
+            <IconImage
               className={`${!isActive && !isSubActive ? "opacity-80" : ""}`}
-              height={25}
-              width={25}
               src={isActive || isSubActive ? item.active : item.icon}
               alt={item.name}
             />
@@ -190,3 +188,39 @@ export function SidebarMenu({ items, collapsed, onLinkClick }: SidebarMenuProps)
 // Button made transparent -bg-inherit
 // hover effect removed
 //  thin right-side gradient line (after:) removed
+  const IconImage = ({ src, alt, className }: { src: any; alt: string; className?: string }) => {
+    const [failed, setFailed] = useState(false);
+    if (failed) {
+      // Simple inline SVG fallback for light mode when image is missing.
+      // Two variants based on name to give some visual variety.
+      const isVariantA = (alt || '').toLowerCase().includes('overview') || (alt || '').toLowerCase().includes('wallet');
+      return (
+        <div className={cn("flex items-center justify-center", className)} aria-label={alt} role="img">
+          {isVariantA ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="9" stroke="#7E3BD9" strokeWidth="2" />
+              <path d="M8 12h8" stroke="#7E3BD9" strokeWidth="2" strokeLinecap="round" />
+              <path d="M12 8v8" stroke="#7E3BD9" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="5" width="18" height="14" rx="3" stroke="#7E3BD9" strokeWidth="2" />
+              <path d="M3 10h18" stroke="#7E3BD9" strokeWidth="2" />
+              <circle cx="8" cy="15" r="1.5" fill="#7E3BD9" />
+              <circle cx="12" cy="15" r="1.5" fill="#7E3BD9" />
+            </svg>
+          )}
+        </div>
+      );
+    }
+    return (
+      <Image
+        className={className}
+        height={25}
+        width={25}
+        src={src}
+        alt={alt}
+        onError={() => setFailed(true)}
+      />
+    );
+  };
