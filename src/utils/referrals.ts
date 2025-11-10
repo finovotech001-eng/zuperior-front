@@ -5,6 +5,7 @@ let IB_API: string = '';
 if (typeof window !== 'undefined') {
   IB_API =
     (process.env.NEXT_PUBLIC_IB_API as string) ||
+    (process.env.NEXT_PUBLIC_BACKEND_API_URL as string) ||
     ((import.meta as any)?.env?.VITE_IB_API as string) ||
     '';
 
@@ -13,6 +14,10 @@ if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       IB_API = 'http://localhost:5001/api';
+    } else {
+      // Last-resort: try to use a relative API base if provided by the hosting setup
+      // This assumes a reverse proxy maps /ib-api -> IB backend in production
+      IB_API = '/ib-api';
     }
   }
 }
