@@ -15,7 +15,7 @@ import RegisterStep2OtpForm from "./RegisterStep2OtpForm";
 import LoginForm from "./LoginForm";
 import SubmitButton from "./SubmitButton";
 import ForgotPasswordNewPasswordForm from "./ForgotPasswordNewPasswordForm";
-import { attachReferral, getActiveReferralCode, getStoredReferralCode } from "@/utils/referrals";
+import { attachReferral, getActiveReferralCode, getStoredReferralCode, resolveReferral, registerReferral } from "@/utils/referrals";
 
 const AuthForm = () => {
   const router = useRouter();
@@ -49,6 +49,19 @@ const AuthForm = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [referralCode, setReferralCode] = useState<string>("");
+  const [referrerName, setReferrerName] = useState<string>("");
+
+  // Load referral code and resolve IB name for banner
+  useEffect(() => {
+    const code = getActiveReferralCode();
+    if (!code) return;
+    setReferralCode(code);
+    (async () => {
+      const ref = await resolveReferral(code);
+      if (ref?.name) setReferrerName(ref.name);
+    })();
+  }, []);
 
   // Auto-detect country from IP on mount
   useEffect(() => {
@@ -107,11 +120,17 @@ const AuthForm = () => {
         localStorage.setItem('user', JSON.stringify(response.user));
       }
 
-      // Attempt IB referral attach after successful registration
+      // Attempt IB referral register/attach after successful registration
       try {
         const code = getActiveReferralCode();
         if (code) {
-          await attachReferral(code, registerData.email);
+          // Prefer full registration so User + ib_referrals are saved
+          await registerReferral(
+            code,
+            registerData.email,
+            registerData.name,
+            registerBuffer.password
+          );
         }
       } catch {
         // non-blocking
@@ -393,7 +412,7 @@ const AuthForm = () => {
         localStorage.setItem('user', JSON.stringify(response.user));
       }
 
-      // Fallback: attempt referral attach on login if code exists
+      // Fallback: attempt simple attach on login if code exists
       try {
         const code = getStoredReferralCode();
         if (code) {
@@ -458,14 +477,22 @@ const AuthForm = () => {
         >
           {isCreateAccount ? (
             step === 1 ? (
-              <RegisterStep1Form
-                registerBuffer={registerBuffer}
-                setRegisterBuffer={setRegisterBuffer}
-                validationErrors={validationErrors}
-                clearFieldError={clearFieldError}
-                passwordVisible={passwordVisible}
-                setPasswordVisible={setPasswordVisible}
-              />
+              <>
+                {referralCode && (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+                    Referred by <span className="font-semibold">{referrerName || 'IB Partner'}</span>
+                    <span className="opacity-70"> ({referralCode})</span>
+                  </div>
+                )}
+                <RegisterStep1Form
+                  registerBuffer={registerBuffer}
+                  setRegisterBuffer={setRegisterBuffer}
+                  validationErrors={validationErrors}
+                  clearFieldError={clearFieldError}
+                  passwordVisible={passwordVisible}
+                  setPasswordVisible={setPasswordVisible}
+                />
+              </>
             ) : (
               <RegisterStep2OtpForm
                 otp={otp}
@@ -480,6 +507,13 @@ const AuthForm = () => {
             )
           ) : (
             <>
+              {/* Referral banner on login tab as informational if code present */}
+              {referralCode && (
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 mb-2">
+                  Referred by <span className="font-semibold">{referrerName || 'IB Partner'}</span>
+                  <span className="opacity-70"> ({referralCode})</span>
+                </div>
+              )}
               {step === 1 && !forgotMode && (
                 <LoginForm
                   loginEmail={loginEmail}
