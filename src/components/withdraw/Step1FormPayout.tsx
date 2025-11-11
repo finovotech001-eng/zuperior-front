@@ -49,6 +49,14 @@ export function Step1FormPayout({
   type ApprovedMethod = { type: 'crypto' | 'bank'; label: string; value: string; bank?: WithdrawDest['bank'] };
   const [approvedMethods, setApprovedMethods] = useState<ApprovedMethod[]>([]);
   const [wallet, setWallet] = useState<any>(null);
+  
+  // Compute available balance for display and quick-fill
+  const availableBalance = useMemo(() => {
+    const raw = useWallet
+      ? parseFloat(String(wallet?.balance || 0))
+      : parseFloat(String(selectedAccount?.balance || 0));
+    return isNaN(raw) ? 0 : raw;
+  }, [useWallet, wallet?.balance, selectedAccount?.balance]);
 
   // KYC Step
   useEffect(() => {
@@ -262,10 +270,25 @@ export function Step1FormPayout({
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             placeholder="Enter withdraw amount"
             className="dark:bg-[#070307]  pr-12 text-black dark:text-white/75 border-[#362e36] p-5 focus-visible:ring-blue-600 w-full"
+            inputMode="decimal"
+            aria-label="Withdraw amount"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-black dark:text-white text-sm">
             {selectedCrypto?.name || "USD"}
           </span>
+        </div>
+
+        {/* Withdrawable range helper below field, above limit message */}
+        <div className="mt-2 text-xs text-[#945393]">
+          <span>Withdrawable: 0 – </span>
+          <button
+            type="button"
+            className="hover:opacity-80 cursor-pointer font-medium"
+            onClick={() => setAmount(availableBalance.toFixed(2))}
+            title="Click to withdraw full balance"
+          >
+            ${availableBalance.toFixed(2)}
+          </button>
         </div>
 
         {kycStep && (
