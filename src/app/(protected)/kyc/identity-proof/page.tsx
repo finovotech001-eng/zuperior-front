@@ -14,7 +14,7 @@ import { AMLResponse, DocumentKYCResponse } from "@/types/kyc";
 import { amlVerification } from "@/services/amlVerification";
 import { useAppDispatch } from "@/store/hooks";
 import { setDocumentVerified } from "@/store/slices/kycSlice";
-import { createKycRecord, updateDocumentStatus } from "@/services/kycService";
+import { createKycRecord, updateDocumentStatus, checkShuftiStatus } from "@/services/kycService";
 import { useEffect } from "react";
 
 /* interface VerificationResult {
@@ -45,6 +45,7 @@ export default function VerifyPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("");
   const [declinedReason, setDeclinedReason] = useState<string | null>(null);
+  const [pendingReference, setPendingReference] = useState<string>("");
   const dispatch = useAppDispatch();
 
   // Create KYC record on component mount
@@ -70,6 +71,59 @@ export default function VerifyPage() {
   const prevStep = () => {
     setStep(step - 1);
   };
+
+  // Poll Shufti status when AML is pending, to auto-update UI without reload
+  useEffect(() => {
+    if (step === 3 && verificationStatus === "pending" && pendingReference) {
+      let pollCount = 0;
+      const maxPolls = 30; // ~5 minutes at 10s interval
+      let invalidRefCount = 0;
+
+      const interval = setInterval(async () => {
+        pollCount++;
+        try {
+          const resp = await checkShuftiStatus(pendingReference);
+          const event = resp?.data?.event;
+
+          if (event === "verification.accepted") {
+            // AML accepted -> mark document verified and stop polling
+            dispatch(setDocumentVerified(true));
+            setVerificationStatus("verified");
+
+            // Best-effort to persist status (webhook should also do this)
+            try {
+              await updateDocumentStatus({
+                documentReference: resp?.data?.isDocument ? pendingReference : "",
+                isDocumentVerified: true,
+                amlReference: pendingReference,
+              });
+            } catch (_) {
+              // ignore, webhook likely handled it
+            }
+
+            clearInterval(interval);
+          } else if (event === "verification.declined") {
+            setVerificationStatus("declined");
+            setDeclinedReason(resp?.data?.declined_reason || "Verification was declined");
+            clearInterval(interval);
+          } else if (event === "request.invalid") {
+            invalidRefCount++;
+            if (invalidRefCount >= 3) {
+              clearInterval(interval);
+            }
+          }
+
+          if (pollCount >= maxPolls) {
+            clearInterval(interval);
+          }
+        } catch (e) {
+          // Swallow transient errors and continue polling
+        }
+      }, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [step, verificationStatus, pendingReference, dispatch]);
 
 const handleSubmit = async () => {
     if (!file || !documentType) {
@@ -157,11 +211,13 @@ const handleSubmit = async () => {
       } else if (amlVerificationResult.event === "request.pending" || amlVerificationResult.event === "request.received") {
         // ⏳ AML screening still in progress - keep as pending
         setVerificationStatus("pending");
+        setPendingReference(amlVerificationResult.reference || "");
         toast.info("Background screening is in progress. This may take a few moments.");
         console.log("⏳ AML Status: PENDING - Will be updated via webhook");
       } else {
         // 🤷 Unknown event or timeout - default to pending
         setVerificationStatus("pending");
+        setPendingReference(amlVerificationResult.reference || "");
         toast.warning("Background screening status is being verified. Please check back shortly.");
         console.log(`⚠️ AML Unknown event: ${amlVerificationResult.event} - Defaulting to pending`);
       }
