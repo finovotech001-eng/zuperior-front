@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Step1FormProps } from "./types";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { store } from "@/store";
 import { TpAccountSnapshot } from "@/types/user-details";
 
@@ -61,6 +61,23 @@ export function Step1Form({
     (account) => (account.acc).toString() === selectedAccountNumber
   );
 
+  // Startup deposit allowance (max equity excluding bonus = $3,000)
+  const startupAllowance = useMemo(() => {
+    if (!selectedAccountObj) return null;
+    const pkg = String(selectedAccountObj.account_type_requested || '').toLowerCase();
+    const isStartup = pkg === 'startup' || pkg === 'standard';
+    if (!isStartup) return null;
+
+    const balance = parseFloat(String(selectedAccountObj.balance || 0)) || 0;
+    const equity = parseFloat(String((selectedAccountObj as any).equity || 0)) || 0;
+    const credit = parseFloat(String((selectedAccountObj as any).credit || 0)) || 0;
+    const epsilon = 0.01;
+    const flat = Math.abs(equity - (balance + credit)) < epsilon;
+    const baseAmount = flat ? balance : (equity - credit);
+    const allowed = Math.max(0, 3000 - baseAmount);
+    return { allowed: parseFloat(allowed.toFixed(2)), balance, equity, credit };
+  }, [selectedAccountObj]);
+
   const handleAccountChange = (value: string) => {
     setSelectedAccount(value);
   };
@@ -78,6 +95,14 @@ export function Step1Form({
     }
 
     const totalAfterDeposit = lifetimeDeposit + amountNum;
+
+    // Enforce Startup dynamic cap if applicable
+    if (startupAllowance) {
+      if (amountNum > startupAllowance.allowed) {
+        toast.error(`Startup account deposit limit exceeded. You can deposit up to $${startupAllowance.allowed.toFixed(2)} now.`);
+        return false;
+      }
+    }
 
     if (step === "unverified" && totalAfterDeposit > 5000) {
       toast.error("Deposit limit is $5,000 for Unverified accounts");
@@ -99,6 +124,12 @@ export function Step1Form({
     const amountNum = parseFloat(value);
     if (isNaN(amountNum)) return;
     const totalAfterDeposit = lifetimeDeposit + amountNum;
+
+    // Enforce Startup dynamic cap while typing
+    if (startupAllowance && amountNum > startupAllowance.allowed) {
+      toast.error(`You can deposit up to $${startupAllowance.allowed.toFixed(2)} for Startup accounts right now.`);
+      return;
+    }
 
     if (amountNum < 10) {
       toast.error("Minimum deposit amount is $10");
@@ -176,11 +207,10 @@ export function Step1Form({
                       <span className="ml-2 dark:text-white/75 text-black">
                         {selectedAccountObj.acc} (
                         {selectedAccountObj.account_type_requested
-                          ? selectedAccountObj.account_type_requested
-                              .charAt(0)
-                              .toUpperCase() +
-                            selectedAccountObj.account_type_requested.slice(1)
-                          : ""}
+                          ? (/^standard$/i.test(selectedAccountObj.account_type_requested)
+                              ? 'Startup'
+                              : selectedAccountObj.account_type_requested.charAt(0).toUpperCase() + selectedAccountObj.account_type_requested.slice(1))
+                          : ''}
                         )
                       </span>
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -217,11 +247,10 @@ export function Step1Form({
                       <span>
                         {account.acc} (
                         {account.account_type_requested
-                          ? account.account_type_requested
-                              .charAt(0)
-                              .toUpperCase() +
-                            account.account_type_requested.slice(1)
-                          : ""}
+                          ? (/^standard$/i.test(account.account_type_requested)
+                              ? 'Startup'
+                              : account.account_type_requested.charAt(0).toUpperCase() + account.account_type_requested.slice(1))
+                          : ''}
                         )
                       </span>
                       <span className="text-xs text-muted-foreground">${parseFloat(String(account.balance || 0)).toFixed(2)}</span>
@@ -271,6 +300,11 @@ export function Step1Form({
                 {selectedCrypto?.name || "USD"}
               </span>
             </div>
+            {startupAllowance && (
+              <p className="text-xs mt-2 text-[#945393]">
+                You can deposit up to ${startupAllowance.allowed.toFixed(2)} on this Startup account
+              </p>
+            )}
             {step && (
               <p className="text-xs mt-2 text-[#945393]">{getLimitMessage()}</p>
             )}

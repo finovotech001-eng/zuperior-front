@@ -162,11 +162,17 @@ export async function POST(request: NextRequest) {
           let packageValue = body.accountPlan;
           if (!packageValue) {
             const groupLower = groupFromRequest.toLowerCase();
-            packageValue = groupLower.includes('pro') ? 'Pro' : 'Standard';
+            packageValue = groupLower.includes('pro') ? 'Pro' : 'Startup';
           }
-          // Capitalize first letter
+          // Normalize: map 'standard' -> 'Startup'
           if (packageValue) {
-            packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1).toLowerCase();
+            if (/^standard$/i.test(packageValue)) {
+              packageValue = 'Startup';
+            } else if (/^pro$/i.test(packageValue)) {
+              packageValue = 'Pro';
+            } else {
+              packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1);
+            }
           }
           
           console.log('💾 Storing account with accountType:', accountType, 'and package:', packageValue);

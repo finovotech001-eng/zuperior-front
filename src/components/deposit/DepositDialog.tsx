@@ -398,7 +398,10 @@ const mapMT5AccountToTpAccount = (mt5Account: MT5Account): TpAccountSnapshot => 
     margin_level: (mt5Account.marginLevel || 0).toString(),
     closed_pnl: (mt5Account.profit || 0).toString(),
     open_pnl: "0",
-    account_type_requested: mt5Account.package || "Standard",
+    account_type_requested: ((): string => {
+      const raw = mt5Account.package || 'Startup';
+      return /^standard$/i.test(raw) ? 'Startup' : raw;
+    })(),
     provides_balance_history: true,
     tp_account_scf: {
       tradingplatformaccountsid: parseInt(mt5Account.accountId),

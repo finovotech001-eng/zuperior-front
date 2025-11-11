@@ -194,7 +194,9 @@ const AccountDetails = ({
         <div className="hidden md:flex flex-wrap items-center gap-1.5 pl-1">
           {[
             accountType,
-            accountDetails?.account_type_requested, // Package from database (Standard/Pro)
+            (accountDetails?.account_type_requested && String(accountDetails?.account_type_requested).toLowerCase() === 'standard')
+              ? 'Startup'
+              : accountDetails?.account_type_requested, // Package display mapping
             platformName,
             accountDetails?.tp_account_scf.cf_1479, // Name on Account from database
             accountId,

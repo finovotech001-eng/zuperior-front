@@ -58,7 +58,10 @@ export function WithdrawPayoutDialog({
     margin_level: String(a.marginLevel ?? 0),
     closed_pnl: String(a.profit ?? 0),
     open_pnl: '0',
-    account_type_requested: a.package || 'Standard',
+    account_type_requested: ((): string => {
+      const raw = a.package || 'Startup';
+      return /^standard$/i.test(raw) ? 'Startup' : raw;
+    })(),
     provides_balance_history: true,
     tp_account_scf: { tradingplatformaccountsid: parseInt(a.accountId), cf_1479: a.nameOnAccount || '' },
   });

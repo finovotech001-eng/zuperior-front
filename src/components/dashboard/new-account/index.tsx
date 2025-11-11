@@ -193,7 +193,7 @@ export function NewAccountDialog({
     // Validate account plan was selected
     if (!accountPlan || (accountPlan !== "standard" && accountPlan !== "pro")) {
       console.error("❌ Invalid account plan selected:", accountPlan);
-      toast.error("Please go back and select an account plan (Standard or Pro)");
+      toast.error("Please go back and select an account plan (Startup or Pro)");
       setLoadingStep2(false);
       return;
     }

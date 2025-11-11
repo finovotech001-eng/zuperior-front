@@ -91,11 +91,18 @@ export async function POST(request: NextRequest) {
         // Determine package from accountPlan or group
         let packageValue = accountPlan;
         if (!packageValue) {
-          packageValue = groupLower.includes('pro') ? 'Pro' : 'Standard';
+          packageValue = groupLower.includes('pro') ? 'Pro' : 'Startup';
         }
-        // Capitalize first letter to ensure "Standard" or "Pro"
+        // Normalize: map 'standard' to 'Startup', keep 'Pro' as is
         if (packageValue) {
-          packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1).toLowerCase();
+          if (/^standard$/i.test(packageValue)) {
+            packageValue = 'Startup';
+          } else if (/^pro$/i.test(packageValue)) {
+            packageValue = 'Pro';
+          } else {
+            // Fallback title-case
+            packageValue = packageValue.charAt(0).toUpperCase() + packageValue.slice(1);
+          }
         }
         
         console.log('📝 Determined account type:', accountType, 'from group:', group);
