@@ -127,27 +127,43 @@ export function Step4Status({
   useEffect(() => {
     const fetchCheckoutInfo = async () => {
       try {
+        console.log('🔍 [STEP4] Fetching checkout info for cregis_id:', statusData.cregis_id);
         const response = await fetch("/api/checkout-info", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cregis_id: statusData.cregis_id }),
         });
 
-        if (!response.ok)
+        console.log('📥 [STEP4] Checkout info response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ [STEP4] Checkout info error:', errorText);
           throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
-        const payAmount = data?.data?.payment_detail?.[0]?.pay_amount;
+        console.log('📥 [STEP4] Full checkout info response:', JSON.stringify(data, null, 2));
+        
+        // Try multiple paths for receive_amount
+        const payAmount = 
+          data?.data?.payment_detail?.[0]?.pay_amount ||
+          data?.data?.payment_info?.[0]?.receive_amount ||
+          data?.data?.payment_info?.[0]?.amount ||
+          data?.data?.received_amount ||
+          data?.received_amount;
+
+        console.log('💰 [STEP4] Extracted receive_amount:', payAmount);
 
         if (payAmount) {
           setReceivedAmount(payAmount);
         } else {
-          console.error("No pay_amount found in payment_detail");
-          toast.error("Payment details incomplete");
+          console.warn('⚠️ [STEP4] No receive_amount found in response. Available keys:', Object.keys(data?.data || {}));
+          // Don't show error toast - the callback will handle the deposit
         }
       } catch (err) {
-        console.error("Error fetching checkout info:", err);
-        toast.error("Failed to fetch payment details");
+        console.error("❌ [STEP4] Error fetching checkout info:", err);
+        // Don't show error toast - the callback will handle the deposit automatically
       } finally {
         setHasFetchedCheckoutInfo(true);
       }
@@ -216,23 +232,32 @@ export function Step4Status({
   }, [accountNumber, receivedAmount, statusData.cregis_id, onClose]);
 
   useEffect(() => {
+    // The callback webhook will automatically handle the deposit when payment is successful
+    // So we don't need to auto-trigger handleDeposit from the frontend
+    // This prevents duplicate deposits and the 405 error
     if (
-      statusData.event_type !== "expired" &&
-      !depositCompleted &&
-      !hasCalledDeposit.current &&
-      hasFetchedCheckoutInfo &&
-      receivedAmount &&
-      receivedAmount !== "0"
+      (statusData.event_type === "paid" || 
+       statusData.event_type === "complete" || 
+       statusData.event_type === "success" ||
+       statusData.event_type === "confirmed") &&
+      !depositCompleted
     ) {
-      hasCalledDeposit.current = true;
-      handleDeposit();
+      console.log('✅ [STEP4] Payment successful. Callback webhook will handle MT5 deposit automatically.');
+      console.log('📊 [STEP4] Payment details:', {
+        cregis_id: statusData.cregis_id,
+        event_type: statusData.event_type,
+        received_amount: receivedAmount,
+        account_number: accountNumber
+      });
+      // The callback will credit the MT5 account, so we just need to wait
+      // Don't call handleDeposit() automatically to avoid duplicate deposits
     }
   }, [
     statusData.event_type,
+    statusData.cregis_id,
     depositCompleted,
-    hasFetchedCheckoutInfo,
     receivedAmount,
-    handleDeposit,
+    accountNumber,
   ]);
 
   const handleRetry = () => {
