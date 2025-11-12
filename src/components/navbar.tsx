@@ -40,6 +40,7 @@ import Wallet from "@/assets/icons/wallet.png";
 import Profile from "@/assets/icons/profile.png";
 import ProfileDark from "@/assets/icons/userDark.png";
 import { CircleUser, Headset, LogOut, Settings } from "lucide-react";
+import { WalletMoveDialog } from "@/components/wallet/WalletMoveDialog";
 
 export function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -49,6 +50,8 @@ export function Navbar() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletNumber, setWalletNumber] = useState<string>("");
   const [hideBalance, setHideBalance] = useState<boolean>(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferDirection, setTransferDirection] = useState<"MT5_TO_WALLET" | "WALLET_TO_MT5">("MT5_TO_WALLET");
   const dispatch = useAppDispatch();
   const mt5Total = useAppSelector((s) => s.mt5.totalBalance);
 
@@ -163,7 +166,7 @@ export function Navbar() {
               <Image className="h-5 w-5" src={Wallet} alt="Wallet" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 p-3 dark:bg-[#01040D] border border-[#9F8BCF]/25 rounded-[12px] space-y-3">
+          <DropdownMenuContent align="end" className="w-62 p-3 dark:bg-[#01040D] border border-[#9F8BCF]/25 rounded-[12px] space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="text-black dark:text-white/70">Hide balance</span>
               <Switch checked={hideBalance} onCheckedChange={onToggleHide} />
@@ -172,10 +175,37 @@ export function Navbar() {
 
             {/* Wallet summary */}
             <DropdownMenuItem asChild className="p-0">
-              <Link href="/wallet" className="block w-full">
-                <div className="px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
-                  <div className="text-sm font-semibold">{formattedBalance} <span className="text-xs text-white/60">USD</span></div>
-                  <div className="text-[11px] text-white/60">Wallet balance</div>
+              <div className="block w-full">
+                <div className="w-full px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
+                  <div className="flex items-start justify-between mb-2 w-full">
+                    <Link href="/wallet" className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold">{formattedBalance}</div>
+                      <div className="text-[11px] text-white/60">Wallet balance</div>
+                    </Link>
+                    <div className="flex flex-col gap-1.5 ml-2 flex-shrink-0 items-end">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTransferDirection("MT5_TO_WALLET");
+                          setTransferDialogOpen(true);
+                        }}
+                        className="px-2 py-1 text-xs bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white rounded-[6px] hover:opacity-90 transition-opacity whitespace-nowrap"
+                      >
+                        Transfer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          router.push("/withdrawal");
+                        }}
+                        className="px-2 py-1 text-xs bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white rounded-[6px] hover:opacity-90 transition-opacity whitespace-nowrap"
+                      >
+                        Withdrawal
+                      </button>
+                    </div>
+                  </div>
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-white/50">
                     <span className="truncate">{walletNumber || '—'}</span>
                     {walletNumber && (
@@ -190,17 +220,44 @@ export function Navbar() {
                     )}
                   </div>
                 </div>
-              </Link>
+              </div>
             </DropdownMenuItem>
 
             {/* MT5 total */}
             <DropdownMenuItem asChild className="p-0">
-              <Link href="/" className="block w-full">
-                <div className="px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
-                  <div className="text-sm font-semibold">{formattedMt5Total} <span className="text-xs text-white/60">USD</span></div>
-                  <div className="text-[11px] text-white/60">MT5 accounts</div>
+              <div className="block w-full">
+                <div className="w-full px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
+                  <div className="flex items-start justify-between w-full">
+                    <Link href="/" className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold">{formattedMt5Total}</div>
+                      <div className="text-[11px] text-white/60">MT5 accounts</div>
+                    </Link>
+                    <div className="flex flex-col gap-1.5 ml-2 flex-shrink-0 items-end">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTransferDirection("WALLET_TO_MT5");
+                          setTransferDialogOpen(true);
+                        }}
+                        className="px-2 py-1 text-xs bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white rounded-[6px] hover:opacity-90 transition-opacity whitespace-nowrap"
+                      >
+                        Transfer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          router.push("/deposit");
+                        }}
+                        className="px-2 py-1 text-xs bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-white rounded-[6px] hover:opacity-90 transition-opacity whitespace-nowrap"
+                      >
+                        Deposit
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </Link>
+              </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -372,6 +429,19 @@ export function Navbar() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Transfer Dialog */}
+        <WalletMoveDialog
+          open={transferDialogOpen}
+          onOpenChange={(v) => {
+            setTransferDialogOpen(v);
+            if (!v) {
+              refreshWalletBalance();
+              dispatch(fetchAllAccountsWithBalance() as any).catch(() => {});
+            }
+          }}
+          direction={transferDirection}
+        />
       </div>
     </header>
   );

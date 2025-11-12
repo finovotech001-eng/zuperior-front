@@ -167,17 +167,14 @@ export default function WalletPage() {
         <TransactionsTable
           loadingTx={loadingTx}
           selectedAccountId={'WALLET'}
-          tableData={walletTx
-            .filter((tx) => tx?.type === 'MT5_TO_WALLET' || tx?.type === 'WALLET_TO_MT5')
-            .map((tx) => ({
-              account_id: tx.mt5AccountId || wallet?.walletNumber || 'WALLET',
-              amount: tx.amount,
-              profit: tx.amount,
-              comment: tx.description,
-              type: tx.type === 'MT5_TO_WALLET' ? 'Internal Transfer In' : 'Internal Transfer Out',
-              status: tx.status,
-              open_time: tx.createdAt,
-            }))}
+          tableData={walletTx.map((tx) => ({
+            amount: tx.amount,
+            profit: tx.amount,
+            comment: tx.description,
+            type: tx.type === 'MT5_TO_WALLET' ? 'Internal Transfer In' : tx.type === 'WALLET_TO_MT5' ? 'Internal Transfer Out' : tx.type || 'Transaction',
+            status: tx.status,
+            open_time: tx.createdAt,
+          }))}
         />
       </div>
     </div>

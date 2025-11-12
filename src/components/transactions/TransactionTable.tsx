@@ -44,12 +44,12 @@ export const TransactionsTable: React.FC<Props> = ({
       <table className=" hidden xl:block w-full text-sm table-fixed ">
         <thead className="sticky top-0 bg-white dark:bg-[#01040D] z-10 border-b border-black/10 dark:border-white/10 w-full">
           <tr className="text-xs font-semibold leading-3.5 dark:text-white/25 text-black/25">
-            <th className="text-left px-4 py-3 w-[16%]">Account ID</th>
-            <th className="text-left px-2 py-3 w-[12%]">Amount (USD)</th>
-            <th className="text-left px-4 py-3 w-[20%]">Transfer Process</th>
-            <th className="text-left py-3 w-[18%]">Deposit/Withdrawal</th>
-            <th className="text-left px-7 py-3 w-[14%]">Date-Time</th>
-            <th className="text-center px-10 py-3 w-[7%]">Status</th>
+            <th className="text-left px-4 py-3 w-[8%]">Sr. No</th>
+            <th className="text-left px-2 py-3 w-[14%]">Amount (USD)</th>
+            <th className="text-left px-4 py-3 w-[24%]">Transfer Process</th>
+            <th className="text-left py-3 w-[20%]">Deposit/Withdrawal</th>
+            <th className="text-left px-7 py-3 w-[18%]">Date-Time</th>
+            <th className="text-center px-10 py-3 w-[8%]">Status</th>
           </tr>
         </thead>
         <tbody className="text-gray-800 dark:text-white">
@@ -78,7 +78,7 @@ export const TransactionsTable: React.FC<Props> = ({
                 className="text-sm leading-6.5 text-black/75 dark:text-white/75 whitespace-nowrap font-semibold border-b border-[#9F8ACF]/10"
               >
                 <td className="px-4 py-[15px]">
-                  {tx.account_id || tx.login || "-"}
+                  {i + 1}
                 </td>
                 <td className="px-2 py-[15px]">
                   {(() => {
@@ -136,7 +136,7 @@ export const TransactionsTable: React.FC<Props> = ({
                   {tx.comment || "Binance to Zuperior"}
                 </p>
                 <p className="text-sm text-gray-400 dark:text-white/75">
-                  {tx.account_id || tx.login || "-"}
+                  Sr. No: {i + 1}
                 </p>
                 <p className="text-sm text-gray-400 dark:text-white/75">
                   {formatDate(tx.open_time ?? "")}
