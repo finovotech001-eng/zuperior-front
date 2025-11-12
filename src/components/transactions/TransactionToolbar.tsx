@@ -14,6 +14,7 @@ import React from "react";
 interface Account {
   id: string;
   type: string;
+  isWallet?: boolean;
 }
 interface DateRange {
   from: Date | undefined;
@@ -57,7 +58,23 @@ export const TransactionsToolbar: React.FC<Props> = ({
           className={`cursor-pointer flex items-center gap-1 px-3 py-1 rounded border border-gray-300 dark:border-gray-700 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 ${props.className || ""}`}
           disabled={disabled}
         >
-          {selectedAccountId ? `Account: ${selectedAccountId}` : "Select Account"}
+          {selectedAccountId ? (
+            (() => {
+              const account = accounts.find(a => a.id === selectedAccountId);
+              return account ? (
+                <span className="flex items-center gap-2">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                    account.isWallet 
+                      ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' 
+                      : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                  }`}>
+                    {account.type}
+                  </span>
+                  <span>{selectedAccountId}</span>
+                </span>
+              ) : `Account: ${selectedAccountId}`;
+            })()
+          ) : "Select Account"}
           <ChevronDown size={12} />
         </Button>
       </DropdownMenuTrigger>
@@ -82,7 +99,16 @@ export const TransactionsToolbar: React.FC<Props> = ({
                     getAccountTransactions(account.id);
                   }}
                 >
-                  {account.id}
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-[2px] rounded-[5px] font-semibold text-[10px] ${
+                      account.isWallet 
+                        ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' 
+                        : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    }`}>
+                      {account.type}
+                    </span>
+                    <span>{account.id}</span>
+                  </div>
                 </DropdownMenuItem>
               ))
           )}
