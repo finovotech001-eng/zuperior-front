@@ -161,7 +161,8 @@ export async function POST(req: NextRequest) {
             currency: order_currency,
             network: network || 'TRC20',
             cregisOrderId: thirdPartyId,
-            paymentUrl: depositAddress,
+            cregisId: cregisResult.data.cregis_id,
+            paymentUrl: cregisResult.data.checkout_url || cregisResult.data.paymentUrl,
           }),
         });
 

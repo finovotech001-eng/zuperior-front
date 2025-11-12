@@ -171,14 +171,16 @@ export async function POST(req: NextRequest) {
 function mapCregisStatusToDepositStatus(status: string): string {
   const statusMap: Record<string, string> = {
     'pending': 'pending',
-    'paid': 'processing',
+    'paid': 'approved', // Changed from 'processing' to 'approved' to trigger MT5 credit
     'complete': 'approved',
+    'success': 'approved',
+    'confirmed': 'approved',
     'expired': 'rejected',
     'cancelled': 'cancelled',
     'failed': 'failed',
   };
 
-  return statusMap[status] || 'pending';
+  return statusMap[status?.toLowerCase()] || 'pending';
 }
 
 // GET endpoint for testing (not used by Cregis)
