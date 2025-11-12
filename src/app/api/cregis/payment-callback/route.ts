@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Call backend to update deposit status
+      // Pass payment_detail array if present (contains receive_amount and tx_id)
       const updateResponse = await fetch(`${BACKEND_API_URL}/deposit/cregis-callback`, {
         method: 'POST',
         headers: {
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
           to_address: to_address,
           block_height: block_height,
           block_time: block_time,
+          payment_detail: body.payment_detail, // Pass payment_detail array if present
         }),
       });
 
