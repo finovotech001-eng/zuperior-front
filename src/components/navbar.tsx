@@ -12,6 +12,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchAllAccountsWithBalance, fetchUserAccountsFromDb } from "@/store/slices/mt5AccountSlice";
 
 import {
   Dialog,
@@ -44,6 +47,10 @@ export function Navbar() {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletNumber, setWalletNumber] = useState<string>("");
+  const [hideBalance, setHideBalance] = useState<boolean>(false);
+  const dispatch = useAppDispatch();
+  const mt5Total = useAppSelector((s) => s.mt5.totalBalance);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -63,24 +70,72 @@ export function Navbar() {
   const fullName = userDetails?.name ?? "";
   const firstName = fullName.split(" ")[0] ?? "";
 
-  // Fetch wallet balance for the top bar
-  useEffect(() => {
+  // Helper to refresh wallet balance
+  const refreshWalletBalance = (incoming?: number) => {
+    if (typeof incoming === 'number' && !Number.isNaN(incoming)) {
+      setWalletBalance(incoming);
+      return;
+    }
     try {
       const token = localStorage.getItem('userToken');
-      fetch('/api/wallet', { headers: token ? { Authorization: `Bearer ${token}` } : undefined, cache: 'no-store' })
-        .then(r => r.json())
-        .then(j => {
+      fetch('/api/wallet', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: 'no-store',
+      })
+        .then((r) => r.json())
+        .then((j) => {
           const bal = Number(j?.data?.balance ?? j?.balance ?? 0);
           if (!Number.isNaN(bal)) setWalletBalance(bal);
+          if (j?.data?.walletNumber) setWalletNumber(String(j.data.walletNumber));
         })
-        .catch(()=>{});
+        .catch(() => {});
     } catch {}
+  };
+
+  // Initial fetch and live update via custom event from pages/dialogs
+  useEffect(() => {
+    // Load hidden preference
+    try {
+      const pref = localStorage.getItem('hideBalance');
+      if (pref === '1' || pref === 'true') setHideBalance(true);
+    } catch {}
+    refreshWalletBalance();
+    const handler = (e: Event) => {
+      // Support CustomEvent with optional { detail: { balance } }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const anyEvent = e as any;
+      const balance = anyEvent?.detail?.balance;
+      refreshWalletBalance(typeof balance === 'number' ? balance : undefined);
+    };
+    window.addEventListener('wallet:refresh', handler as EventListener);
+    return () => window.removeEventListener('wallet:refresh', handler as EventListener);
   }, []);
+
+  // Ensure MT5 total balance is available for dropdown
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    if (!token) return; // skip if not logged in
+    // Try to fetch accounts/balances if we don't have any total yet
+    dispatch(fetchUserAccountsFromDb() as any).finally(() => {
+      dispatch(fetchAllAccountsWithBalance() as any).catch(()=>{});
+    });
+  }, [dispatch]);
 
   const formattedBalance = useMemo(() => {
     if (walletBalance === null || walletBalance === undefined) return '-';
-    return `$${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }, [walletBalance]);
+    const s = `$${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return hideBalance ? '••••••' : s;
+  }, [walletBalance, hideBalance]);
+
+  const formattedMt5Total = useMemo(() => {
+    const s = `$${Number(mt5Total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return hideBalance ? '••••••' : s;
+  }, [mt5Total, hideBalance]);
+
+  const onToggleHide = (val: boolean) => {
+    setHideBalance(val);
+    try { localStorage.setItem('hideBalance', val ? '1' : '0'); } catch {}
+  };
 
   const handleLogoutWithDelay = () => {
     setIsLoggingOut(true);
@@ -100,13 +155,55 @@ export function Navbar() {
           <p>${formattedBalance}</p>
         </Button> */}
 
-        {/* Wallet balance button (same style as Deposit) */}
-        <Link href="/wallet">
-          <Button className="hidden md:flex rounded-[10px] items-center gap-[6px] py-2 px-4 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent">
-            {formattedBalance}
-            <Image className="h-5 w-5" src={Wallet} alt="Wallet" />
-          </Button>
-        </Link>
+        {/* Wallet balance dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="hidden md:flex rounded-[10px] items-center gap-[6px] py-2 px-4 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent">
+              {formattedBalance}
+              <Image className="h-5 w-5" src={Wallet} alt="Wallet" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 p-3 dark:bg-[#01040D] border border-[#9F8BCF]/25 rounded-[12px] space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-black dark:text-white/70">Hide balance</span>
+              <Switch checked={hideBalance} onCheckedChange={onToggleHide} />
+            </div>
+            <div className="w-full h-px dark:bg-white/10 bg-black/10" />
+
+            {/* Wallet summary */}
+            <DropdownMenuItem asChild className="p-0">
+              <Link href="/wallet" className="block w-full">
+                <div className="px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
+                  <div className="text-sm font-semibold">{formattedBalance} <span className="text-xs text-white/60">USD</span></div>
+                  <div className="text-[11px] text-white/60">Wallet balance</div>
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-white/50">
+                    <span className="truncate">{walletNumber || '—'}</span>
+                    {walletNumber && (
+                      <button
+                        type="button"
+                        className="opacity-70 hover:opacity-100"
+                        onClick={(e)=>{ e.preventDefault(); navigator.clipboard.writeText(walletNumber); }}
+                        aria-label="Copy wallet number"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+
+            {/* MT5 total */}
+            <DropdownMenuItem asChild className="p-0">
+              <Link href="/" className="block w-full">
+                <div className="px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-[8px]">
+                  <div className="text-sm font-semibold">{formattedMt5Total} <span className="text-xs text-white/60">USD</span></div>
+                  <div className="text-[11px] text-white/60">MT5 accounts</div>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Link href="/deposit">
           <Button className="hidden md:flex rounded-[10px] items-center gap-[5px] py-2 px-6 text-white dark:bg-gradient-to-r from-[#6242a5] to-[#9f8bcf] text-xs leading-[14px] cursor-pointer [background:radial-gradient(ellipse_27%_80%_at_0%_0%,rgba(163,92,162,0.5),rgba(0,0,0,1))] hover:bg-transparent">

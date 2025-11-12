@@ -71,7 +71,12 @@ export function WalletMoveDialog({ open, onOpenChange, direction }: { open: bool
       const path = direction === 'MT5_TO_WALLET' ? '/api/wallet/mt5-to-wallet' : '/api/wallet/wallet-to-mt5';
       const r = await fetch(path, { method: 'POST', headers, body });
       const j = await r.json();
-      if (j?.success) { toast.success('Transfer requested'); setStep('done'); }
+      if (j?.success) {
+        toast.success('Transfer requested');
+        setStep('done');
+        // Let the navbar update immediately; final accurate value will be sent by wallet page load()
+        try { window.dispatchEvent(new CustomEvent('wallet:refresh')); } catch {}
+      }
       else { toast.error(j?.message || 'Transfer failed'); }
     } finally {
       setLoading(false);

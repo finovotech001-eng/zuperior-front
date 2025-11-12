@@ -46,7 +46,16 @@ export default function WalletPage() {
     const token = localStorage.getItem('userToken');
     const r = await fetch('/api/wallet', { headers: token ? { Authorization: `Bearer ${token}` } : undefined, cache: 'no-store' });
     const j = await r.json();
-    if (j?.success) setWallet(j.data);
+    if (j?.success) {
+      setWallet(j.data);
+      try {
+        const bal = Number(j?.data?.balance ?? 0);
+        if (!Number.isNaN(bal)) {
+          // Notify header/navbar to refresh without a full reload
+          window.dispatchEvent(new CustomEvent('wallet:refresh', { detail: { balance: bal } }));
+        }
+      } catch {}
+    }
   };
   const loadTx = async () => {
     setLoadingTx(true);
@@ -93,7 +102,12 @@ export default function WalletPage() {
     const token = localStorage.getItem('userToken');
     const r = await fetch('/api/wallet/mt5-to-wallet', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ mt5AccountId: mt5Id, amount: a }) });
     const j = await r.json();
-    if (j?.success) { toast.success('Transferred to wallet'); setAmount(''); await load(); await loadTx(); } else { toast.error(j?.message || 'Transfer failed'); }
+    if (j?.success) {
+      toast.success('Transferred to wallet');
+      setAmount('');
+      await load();
+      await loadTx();
+    } else { toast.error(j?.message || 'Transfer failed'); }
     setLoadingIn(false);
   };
 
@@ -104,7 +118,12 @@ export default function WalletPage() {
     const token = localStorage.getItem('userToken');
     const r = await fetch('/api/wallet/wallet-to-mt5', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ mt5AccountId: mt5IdOut, amount: a }) });
     const j = await r.json();
-    if (j?.success) { toast.success('Transferred to MT5'); setAmountOut(''); await load(); await loadTx(); } else { toast.error(j?.message || 'Transfer failed'); }
+    if (j?.success) {
+      toast.success('Transferred to MT5');
+      setAmountOut('');
+      await load();
+      await loadTx();
+    } else { toast.error(j?.message || 'Transfer failed'); }
     setLoadingOut(false);
   };
 

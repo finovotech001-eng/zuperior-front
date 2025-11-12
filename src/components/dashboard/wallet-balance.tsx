@@ -64,7 +64,7 @@ const WalletBalance = ({ balance }: { balance: string | number }) => {
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <p className="text-sm text-white/75 font-semibold tracking-tighter leading-[1.1em]">
-            Total Balance
+            Wallet Balance
           </p>
           <button onClick={() => setShowBalance(!showBalance)}>
             {showBalance ? (
